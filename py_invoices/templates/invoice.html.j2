@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Invoice {{ invoice.number }}</title>
+    <style>
+        body { font-family: 'Inter', sans-serif; color: #333; line-height: 1.6; padding: 40px; }
+        .header { display: flex; justify-content: space-between; margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+        .company-info h1 { margin: 0; color: #1a73e8; }
+        .invoice-details { text-align: right; }
+        .invoice-details h2 { margin: 0; color: #555; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; }
+        .section-title { font-weight: bold; text-transform: uppercase; font-size: 12px; color: #888; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+        th { text-align: left; border-bottom: 2px solid #eee; padding: 12px; color: #555; }
+        td { padding: 12px; border-bottom: 1px solid #eee; }
+        .totals { float: right; width: 300px; }
+        .total-row { display: flex; justify-content: space-between; padding: 8px 0; }
+        .grand-total { font-size: 20px; font-weight: bold; border-top: 2px solid #eee; margin-top: 10px; padding-top: 10px; color: #1a73e8; }
+        .footer { margin-top: 100px; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="company-info">
+            <h1>{{ company.name }}</h1>
+            <p>{{ company.address }}<br>Tax ID: {{ company.tax_id }}</p>
+        </div>
+        <div class="invoice-details">
+            <h2>INVOICE</h2>
+            <p><strong>#{{ invoice.number }}</strong><br>
+            Date: {{ invoice.issue_date.strftime('%Y-%m-%d') }}<br>
+            Due: {{ invoice.due_date.strftime('%Y-%m-%d') if invoice.due_date else 'N/A' }}</p>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="bill-to">
+            <div class="section-title">Bill To:</div>
+            <strong>{{ invoice.client_name_snapshot }}</strong><br>
+            {{ invoice.client_address_snapshot }}<br>
+            Tax ID: {{ invoice.client_tax_id_snapshot }}
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th style="text-align: center;">Quantity</th>
+                <th style="text-align: right;">Unit Price</th>
+                <th style="text-align: right;">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for line in invoice.lines %}
+            <tr>
+                <td>{{ line.description }}</td>
+                <td style="text-align: center;">{{ line.quantity }}</td>
+                <td style="text-align: right;">${{ "%.2f"|format(line.unit_price) }}</td>
+                <td style="text-align: right;">${{ "%.2f"|format(line.quantity * line.unit_price) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <div class="total-row">
+            <span>Subtotal:</span>
+            <span>${{ "%.2f"|format(invoice.total_amount) }}</span>
+        </div>
+        <div class="total-row grand-total">
+            <span>Total Amount:</span>
+            <span>${{ "%.2f"|format(invoice.total_amount) }}</span>
+        </div>
+    </div>
+
+    <div style="clear: both;"></div>
+
+    {% if payment_notes %}
+    <div class="payment-notes" style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
+        <div class="section-title">Payment Notes:</div>
+        {% for note in payment_notes %}
+        <div style="margin-bottom: 10px;">
+            <strong>{{ note.title if note.title else 'Note' }}:</strong> {{ note.content }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="footer">
+        <p>Thank you for your business!</p>
+    </div>
+</body>
+</html>

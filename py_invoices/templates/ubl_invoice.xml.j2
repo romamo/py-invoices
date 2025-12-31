@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+         xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+    <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0</cbc:CustomizationID>
+    <cbc:ProfileID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</cbc:ProfileID>
+    <cbc:ID>{{ invoice.number }}</cbc:ID>
+    <cbc:IssueDate>{{ invoice.issue_date }}</cbc:IssueDate>
+    <cbc:DueDate>{{ invoice.due_date if invoice.due_date else invoice.issue_date }}</cbc:DueDate>
+    <cbc:InvoiceTypeCode>380</cbc:InvoiceTypeCode>
+    <cbc:DocumentCurrencyCode>{{ currency|default('EUR') }}</cbc:DocumentCurrencyCode>
+    
+    <cac:AccountingSupplierParty>
+        <cac:Party>
+            <cac:PartyName>
+                <cbc:Name>{{ company.name }}</cbc:Name>
+            </cac:PartyName>
+            <cac:PostalAddress>
+                <cbc:StreetName>{{ company.street|default('') }}</cbc:StreetName>
+                <cbc:CityName>{{ company.city|default('') }}</cbc:CityName>
+                <cbc:PostalZone>{{ company.zip_code|default('') }}</cbc:PostalZone>
+                <cac:Country>
+                    <cbc:IdentificationCode>{{ company.country_code|default('FR') }}</cbc:IdentificationCode>
+                </cac:Country>
+            </cac:PostalAddress>
+            <cac:PartyTaxScheme>
+                <cbc:CompanyID>{{ company.tax_id|default('') }}</cbc:CompanyID>
+                <cac:TaxScheme>
+                    <cbc:ID>VAT</cbc:ID>
+                </cac:TaxScheme>
+            </cac:PartyTaxScheme>
+        </cac:Party>
+    </cac:AccountingSupplierParty>
+    
+    <cac:AccountingCustomerParty>
+        <cac:Party>
+            <cac:PartyName>
+                <cbc:Name>{{ invoice.client_name_snapshot }}</cbc:Name>
+            </cac:PartyName>
+             <cac:PostalAddress>
+                <cbc:StreetName>{{ invoice.client_address_snapshot }}</cbc:StreetName>
+                <cbc:CityName>{{ invoice.client_city_snapshot|default('') }}</cbc:CityName>
+                <cbc:PostalZone>{{ invoice.client_zip_code_snapshot|default('') }}</cbc:PostalZone>
+                <cac:Country>
+                    <cbc:IdentificationCode>{{ invoice.client_country_code_snapshot|default('FR') }}</cbc:IdentificationCode>
+                </cac:Country>
+            </cac:PostalAddress>
+        </cac:Party>
+    </cac:AccountingCustomerParty>
+    
+    <cac:TaxTotal>
+        <cbc:TaxAmount currencyID="{{ currency|default('EUR') }}">{{ invoice.total_tax|default(0.0) }}</cbc:TaxAmount>
+        <cac:TaxSubtotal>
+            <cbc:TaxableAmount currencyID="{{ currency|default('EUR') }}">{{ invoice.total_untaxed|default(0.0) }}</cbc:TaxableAmount>
+            <cbc:TaxAmount currencyID="{{ currency|default('EUR') }}">{{ invoice.total_tax|default(0.0) }}</cbc:TaxAmount>
+            <cac:TaxCategory>
+                <cbc:ID>S</cbc:ID>
+                <cbc:Percent>20.0</cbc:Percent>
+                <cac:TaxScheme>
+                    <cbc:ID>VAT</cbc:ID>
+                </cac:TaxScheme>
+            </cac:TaxCategory>
+        </cac:TaxSubtotal>
+    </cac:TaxTotal>
+    
+    <cac:LegalMonetaryTotal>
+        <cbc:LineExtensionAmount currencyID="{{ currency|default('EUR') }}">{{ invoice.total_untaxed|default(0.0) }}</cbc:LineExtensionAmount>
+        <cbc:TaxExclusiveAmount currencyID="{{ currency|default('EUR') }}">{{ invoice.total_untaxed|default(0.0) }}</cbc:TaxExclusiveAmount>
+        <cbc:TaxInclusiveAmount currencyID="{{ currency|default('EUR') }}">{{ invoice.total_amount }}</cbc:TaxInclusiveAmount>
+        <cbc:PayableAmount currencyID="{{ currency|default('EUR') }}">{{ invoice.total_amount }}</cbc:PayableAmount>
+    </cac:LegalMonetaryTotal>
+    
+    {% for line in invoice.lines %}
+    <cac:InvoiceLine>
+        <cbc:ID>{{ loop.index }}</cbc:ID>
+        <cbc:InvoicedQuantity unitCode="C62">{{ line.quantity }}</cbc:InvoicedQuantity>
+        <cbc:LineExtensionAmount currencyID="{{ currency|default('EUR') }}">{{ line.amount }}</cbc:LineExtensionAmount>
+        <cac:Item>
+            <cbc:Description>{{ line.description }}</cbc:Description>
+            <cbc:Name>{{ line.description }}</cbc:Name>
+            <cac:ClassifiedTaxCategory>
+                <cbc:ID>S</cbc:ID>
+                <cbc:Percent>20.0</cbc:Percent>
+                <cac:TaxScheme>
+                    <cbc:ID>VAT</cbc:ID>
+                </cac:TaxScheme>
+            </cac:ClassifiedTaxCategory>
+        </cac:Item>
+        <cac:Price>
+            <cbc:PriceAmount currencyID="{{ currency|default('EUR') }}">{{ line.unit_price }}</cbc:PriceAmount>
+        </cac:Price>
+    </cac:InvoiceLine>
+    {% endfor %}
+</Invoice>
