@@ -1,6 +1,6 @@
 """Example using settings-based configuration."""
 
-from datetime import datetime, date
+from datetime import date, datetime
 
 from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
     ClientCreate,
@@ -8,6 +8,7 @@ from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
     InvoiceLineCreate,
     InvoiceStatus,
 )
+
 from py_invoices import InvoiceSettings, RepositoryFactory
 
 

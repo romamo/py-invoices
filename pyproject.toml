@@ -1,15 +1,17 @@
 [project]
 name = "py-invoices"
-version = "1.0.0"
+version = "1.0.3"
 description = "Framework-agnostic invoice management with pluggable storage backends"
 authors = [{name = "Roman Medvedev", email = "pypi@romavm.dev"}]
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 dependencies = [
-    "pydantic-invoices>=1.0.0",
+    "pydantic-invoices>=1.1.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
+    "jinja2>=3.1.5",
+    "rich>=14.2.0",
 ]
 
 [project.optional-dependencies]
@@ -24,16 +26,22 @@ memory = []  # No extra dependencies
 # PDF generation
 pdf = [
     "weasyprint>=63.1",
-    "jinja2>=3.1.5",
     "pyyaml>=6.0",
 ]
 
+# Distribution layers
+cli = ["typer>=0.9.0"]
+api = ["fastapi>=0.100.0", "uvicorn>=0.20.0"]
+
 # All features
-all = ["py-invoices[sqlite,postgres,mysql,pdf]"]
+all = ["py-invoices[sqlite,postgres,mysql,pdf,cli,api]"]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[project.scripts]
+py-invoices = "py_invoices.cli.main:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["py_invoices"]

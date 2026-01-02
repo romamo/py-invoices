@@ -70,11 +70,19 @@ class SQLModelInvoiceRepository(InvoiceRepository):  # type: ignore[misc]
         db_invoices = self.session.exec(stmt).all()
         return [inv.to_schema() for inv in db_invoices]
 
+
     def get_overdue(self) -> list[Invoice]:
         """Get all overdue invoices."""
         today = date.today()
+        # Invoices that are NOT fully paid or settled, and are past due
+        closed_statuses = (
+            InvoiceStatus.PAID,
+            InvoiceStatus.CANCELLED,
+            InvoiceStatus.REFUNDED,
+            InvoiceStatus.CREDITED,
+        )
         stmt = select(InvoiceDB).where(
-            InvoiceDB.status != InvoiceStatus.PAID,
+            InvoiceDB.status.notin_(closed_statuses),  # type: ignore[attr-defined]
             InvoiceDB.due_date.is_not(None) & (InvoiceDB.due_date < today),  # type: ignore[union-attr, operator]
         )
         db_invoices = self.session.exec(stmt).all()
@@ -92,9 +100,15 @@ class SQLModelInvoiceRepository(InvoiceRepository):  # type: ignore[misc]
         ).one()
 
         today = date.today()
+        closed_statuses = (
+            InvoiceStatus.PAID,
+            InvoiceStatus.CANCELLED,
+            InvoiceStatus.REFUNDED,
+            InvoiceStatus.CREDITED,
+        )
         overdue_count = self.session.exec(
             select(func.count(InvoiceDB.id)).where(  # type: ignore[arg-type]
-                InvoiceDB.status != InvoiceStatus.PAID,
+                InvoiceDB.status.notin_(closed_statuses),  # type: ignore[attr-defined]
                 InvoiceDB.due_date.is_not(None) & (InvoiceDB.due_date < today),  # type: ignore[union-attr, operator]
             )
         ).one()

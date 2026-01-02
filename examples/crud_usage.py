@@ -1,13 +1,16 @@
 """Example showing typical CRUD operations using the SQLite backend."""
 import os
-from datetime import datetime, date
-from py_invoices import RepositoryFactory
+from datetime import datetime
+
 from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
     ClientCreate,
     InvoiceCreate,
     InvoiceLineCreate,
     InvoiceStatus,
 )
+
+from py_invoices import RepositoryFactory
+
 
 def main() -> None:
     # 1. Setup SQLite
@@ -20,7 +23,7 @@ def main() -> None:
         backend="sqlite",
         database_url=f"sqlite:///{db_file}"
     )
-    
+
     client_repo = factory.create_client_repository()
     invoice_repo = factory.create_invoice_repository()
 
@@ -43,7 +46,9 @@ def main() -> None:
         client_address_snapshot=client.address,
         client_tax_id_snapshot=client.tax_id,
         lines=[
-            InvoiceLineCreate(description="Particle Accelerator Tune-up", quantity=1, unit_price=5000.0),
+            InvoiceLineCreate(
+                description="Particle Accelerator Tune-up", quantity=1, unit_price=5000.0
+            ),
             InvoiceLineCreate(description="Speed Force Measurement", quantity=5, unit_price=200.0)
         ]
     ))

@@ -1,5 +1,6 @@
 """SQLite backend usage example."""
-from datetime import datetime, date
+from datetime import date, datetime
+
 from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
     ClientCreate,
     InvoiceCreate,

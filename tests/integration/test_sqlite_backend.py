@@ -1,24 +1,20 @@
 """Integration tests for SQLite storage backend."""
-import os
-from datetime import date, datetime, timedelta
+from collections.abc import Generator
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Generator
 
 import pytest
-from sqlmodel import Session, create_engine, SQLModel
+from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
+    ClientCreate,
+    InvoiceCreate,
+    InvoiceLineCreate,
+    PaymentCreate,
+)
+from sqlmodel import Session, SQLModel, create_engine
 
-from py_invoices.backends.sqlite.plugin import SQLitePlugin
 from py_invoices.backends.sqlmodel.client_repo import SQLModelClientRepository
 from py_invoices.backends.sqlmodel.invoice_repo import SQLModelInvoiceRepository
 from py_invoices.backends.sqlmodel.payment_repo import SQLModelPaymentRepository
-from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
-    ClientCreate,
-    Invoice,
-    InvoiceCreate,
-    InvoiceLineCreate,
-    InvoiceStatus,
-    PaymentCreate,
-)
 
 
 @pytest.fixture
@@ -28,7 +24,7 @@ def session(tmp_path: Path) -> Generator[Session, None, None]:
     database_url = f"sqlite:///{db_path}"
     engine = create_engine(database_url)
     SQLModel.metadata.create_all(engine)
-    
+
     with Session(engine) as session:
         yield session
 
@@ -117,7 +113,7 @@ def test_invoice_creation_with_lines(
             )
         ]
     )
-    
+
     invoice = invoice_repo.create(invoice_data)
     assert invoice.id is not None
     assert len(invoice.lines) == 2
@@ -136,7 +132,7 @@ def test_invoice_queries(
 ) -> None:
     """Test various invoice query methods."""
     client = client_repo.create(ClientCreate(name="Q Client", address="...", tax_id="..."))
-    
+
     # Create several invoices
     for i in range(5):
         invoice_repo.create(InvoiceCreate(

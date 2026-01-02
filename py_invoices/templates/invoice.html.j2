@@ -24,7 +24,7 @@
     <div class="header">
         <div class="company-info">
             <h1>{{ company.name }}</h1>
-            <p>{{ company.address }}<br>Tax ID: {{ company.tax_id }}</p>
+            <p>{{ company.address | replace('\\n', '<br>') | replace('\n', '<br>') | safe }}{% if company.tax_id %}<br>Tax ID: {{ company.tax_id }}{% endif %}</p>
         </div>
         <div class="invoice-details">
             <h2>INVOICE</h2>
@@ -38,8 +38,8 @@
         <div class="bill-to">
             <div class="section-title">Bill To:</div>
             <strong>{{ invoice.client_name_snapshot }}</strong><br>
-            {{ invoice.client_address_snapshot }}<br>
-            Tax ID: {{ invoice.client_tax_id_snapshot }}
+            {{ invoice.client_address_snapshot | replace('\\n', '<br>') | replace('\n', '<br>') | safe }}<br>
+            {% if invoice.client_tax_id_snapshot %}Tax ID: {{ invoice.client_tax_id_snapshot }}{% endif %}
         </div>
     </div>
 
@@ -82,7 +82,7 @@
         <div class="section-title">Payment Notes:</div>
         {% for note in payment_notes %}
         <div style="margin-bottom: 10px;">
-            <strong>{{ note.title if note.title else 'Note' }}:</strong> {{ note.content }}
+            <strong>{{ note.title if note.title else 'Note' }}:</strong> {{ note.content | replace('\\n', '<br>') | replace('\n', '<br>') | safe }}
         </div>
         {% endfor %}
     </div>

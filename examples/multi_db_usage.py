@@ -1,7 +1,7 @@
 """Example demonstrating how to easily switch between different storage backends."""
 
 import os
-from datetime import datetime, date
+from datetime import date, datetime
 
 from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
     ClientCreate,
@@ -10,7 +10,6 @@ from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
     InvoiceStatus,
 )
 
-import os
 from py_invoices import RepositoryFactory
 from py_invoices.core import NumberingService
 
@@ -41,7 +40,7 @@ def run_example(backend: str, **config: str) -> None:
             # 4. Create an invoice
             numbering = NumberingService(invoice_repo=invoice_repo)
             invoice_num = numbering.generate_number()
-            
+
             invoice = invoice_repo.create(
                 InvoiceCreate(
                     number=invoice_num,
@@ -73,7 +72,7 @@ def run_example(backend: str, **config: str) -> None:
 
     except Exception as e:
         print(f"✗ Failed to run {backend} backend: {e}")
-        print(f"  (Note: Optional backends require their respective driver dependencies)")
+        print("  (Note: Optional backends require their respective driver dependencies)")
 
 
 def main() -> None:

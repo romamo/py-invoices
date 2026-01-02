@@ -1,13 +1,16 @@
 """Example showing how to use the AuditService to track changes."""
-from datetime import datetime, date
-from py_invoices.core import AuditService
-from py_invoices import RepositoryFactory
+from datetime import datetime
+
 from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
     ClientCreate,
     InvoiceCreate,
     InvoiceLineCreate,
     InvoiceStatus,
 )
+
+from py_invoices import RepositoryFactory
+from py_invoices.core import AuditService
+
 
 def main() -> None:
     # 1. Initialize Services
@@ -43,7 +46,9 @@ def main() -> None:
     print("\n--- 2. Processing Payment ---")
     payment_amount = 200.0
     # In a real app, you'd add the payment via payment_repo first
-    audit_service.log_payment_added(invoice, payment_amount, user_id="cashier_01", payment_method="Credit Card")
+    audit_service.log_payment_added(
+        invoice, payment_amount, user_id="cashier_01", payment_method="Credit Card"
+    )
 
     # 4. Change Status & Log it
     print("\n--- 3. Changing Status ---")
@@ -57,7 +62,7 @@ def main() -> None:
     # 5. Review Audit Logs
     print("\n--- 4. Reviewing Audit History for", invoice.number, "---\n")
     logs = audit_service.get_logs(invoice_id=invoice.id)
-    
+
     for entry in logs:
         print(f"[{entry.timestamp.strftime('%H:%M:%S')}] {entry.action}")
         print(f"    User:  {entry.user}")

@@ -1,11 +1,13 @@
 """Basic usage example for py-invoices with memory backend."""
-from datetime import datetime, date
+from datetime import date, datetime
+
 from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
     ClientCreate,
     InvoiceCreate,
     InvoiceLineCreate,
     InvoiceStatus,
 )
+
 from py_invoices import RepositoryFactory
 from py_invoices.core import NumberingService
 

@@ -1,14 +1,12 @@
 """Tests for core services."""
 from datetime import date
 from pathlib import Path
-from typing import Generator
 
 from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
     Invoice,
-    InvoiceLine,
-    Payment,
 )
-from py_invoices.core import AuditService, NumberingService, PDFService
+
+from py_invoices.core import AuditService, NumberingService, PDFService, UBLService
 
 
 class TestNumberingService:
@@ -100,9 +98,15 @@ class TestAuditService:
         service = AuditService()
 
         # Create multiple logs
-        service.log_invoice_created(1, invoice_number="INV-001", total_amount=1000.0, client_name="Client A")
-        service.log_invoice_created(2, invoice_number="INV-002", total_amount=2000.0, client_name="Client B")
-        service.log_status_changed(1, invoice_number="INV-001", old_status="UNPAID", new_status="PAID")
+        service.log_invoice_created(
+            1, invoice_number="INV-001", total_amount=1000.0, client_name="Client A"
+        )
+        service.log_invoice_created(
+            2, invoice_number="INV-002", total_amount=2000.0, client_name="Client B"
+        )
+        service.log_status_changed(
+            1, invoice_number="INV-001", old_status="UNPAID", new_status="PAID"
+        )
 
         # Filter by invoice_id
         logs = service.get_logs(invoice_id=1)
@@ -119,7 +123,9 @@ class TestAuditService:
     def test_clear_logs(self) -> None:
         """Test clearing audit logs."""
         service = AuditService()
-        service.log_invoice_created(1, invoice_number="INV-001", total_amount=1000.0, client_name="Client A")
+        service.log_invoice_created(
+            1, invoice_number="INV-001", total_amount=1000.0, client_name="Client A"
+        )
         assert len(service.get_logs()) == 1
 
         service.clear_logs()
@@ -146,7 +152,7 @@ class TestPDFService:
         # We need to ensure CWD doesn't have 'templates' for this test
         # We can pass an output dir that definitely exists
         service = PDFService(output_dir=str(tmp_path / "output"))
-        
+
         # Should point to package directory (absolute path)
         assert "py_invoices" in service.template_dir
         assert "templates" in service.template_dir
@@ -219,3 +225,66 @@ class TestPDFService:
         assert (output_dir / "INV-001.html").exists()
         content = (output_dir / "INV-001.html").read_text()
         assert "INV-001" in content
+
+    def test_facturx_bytes_generation(self, tmp_path: Path) -> None:
+        """Test generating Factur-X PDF as bytes."""
+        import sys
+        from unittest.mock import MagicMock, patch
+
+        service = PDFService(output_dir=str(tmp_path))
+
+        # Mock invoice
+        invoice = MagicMock()
+        invoice.number = "FX-BYTES-001"
+        invoice.lines = []
+        invoice.client_name_snapshot = "Test Client" # For template compatibility
+
+        company = {"name": "Test Co"}
+
+        # Mock weasyprint
+        mock_weasyprint = MagicMock()
+        mock_html_class = MagicMock()
+        mock_html_instance = MagicMock()
+        mock_html_instance.write_pdf.return_value = b"%PDF-MOCK-BYTES"
+        mock_html_class.return_value = mock_html_instance
+        mock_weasyprint.HTML = mock_html_class
+        mock_weasyprint.Attachment = MagicMock()
+
+        with patch.dict(sys.modules, {"weasyprint": mock_weasyprint}):
+            pdf_bytes = service.generate_facturx_bytes(invoice, company)
+            assert isinstance(pdf_bytes, bytes)
+            assert pdf_bytes == b"%PDF-MOCK-BYTES"
+
+            # Verify attachments were passed (PDF/A-3b compliance)
+            call_kwargs = mock_html_instance.write_pdf.call_args[1]
+            assert "attachments" in call_kwargs
+            assert call_kwargs["pdf_variant"] == "pdf/a-3b"
+
+
+class TestUBLService:
+    """Tests for UBLService."""
+
+    def test_generate_ubl_bytes(self, tmp_path: Path) -> None:
+        """Test generating UBL XML as bytes."""
+        service = UBLService(output_dir=str(tmp_path))
+
+        from unittest.mock import MagicMock
+        invoice = MagicMock()
+        invoice.number = "UBL-BYTES-001"
+        invoice.issue_date = date.today()
+        invoice.due_date = None
+        invoice.total_tax = 0.0
+        invoice.total_untaxed = 100.0
+        invoice.total_amount = 100.0
+        invoice.lines = []
+        invoice.client_name_snapshot = "Test Client"
+        invoice.client_address_snapshot = "123 St"
+
+        company = {"name": "Test Co", "tax_id": "FR123"}
+
+        # Generate bytes
+        xml_bytes = service.generate_ubl_bytes(invoice, company)
+        assert isinstance(xml_bytes, bytes)
+        assert b"<Invoice" in xml_bytes
+        assert b"UBL-BYTES-001" in xml_bytes
+        assert b"Test Client" in xml_bytes

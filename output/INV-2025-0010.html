@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Invoice INV-2025-0010</title>
+    <style>
+        body { font-family: 'Inter', sans-serif; color: #333; line-height: 1.6; padding: 40px; }
+        .header { display: flex; justify-content: space-between; margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
+        .company-info h1 { margin: 0; color: #1a73e8; }
+        .invoice-details { text-align: right; }
+        .invoice-details h2 { margin: 0; color: #555; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-bottom: 40px; }
+        .section-title { font-weight: bold; text-transform: uppercase; font-size: 12px; color: #888; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+        th { text-align: left; border-bottom: 2px solid #eee; padding: 12px; color: #555; }
+        td { padding: 12px; border-bottom: 1px solid #eee; }
+        .totals { float: right; width: 300px; }
+        .total-row { display: flex; justify-content: space-between; padding: 8px 0; }
+        .grand-total { font-size: 20px; font-weight: bold; border-top: 2px solid #eee; margin-top: 10px; padding-top: 10px; color: #1a73e8; }
+        .footer { margin-top: 100px; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="company-info">
+            <h1>Acme Services Ltd</h1>
+            <p>123 Business Way, New York, NY 10001<br>Tax ID: NY-123456789</p>
+        </div>
+        <div class="invoice-details">
+            <h2>INVOICE</h2>
+            <p><strong>#INV-2025-0010</strong><br>
+            Date: 2025-12-31<br>
+            Due: 2026-01-14</p>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="bill-to">
+            <div class="section-title">Bill To:</div>
+            <strong>Tech Solutions Inc.</strong><br>
+            456 Innovation Drive, Suite 100, San Francisco, CA<br>
+            Tax ID: US-987654321
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th style="text-align: center;">Quantity</th>
+                <th style="text-align: right;">Unit Price</th>
+                <th style="text-align: right;">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            
+            <tr>
+                <td>Cloud Infrastructure Setup</td>
+                <td style="text-align: center;">1</td>
+                <td style="text-align: right;">$2500.00</td>
+                <td style="text-align: right;">$2500.00</td>
+            </tr>
+            
+            <tr>
+                <td>Software Development (Frontend)</td>
+                <td style="text-align: center;">40</td>
+                <td style="text-align: right;">$120.00</td>
+                <td style="text-align: right;">$4800.00</td>
+            </tr>
+            
+            <tr>
+                <td>Backend Integration Services</td>
+                <td style="text-align: center;">20</td>
+                <td style="text-align: right;">$150.00</td>
+                <td style="text-align: right;">$3000.00</td>
+            </tr>
+            
+        </tbody>
+    </table>
+
+    <div class="totals">
+        <div class="total-row">
+            <span>Subtotal:</span>
+            <span>$10300.00</span>
+        </div>
+        <div class="total-row grand-total">
+            <span>Total Amount:</span>
+            <span>$10300.00</span>
+        </div>
+    </div>
+
+    <div style="clear: both;"></div>
+
+    
+
+    <div class="footer">
+        <p>Thank you for your business!</p>
+    </div>
+</body>
+</html>

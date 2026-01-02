@@ -1,5 +1,1 @@
-"""Configuration module for py-invoices."""
-
-from .settings import InvoiceSettings
-
-__all__ = ["InvoiceSettings"]
+from .settings import InvoiceSettings, get_settings

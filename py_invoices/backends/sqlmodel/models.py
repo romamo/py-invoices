@@ -86,10 +86,16 @@ class InvoiceDB(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     number: str = Field(unique=True, index=True, max_length=50)
     issue_date: datetime
-    status: InvoiceStatus = Field(default=InvoiceStatus.UNPAID, max_length=20)
+
+    status: InvoiceStatus = Field(default=InvoiceStatus.DRAFT, max_length=20)
+    type: str = Field(default="STANDARD", max_length=20)  # Verify if I can use Enum here directly or string
     due_date: date | None = None
     payment_terms: str | None = None
     company_id: int = Field(default=1)
+
+    # linking
+    original_invoice_id: int | None = Field(default=None, foreign_key="invoices.id")
+    reason: str | None = Field(default=None, max_length=500)
 
     # Client reference
     client_id: int = Field(foreign_key="clients.id", index=True)
@@ -106,6 +112,10 @@ class InvoiceDB(SQLModel, table=True):
     )
     payments: list["PaymentDB"] = Relationship(
         back_populates="invoice", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+    # self-referential relationship for credit notes
+    original_invoice: "InvoiceDB" = Relationship(
+        sa_relationship_kwargs={"remote_side": "InvoiceDB.id"}
     )
 
     @property
@@ -126,7 +136,7 @@ class InvoiceDB(SQLModel, table=True):
     @property
     def is_overdue(self) -> bool:
         """Check if invoice is overdue."""
-        if self.status == InvoiceStatus.PAID:
+        if self.status in (InvoiceStatus.PAID, InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED, InvoiceStatus.CREDITED):
             return False
         if self.due_date:
             return date.today() > self.due_date
@@ -134,13 +144,16 @@ class InvoiceDB(SQLModel, table=True):
 
     def to_schema(self) -> Invoice:
         """Convert to pydantic-invoices Invoice schema."""
-        from pydantic_invoices.schemas import Invoice
+        from pydantic_invoices.schemas import Invoice, InvoiceType
 
         return Invoice(
             id=self.id,
             number=self.number,
             issue_date=self.issue_date,
             status=self.status,
+            type=InvoiceType(self.type),
+            original_invoice_id=self.original_invoice_id,
+            reason=self.reason,
             due_date=self.due_date,
             payment_terms=self.payment_terms,
             company_id=self.company_id,

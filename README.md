@@ -5,15 +5,17 @@ Framework-agnostic invoice management with pluggable storage backends.
 ## Features
 
 - **Pluggable Storage Backends**: Swap between SQLite, PostgreSQL, MySQL or in-memory storage
+- **E-Invoicing Ready**: Built-in support for Factur-X (ZUGFeRD) and UBL standards
+- **Audit Logging**: Integrated audit trail for tracking all invoice lifecycles
 - **Framework-Agnostic**: Designed for integration into any Python application
 - **Type-Safe**: Built on `pydantic-invoices` schemas with full type hints
-- **Modern**: Fully supports `pydantic-invoices` 1.1.0 (Enums, Computed Fields, Datetime)
 - **Flexible**: Optional dependencies - install only what you need
+- **In-Memory Operations**: HTML generation and byte-stream output supported out-of-the-box
 
 ## Installation
 
 ```bash
-# Basic installation (schemas only)
+# Basic installation (includes HTML generation)
 pip install py-invoices
 
 # With SQLite support
@@ -49,6 +51,19 @@ sudo apt-get install python3-pip python3-cffi python3-brotli libpango-1.0-0 libh
 ```
 
 For more details, see the [WeasyPrint installation guide](https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation).
+
+## CLI Usage
+
+The package includes a configured CLI tool `py-invoices`.
+
+**Quick Start:**
+```bash
+# Create an invoice (and auto-create client)
+py-invoices invoices create --client-name "Acme Corp" --amount 1500.00 --description "Consulting"
+```
+
+For full documentation on available commands (listing, generating PDFs, backend configuration), see the **[CLI Documentation](py_invoices/cli/README.md)**.
+
 
 ## Quick Start
 
@@ -100,9 +115,9 @@ Configure backends using environment variables or `.env` files:
 
 ```bash
 # Set environment variables
-export INVOICES_BACKEND=sqlite
-export INVOICES_DATABASE_URL=sqlite:///invoices.db
-export INVOICES_DATABASE_ECHO=false
+export PY_INVOICES_BACKEND=sqlite
+export PY_INVOICES_DATABASE_URL=sqlite:///invoices.db
+export PY_INVOICES_DATABASE_ECHO=false
 ```
 
 ```python
@@ -117,11 +132,11 @@ factory = RepositoryFactory.from_settings()
 Create a `.env` file in your project root:
 
 ```bash
-INVOICES_BACKEND=sqlite
-INVOICES_DATABASE_URL=sqlite:///invoices.db
-INVOICES_DATABASE_ECHO=false
-INVOICES_TEMPLATE_DIR=templates
-INVOICES_OUTPUT_DIR=output
+PY_INVOICES_BACKEND=sqlite
+PY_INVOICES_DATABASE_URL=sqlite:///invoices.db
+PY_INVOICES_DATABASE_ECHO=false
+# PY_INVOICES_TEMPLATE_DIR=templates
+PY_INVOICES_OUTPUT_DIR=output
 ```
 
 ```python
@@ -149,11 +164,11 @@ factory = RepositoryFactory.from_settings(settings)
 
 | Setting | Environment Variable | Default | Description |
 |---------|---------------------|---------|-------------|
-| `backend` | `INVOICES_BACKEND` | `memory` | Backend type: `memory`, `sqlite`, `postgres`, or `mysql` |
-| `database_url` | `INVOICES_DATABASE_URL` | `None` | Database connection URL |
-| `database_echo` | `INVOICES_DATABASE_ECHO` | `false` | Enable SQL query logging |
-| `template_dir` | `INVOICES_TEMPLATE_DIR` | `templates` | Directory for invoice templates |
-| `output_dir` | `INVOICES_OUTPUT_DIR` | `output` | Directory for generated files |
+| `backend` | `PY_INVOICES_BACKEND` | `memory` | Backend type: `memory`, `sqlite`, `postgres`, or `mysql` |
+| `database_url` | `PY_INVOICES_DATABASE_URL` | `None` | Database connection URL |
+| `database_echo` | `PY_INVOICES_DATABASE_ECHO` | `false` | Enable SQL query logging |
+| `template_dir` | `PY_INVOICES_TEMPLATE_DIR` | `None` | Directory for invoice templates (defaults to included) |
+| `output_dir` | `PY_INVOICES_OUTPUT_DIR` | `output` | Directory for generated files |
 
 ## Core Services
 
@@ -164,13 +179,71 @@ Generate professional PDF/HTML invoices using Jinja2 templates:
 ```python
 from py_invoices.core import PDFService
 
-pdf_service = PDFService(template_dir="templates", output_dir="output")
+# Company details for the invoice header
+company = {
+    "name": "My Company",
+    "address": "123 HQ Blvd, Tech City",
+    "tax_id": "US-99999"
+}
+
+pdf_service = PDFService(output_dir="output")
 
 # Generate to file
 pdf_path = pdf_service.generate_pdf(invoice=invoice, company=company)
 
 # Generate to memory (bytes)
 pdf_bytes = pdf_service.generate_pdf_bytes(invoice=invoice, company=company)
+```
+
+### HTML Generation
+
+For scenarios where you only need HTML (e.g. emails) or don't want the heavy WeasyPrint dependency:
+
+```python
+from py_invoices.core import HTMLService
+
+# Uses only Jinja2 (no WeasyPrint)
+html_service = HTMLService(output_dir="output")
+
+# Generate HTML string
+html_content = html_service.generate_html(invoice=invoice, company=company)
+
+# Save to HTML file
+html_path = html_service.save_html(invoice=invoice, company=company)
+```
+
+### Industry Standard (Factur-X / UBL)
+
+Generate enterprise-ready invoices compliant with European standards:
+
+**Factur-X (PDF/A-3 + XML):**
+A standard PDF that includes the invoice data as a structured XML file (Factur-X/ZUGFeRD compliant).
+
+```python
+# Requires py-invoices[pdf]
+facturx_path = pdf_service.generate_facturx(invoice=invoice, company=company)
+```
+
+**UBL (XML Only):**
+Universal Business Language Version 2.1 XML invoices.
+
+```python
+from py_invoices.core import UBLService
+
+ubl_service = UBLService(output_dir="output")
+ubl_path = ubl_service.save_ubl(invoice, company)
+```
+
+### In-Memory Generation (Bytes)
+
+Generate files directly to memory without saving to disk:
+
+```python
+# Generate Factur-X bytes
+pdf_bytes = pdf_service.generate_facturx_bytes(invoice, company)
+
+# Generate UBL XML bytes
+xml_bytes = ubl_service.generate_ubl_bytes(invoice, company)
 ```
 
 ### Audit Logging
@@ -180,7 +253,7 @@ Track every change in the invoice lifecycle:
 ```python
 from py_invoices.core import AuditService
 
-audit_service = AuditService(invoice_repo=invoice_repo)
+audit_service = AuditService(audit_repo=factory.create_audit_repository())
 
 # Log event
 audit_service.log_invoice_created(invoice, user_id="system_admin")
@@ -257,7 +330,7 @@ pydantic-invoices (schemas)
 
 ```bash
 # Clone repository
-git clone https://github.com/yourorg/py-invoices
+git clone https://github.com/Romamo/py-invoices
 cd py-invoices
 
 # Install with dev dependencies

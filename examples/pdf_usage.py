@@ -1,13 +1,16 @@
 """Example showing how to generate PDF invoices."""
-from datetime import datetime, date, timedelta
-from py_invoices import RepositoryFactory
-from py_invoices.core import PDFService
+from datetime import date, datetime, timedelta
+
 from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
     ClientCreate,
     InvoiceCreate,
     InvoiceLineCreate,
     InvoiceStatus,
 )
+
+from py_invoices import RepositoryFactory
+from py_invoices.core import PDFService
+
 
 def main() -> None:
     # 1. Setup Backend
@@ -18,7 +21,6 @@ def main() -> None:
     # 2. Setup PDF Service
     # Ensure you have jinja2 and weasyprint installed: pip install py-invoices[pdf]
     pdf_service = PDFService(
-        template_dir="templates",
         output_dir="output",
         default_template="invoice.html.j2"
     )
@@ -75,9 +77,15 @@ def main() -> None:
             invoice=invoice,
             company=company_schema.model_dump(),
             payment_notes=[
-                {"title": "Bank Details", "content": "Bank: Global Bank, IBAN: US1234567890, SWIFT: GBSWUS"},
-                {"title": "Policy", "content": "Please include the invoice number in your transfer description."}
-            ]
+                {
+                    "title": "Bank Details",
+                    "content": "Bank: Global Bank, IBAN: US1234567890, SWIFT: GBSWUS",
+                },
+                {
+                    "title": "Policy",
+                    "content": "Please include the invoice number in your transfer description.",
+                },
+            ],
         )
         print(f"✅ PDF generated successfully: {pdf_path}")
     except ImportError as e:
@@ -85,9 +93,41 @@ def main() -> None:
         print("Falling back to HTML generation...")
         html_path = pdf_service.save_html(
             invoice=invoice,
-            company=company
+            company=company_schema.model_dump()
         )
         print(f"✅ HTML saved instead: {html_path}")
+
+    # 5. Generate Industry Standard Formats (Optional)
+    print("\nGenerating Industry Standard Formats...")
+    try:
+        # Factur-X (PDF/A-3 + XML)
+        facturx_path = pdf_service.generate_facturx(
+            invoice=invoice,
+            company=company_schema.model_dump()
+        )
+        print(f"✅ Factur-X (ZUGFeRD) generated: {facturx_path}")
+    except (ImportError, RuntimeError) as e:
+        print(f"⚠️  Factur-X skipped: {e}")
+
+    # UBL (XML Only)
+    from py_invoices.core import UBLService
+    ubl_service = UBLService(output_dir="output")
+    ubl_path = ubl_service.save_ubl(
+        invoice=invoice,
+        company=company_schema.model_dump()
+    )
+    print(f"✅ UBL XML generated: {ubl_path}")
+
+    # 6. Generate Bytes (In-Memory)
+    print("\nGenerating Bytes (In-Memory)...")
+    try:
+        pdf_bytes = pdf_service.generate_facturx_bytes(invoice, company=company_schema.model_dump())
+        print(f"✅ Factur-X bytes generated: {len(pdf_bytes)} bytes")
+
+        xml_bytes = ubl_service.generate_ubl_bytes(invoice, company=company_schema.model_dump())
+        print(f"✅ UBL bytes generated: {len(xml_bytes)} bytes")
+    except ImportError:
+        print("⚠️  Skipping bytes generation due to missing dependencies")
 
 if __name__ == "__main__":
     main()

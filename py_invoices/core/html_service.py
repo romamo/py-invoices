@@ -35,13 +35,7 @@ class HTMLService:
         Raises:
             ImportError: If jinja2 is not installed
         """
-        try:
-            from jinja2 import Environment, FileSystemLoader, select_autoescape
-        except ImportError:
-            raise ImportError(
-                "Jinja2 is required for HTML generation. "
-                "Install it with: pip install py-invoices[html]"
-            )
+        from jinja2 import Environment, FileSystemLoader, select_autoescape
 
         self.output_dir = output_dir
         self.default_template = default_template

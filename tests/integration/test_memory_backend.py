@@ -1,10 +1,9 @@
 """Integration tests for memory backend."""
 from datetime import date, datetime, timedelta
-from typing import Any, Generator
+from typing import Any
 
 from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
     ClientCreate,
-    Invoice,
     InvoiceCreate,
     InvoiceLineCreate,
     InvoiceStatus,
@@ -32,7 +31,6 @@ def test_client_crud_operations(client_repo: Any) -> None:
     assert retrieved.name == "Test Client"
 
     # Update
-    from pydantic_invoices.schemas import ClientUpdate
     client.name = "Updated Client"
     updated = client_repo.update(client)
     assert updated is not None
@@ -108,7 +106,7 @@ def test_invoice_queries(client_repo: Any, invoice_repo: Any) -> None:
             lines=[InvoiceLineCreate(description="Test 1", quantity=1, unit_price=100)],
         )
     )
-    invoice2 = invoice_repo.create(
+    invoice_repo.create(
         InvoiceCreate(
             number="INV-002",
             issue_date=datetime.now(),

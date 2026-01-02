@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>py-invoices Manager</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>py-invoices Manager</h1>
+        </header>
+
+        <main>
+            <section id="invoices-list">
+                <h2>Recent Invoices</h2>
+                <div class="actions">
+                    <button onclick="fetchInvoices()">Refresh</button>
+                    <!-- <button onclick="showCreateInvoiceModal()">Create New</button> -->
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Number</th>
+                            <th>Date</th>
+                            <th>Client</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="invoices-table-body">
+                        <!-- Invoices will be populated here -->
+                    </tbody>
+                </table>
+            </section>
+        </main>
+    </div>
+    <script src="/static/app.js"></script>
+</body>
+
+</html>
