@@ -7,13 +7,16 @@ They integrate with pydantic-invoices schemas via conversion methods.
 from datetime import date, datetime
 from typing import Any
 
-from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
+from pydantic_invoices.schemas import (
     Client,
     Invoice,
     InvoiceLine,
     InvoiceStatus,
     Payment,
 )
+from pydantic_invoices.schemas.company import Company
+from pydantic_invoices.schemas.payment_note import PaymentNote
+from pydantic_invoices.schemas.product import Product
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -36,6 +39,7 @@ class ClientDB(SQLModel, table=True):
         """Convert to pydantic-invoices Client schema."""
         from pydantic_invoices.schemas import Client
 
+        assert self.id is not None
         return Client(
             id=self.id,
             name=self.name,
@@ -69,6 +73,7 @@ class InvoiceLineDB(SQLModel, table=True):
         """Convert to pydantic-invoices InvoiceLine schema."""
         from pydantic_invoices.schemas import InvoiceLine
 
+        assert self.id is not None
         return InvoiceLine(
             id=self.id,
             invoice_id=self.invoice_id,
@@ -88,7 +93,9 @@ class InvoiceDB(SQLModel, table=True):
     issue_date: datetime
 
     status: InvoiceStatus = Field(default=InvoiceStatus.DRAFT, max_length=20)
-    type: str = Field(default="STANDARD", max_length=20)  # Verify if I can use Enum here directly or string
+    type: str = Field(
+        default="STANDARD", max_length=20
+    )  # Verify if I can use Enum here directly or string
     due_date: date | None = None
     payment_terms: str | None = None
     company_id: int = Field(default=1)
@@ -136,7 +143,12 @@ class InvoiceDB(SQLModel, table=True):
     @property
     def is_overdue(self) -> bool:
         """Check if invoice is overdue."""
-        if self.status in (InvoiceStatus.PAID, InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED, InvoiceStatus.CREDITED):
+        if self.status in (
+            InvoiceStatus.PAID,
+            InvoiceStatus.CANCELLED,
+            InvoiceStatus.REFUNDED,
+            InvoiceStatus.CREDITED,
+        ):
             return False
         if self.due_date:
             return date.today() > self.due_date
@@ -146,6 +158,7 @@ class InvoiceDB(SQLModel, table=True):
         """Convert to pydantic-invoices Invoice schema."""
         from pydantic_invoices.schemas import Invoice, InvoiceType
 
+        assert self.id is not None
         return Invoice(
             id=self.id,
             number=self.number,
@@ -155,7 +168,7 @@ class InvoiceDB(SQLModel, table=True):
             original_invoice_id=self.original_invoice_id,
             reason=self.reason,
             due_date=self.due_date,
-            payment_terms=self.payment_terms,
+            payment_terms=self.payment_terms or "",
             company_id=self.company_id,
             client_id=self.client_id,
             client_name_snapshot=self.client_name_snapshot,
@@ -185,14 +198,14 @@ class PaymentDB(SQLModel, table=True):
         """Convert to pydantic-invoices Payment schema."""
         from pydantic_invoices.schemas import Payment
 
+        assert self.id is not None
         return Payment(
             id=self.id,
             invoice_id=self.invoice_id,
             amount=self.amount,
             payment_date=self.payment_date,
-            payment_method=self.payment_method,
+            payment_method=self.payment_method or "Unknown",
             reference=self.reference,
-            notes=self.notes,
         )
 
 
@@ -248,10 +261,10 @@ class CompanyDB(SQLModel, table=True):
     is_active: bool = Field(default=True)
     is_default: bool = Field(default=False)
 
-    def to_schema(self) -> Any:
+    def to_schema(self) -> Company:
         """Convert to pydantic-invoices Company schema."""
-        from pydantic_invoices.schemas.company import Company  # type: ignore[import-untyped]
 
+        assert self.id is not None
         return Company(
             id=self.id,
             name=self.name,
@@ -287,13 +300,13 @@ class ProductDB(SQLModel, table=True):
     is_active: bool = Field(default=True)
     category: str | None = Field(default=None, max_length=100)
 
-    def to_schema(self) -> Any:
+    def to_schema(self) -> Product:
         """Convert to pydantic-invoices Product schema."""
-        from pydantic_invoices.schemas.product import Product  # type: ignore[import-untyped]
 
+        assert self.id is not None
         return Product(
             id=self.id,
-            code=self.code,
+            code=self.code or "",
             name=self.name,
             description=self.description,
             unit_price=self.unit_price,
@@ -318,12 +331,10 @@ class PaymentNoteDB(SQLModel, table=True):
     is_default: bool = Field(default=False)
     display_order: int = Field(default=0)
 
-    def to_schema(self) -> Any:
+    def to_schema(self) -> PaymentNote:
         """Convert to pydantic-invoices PaymentNote schema."""
-        from pydantic_invoices.schemas.payment_note import (  # type: ignore[import-untyped]
-            PaymentNote,
-        )
 
+        assert self.id is not None
         return PaymentNote(
             id=self.id,
             title=self.title,

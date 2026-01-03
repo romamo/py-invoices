@@ -1,11 +1,12 @@
+import os
+from datetime import date, datetime
+
 import typer
+from pydantic_invoices.schemas import InvoiceCreate, InvoiceLineCreate, InvoiceStatus
 from rich.table import Table
-from datetime import datetime, date
 
 from py_invoices.cli.utils import get_console, get_factory
-from pydantic_invoices.schemas import InvoiceCreate, InvoiceLineCreate, InvoiceStatus
 from py_invoices.core import NumberingService, PDFService
-import os
 
 app = typer.Typer()
 console = get_console()
@@ -25,7 +26,7 @@ def generate_pdf(
     """Generate PDF for an invoice."""
     factory = get_factory(backend)
     invoice_repo = factory.create_invoice_repository()
-    
+
     # ... (invoice resolution logic same as before) ...
     # Try to find invoice by ID first (if integer), then by number
     invoice = None
@@ -34,7 +35,7 @@ def generate_pdf(
              invoice = invoice_repo.get_by_id(int(invoice_identifier))
          elif hasattr(invoice_repo, "get"):
              invoice = invoice_repo.get(int(invoice_identifier))
-    
+
     if not invoice:
         if hasattr(invoice_repo, "get_by_number"):
             invoice = invoice_repo.get_by_number(invoice_identifier)
@@ -45,7 +46,7 @@ def generate_pdf(
     if not invoice:
         console.print(f"[red]Error: Invoice '{invoice_identifier}' not found.[/red]")
         raise typer.Exit(code=1)
-        
+
     company_data = {
         "name": company_name,
         "address": company_address,
@@ -57,15 +58,15 @@ def generate_pdf(
         import py_invoices
         package_dir = os.path.dirname(os.path.abspath(py_invoices.__file__))
         template_dir = os.path.join(package_dir, "templates")
-        
+
         service = PDFService(template_dir=template_dir, output_dir=output_dir)
         os.makedirs(output_dir, exist_ok=True)
-        
+
         output_path = service.generate_pdf(
             invoice=invoice,
             company=company_data
         )
-        
+
         console.print(f"[green]✓ Generated PDF for Invoice {invoice.number}[/green]")
         console.print(f"  Path: {output_path}")
 
@@ -92,17 +93,17 @@ def generate_html(
 ) -> None:
     """Generate HTML for an invoice."""
     from py_invoices.core import HTMLService
-    
+
     factory = get_factory(backend)
     invoice_repo = factory.create_invoice_repository()
-    
+
     invoice = None
     if invoice_identifier.isdigit():
          if hasattr(invoice_repo, "get_by_id"):
              invoice = invoice_repo.get_by_id(int(invoice_identifier))
          elif hasattr(invoice_repo, "get"):
              invoice = invoice_repo.get(int(invoice_identifier))
-    
+
     if not invoice:
         if hasattr(invoice_repo, "get_by_number"):
             invoice = invoice_repo.get_by_number(invoice_identifier)
@@ -113,7 +114,7 @@ def generate_html(
     if not invoice:
         console.print(f"[red]Error: Invoice '{invoice_identifier}' not found.[/red]")
         raise typer.Exit(code=1)
-        
+
     company_data = {
         "name": company_name,
         "address": company_address,
@@ -125,15 +126,15 @@ def generate_html(
         import py_invoices
         package_dir = os.path.dirname(os.path.abspath(py_invoices.__file__))
         template_dir = os.path.join(package_dir, "templates")
-        
+
         service = HTMLService(template_dir=template_dir, output_dir=output_dir)
         os.makedirs(output_dir, exist_ok=True)
-        
+
         output_path = service.save_html(
             invoice=invoice,
             company=company_data
         )
-        
+
         console.print(f"[green]✓ Generated HTML for Invoice {invoice.number}[/green]")
         console.print(f"  Path: {output_path}")
 
@@ -150,9 +151,9 @@ def list_invoices(
     """List recent invoices."""
     factory = get_factory(backend)
     repo = factory.create_invoice_repository()
-    
+
     invoices = repo.get_all(limit=limit)
-    
+
     table = Table(title="Invoices")
     table.add_column("Number", style="cyan")
     table.add_column("Date", style="magenta")
@@ -176,6 +177,109 @@ def list_invoices(
     console.print(table)
 
 
+@app.command("details")
+def get_invoice_details(
+    invoice_identifier: str = typer.Argument(..., help="Invoice Number or ID"),
+    backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
+) -> None:
+    """Get full details of an invoice."""
+    factory = get_factory(backend)
+    invoice_repo = factory.create_invoice_repository()
+
+    # Reuse resolution logic? Simpler here for now.
+    invoice = None
+    if invoice_identifier.isdigit():
+         if hasattr(invoice_repo, "get_by_id"):
+             invoice = invoice_repo.get_by_id(int(invoice_identifier))
+         elif hasattr(invoice_repo, "get"):
+             invoice = invoice_repo.get(int(invoice_identifier))
+
+    if not invoice:
+        if hasattr(invoice_repo, "get_by_number"):
+            invoice = invoice_repo.get_by_number(invoice_identifier)
+        else:
+             all_invoices = invoice_repo.get_all()
+             invoice = next((i for i in all_invoices if i.number == invoice_identifier), None)
+
+    if not invoice:
+        console.print(f"[red]Error: Invoice '{invoice_identifier}' not found.[/red]")
+        raise typer.Exit(code=1)
+
+    console.print(f"[bold]Invoice: {invoice.number}[/bold]")
+    console.print(f"Date: {invoice.issue_date.date()}")
+    console.print(f"Status: {invoice.status}")
+    console.print(f"Client: {invoice.client_name_snapshot}")
+    console.print(f"Type: {invoice.type}")
+    
+    table = Table(title="Line Items")
+    table.add_column("Description")
+    table.add_column("Qty", justify="right")
+    table.add_column("Price", justify="right")
+    table.add_column("Total", justify="right")
+    
+    for line in invoice.lines:
+        table.add_row(
+            line.description,
+            str(line.quantity),
+            f"${line.unit_price:.2f}",
+            f"${line.line_total:.2f}"
+        )
+    
+    console.print(table)
+    console.print(f"[bold]Total: ${invoice.total_amount:.2f}[/bold]")
+
+
+@app.command("overdue")
+def list_overdue(
+    backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
+) -> None:
+    """List overdue invoices."""
+    factory = get_factory(backend)
+    repo = factory.create_invoice_repository()
+
+    invoices = repo.get_overdue()
+
+    table = Table(title="Overdue Invoices", style="red")
+    table.add_column("Number", style="cyan")
+    table.add_column("Due Date", style="magenta")
+    table.add_column("Client", style="green")
+    table.add_column("Total", justify="right")
+
+    if not invoices:
+        console.print("[green]No overdue invoices found. Great job![/green]")
+        return
+
+    for invoice in invoices:
+        table.add_row(
+            invoice.number,
+            str(invoice.due_date),
+            invoice.client_name_snapshot,
+            f"${invoice.total_amount:.2f}"
+        )
+
+    console.print(table)
+
+
+@app.command("summary")
+def show_summary(
+    backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
+) -> None:
+    """Show invoice statistics."""
+    factory = get_factory(backend)
+    repo = factory.create_invoice_repository()
+
+    summary = repo.get_summary()
+    # Expecting dict like {"total_invoices": 10, "total_revenue": 1000.0, "overdue_count": 2}
+    # Adjust based on actua repo implementation if needed, but dict is flexible.
+
+    console.print("[bold]Invoice Summary[/bold]")
+    for key, value in summary.items():
+        if "amount" in key or "revenue" in key:
+            console.print(f"{key.replace('_', ' ').title()}: ${value:.2f}")
+        else:
+             console.print(f"{key.replace('_', ' ').title()}: {value}")
+
+
 @app.command("create")
 def create_invoice(
     amount: float = typer.Option(..., help="Invoice amount"),
@@ -186,12 +290,14 @@ def create_invoice(
     client_email: str = typer.Option(None, help="Client Email (if creating new)"),
     client_phone: str = typer.Option(None, help="Client Phone (if creating new)"),
     description: str = typer.Option(..., help="Line item description"),
-    invoice_number: str = typer.Option(None, help="Custom invoice number (overrides auto-generation)"),
+    invoice_number: str = typer.Option(
+        None, help="Custom invoice number (overrides auto-generation)"
+    ),
     payment_terms: str = typer.Option("Due on Receipt", help="Payment terms (e.g. Net 30)"),
     bank_account: str = typer.Option(None, help="Bank account details to display"),
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
     formats: list[str] = typer.Option(
-        [], "--format", "-f", 
+        [], "--format", "-f",
         help="Output formats to generate immediately (pdf, html, json, ubl)"
     ),
     output_dir: str = typer.Option("output", help="Directory for generated files"),
@@ -203,7 +309,7 @@ def create_invoice(
 ) -> None:
     """
     Create a new invoice.
-    
+
     If providing --client-name and the client doesn't exist, it will be automatically created.
     You can optionally generate output files immediately using --format.
     Example: --format pdf --format html
@@ -211,11 +317,11 @@ def create_invoice(
     factory = get_factory(backend)
     client_repo = factory.create_client_repository()
     invoice_repo = factory.create_invoice_repository()
-    
+
     # 1. Resolve Client
     client = None
     if client_id:
-        client = client_repo.get(client_id)
+        client = client_repo.get_by_id(client_id)
         if not client:
             console.print(f"[red]Error: Client with ID {client_id} not found.[/red]")
             raise typer.Exit(code=1)
@@ -224,9 +330,11 @@ def create_invoice(
         all_clients = client_repo.get_all()
         # Case insensitive match
         client = next((c for c in all_clients if c.name.lower() == client_name.lower()), None)
-        
+
         if not client:
-             console.print(f"[yellow]Client '{client_name}' not found. Creating new client...[/yellow]")
+             console.print(
+                 f"[yellow]Client '{client_name}' not found. Creating new client...[/yellow]"
+             )
              from pydantic_invoices.schemas import ClientCreate
              client = client_repo.create(ClientCreate(
                  name=client_name,
@@ -244,7 +352,7 @@ def create_invoice(
     if not invoice_number:
         numbering = NumberingService(invoice_repo=invoice_repo)
         invoice_number = numbering.generate_number()
-    
+
     # 3. Create Invoice
     invoice = invoice_repo.create(InvoiceCreate(
         number=invoice_number,
@@ -252,11 +360,13 @@ def create_invoice(
         status=InvoiceStatus.UNPAID,
         due_date=date.today(),
         payment_terms=payment_terms,
+        original_invoice_id=None,
+        reason=None,
         client_id=client.id,
         client_name_snapshot=client.name,
         client_address_snapshot=client.address,
         client_tax_id_snapshot=client.tax_id,
-        company_id=1, 
+        company_id=1,
         lines=[
             InvoiceLineCreate(
                 description=description,
@@ -265,11 +375,11 @@ def create_invoice(
             )
         ]
     ))
-    
+
     console.print(f"[green]✓ Created Invoice {invoice.number}[/green]")
     console.print(f"  Client: {invoice.client_name_snapshot}")
     console.print(f"  Total:  ${invoice.total_amount:.2f}")
-    
+
     if backend == "memory":
         console.print("\n[yellow]Note: Invoice stored in memory.[/yellow]")
 
@@ -278,8 +388,11 @@ def create_invoice(
         # Validate Company Info if formats requested
         if any(f.lower() in ["pdf", "html", "ubl"] for f in formats):
             if not company_name or not company_address:
-                console.print("[red]Error: --company-name and --company-address are required when generating files.[/red]")
-                pass 
+                console.print(
+                    "[red]Error: --company-name and --company-address are required when "
+                    "generating files.[/red]"
+                )
+                pass
 
         company_data = {
             "name": company_name or "Unknown Company",
@@ -287,7 +400,7 @@ def create_invoice(
             "email": company_email,
             "tax_id": company_tax_id
         }
-        
+
         # Construct Payment Notes for Template
         # The template expects a list of objects with title/content
         payment_notes_context = []
@@ -295,55 +408,57 @@ def create_invoice(
             payment_notes_context.append({"title": "Payment Terms", "content": payment_terms})
         if bank_account:
             payment_notes_context.append({"title": "Bank Account", "content": bank_account})
-        
+
         try:
             import py_invoices
             package_dir = os.path.dirname(os.path.abspath(py_invoices.__file__))
             template_dir = os.path.join(package_dir, "templates")
             os.makedirs(output_dir, exist_ok=True)
-            
+
             from py_invoices.core import HTMLService, PDFService, UBLService
-            
+
             for fmt in formats:
                 fmt = fmt.lower()
                 try:
                     if fmt == "pdf":
-                        service = PDFService(template_dir=template_dir, output_dir=output_dir)
-                        path = service.generate_pdf(
-                            invoice=invoice, 
-                            company=company_data, 
+                        pdf_service = PDFService(template_dir=template_dir, output_dir=output_dir)
+                        path = pdf_service.generate_pdf(
+                            invoice=invoice,
+                            company=company_data,
                             payment_notes=payment_notes_context
                         )
                         console.print(f"[blue]  -> Generated PDF: {path}[/blue]")
-                    
+
                     elif fmt == "html":
-                        service = HTMLService(template_dir=template_dir, output_dir=output_dir)
-                        path = service.save_html(
-                            invoice=invoice, 
+                        html_service = HTMLService(template_dir=template_dir, output_dir=output_dir)
+                        path = html_service.save_html(
+                            invoice=invoice,
                             company=company_data,
                             payment_notes=payment_notes_context
                         )
                         console.print(f"[blue]  -> Generated HTML: {path}[/blue]")
-                        
+
                     elif fmt == "ubl":
-                        service = UBLService(template_dir=template_dir, output_dir=output_dir)
-                        path = service.save_ubl(invoice=invoice, company=company_data)
+                        ubl_service = UBLService(template_dir=template_dir, output_dir=output_dir)
+                        path = ubl_service.save_ubl(invoice=invoice, company=company_data)
                         console.print(f"[blue]  -> Generated UBL XML: {path}[/blue]")
-                    
+
                     elif fmt == "json":
                         path = os.path.join(output_dir, f"{invoice.number}.json")
                         with open(path, "w") as f:
                             f.write(invoice.model_dump_json(indent=2))
                         console.print(f"[blue]  -> Generated JSON: {path}[/blue]")
-                    
+
                     else:
                         console.print(f"[yellow]  Warning: Unknown format '{fmt}'[/yellow]")
 
-                except ImportError as e:
-                     console.print(f"[red]  Failed to generate {fmt.upper()}: Missing dependencies.[/red]")
+                except ImportError:
+                     console.print(
+                         f"[red]  Failed to generate {fmt.upper()}: Missing dependencies.[/red]"
+                     )
                 except Exception as e:
                      console.print(f"[red]  Failed to generate {fmt.upper()}: {e}[/red]")
-                     
+
         except Exception as e:
              console.print(f"[red]Error initializing generation services: {e}[/red]")
 

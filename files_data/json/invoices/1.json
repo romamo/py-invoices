@@ -1,0 +1,34 @@
+{
+  "number": "INV-JSON-001",
+  "issue_date": "2026-01-02T19:59:00.849850",
+  "status": "DRAFT",
+  "type": "STANDARD",
+  "due_date": null,
+  "payment_terms": "Net 30",
+  "original_invoice_id": null,
+  "reason": null,
+  "company_id": 1,
+  "client_name_snapshot": null,
+  "client_address_snapshot": null,
+  "client_tax_id_snapshot": null,
+  "payment_note_ids": [],
+  "id": 1,
+  "client_id": 1,
+  "lines": [
+    {
+      "description": "Consulting",
+      "quantity": 10,
+      "unit_price": 100.0,
+      "id": 1,
+      "invoice_id": 1,
+      "total": 1000.0
+    }
+  ],
+  "payments": [],
+  "audit_logs": [],
+  "total_amount": 1000.0,
+  "total_paid": 0.0,
+  "balance_due": 1000.0,
+  "is_overdue": false,
+  "days_overdue": 0
+}

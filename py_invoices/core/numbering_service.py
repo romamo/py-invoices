@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from pydantic_invoices.interfaces import InvoiceRepository  # type: ignore[import-untyped]
+    from pydantic_invoices.interfaces import InvoiceRepository
 
 
 class NumberingService:

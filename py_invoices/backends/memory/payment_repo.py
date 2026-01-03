@@ -2,11 +2,11 @@
 
 from datetime import datetime
 
-from pydantic_invoices.interfaces import PaymentRepository  # type: ignore[import-untyped]
-from pydantic_invoices.schemas import Payment, PaymentCreate  # type: ignore[import-untyped]
+from pydantic_invoices.interfaces import PaymentRepository
+from pydantic_invoices.schemas import Payment, PaymentCreate
 
 
-class MemoryPaymentRepository(PaymentRepository):  # type: ignore[misc]
+class MemoryPaymentRepository(PaymentRepository):
     """In-memory implementation of PaymentRepository for testing."""
 
     def __init__(self) -> None:

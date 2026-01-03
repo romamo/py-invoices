@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.2.0] - 2026-01-03
+
+### Added
+- **Files Backend**: New storage mechanism using local files (JSON/Markdown) for invoices, clients, etc.
+- **Extended API**: Added endpoints for products, companies, credit notes, payment notes, and payments.
+- **Extended CLI**: New commands for managing all entities (products, companies, etc.).
+- **Validation**: Integrated `UBLValidator` for compliance checking via CLI and API.
+
+### Fixed
+- **Integration Tests**: Fixed state isolation issues in API integration tests.
+
 ## [1.1.0] - 2026-01-02
 
 ### Added
@@ -13,4 +24,4 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 - CLI structure improved (internal).
-- Dependency updates (`pydantic-invoices` -> 1.2.0).
+- Dependency updates (`pydantic-invoices` -> 1.2.2).

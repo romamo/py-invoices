@@ -1,7 +1,7 @@
 """Example showing how to use the AuditService to track changes."""
 from datetime import datetime
 
-from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
+from pydantic_invoices.schemas import (
     ClientCreate,
     InvoiceCreate,
     InvoiceLineCreate,
@@ -20,8 +20,7 @@ def main() -> None:
     invoice_repo = factory.create_invoice_repository()
 
     print("--- 1. Creating Client & Invoice ---")
-    client = client_repo.create(ClientCreate(
-        name="Global Corp",
+    client = client_repo.create(ClientCreate(name="Audit Client", email=None, phone=None,
         address="789 Future St, Innova City",
         tax_id="GC-555-01"
     ))
@@ -34,9 +33,10 @@ def main() -> None:
         client_name_snapshot=client.name,
         client_address_snapshot=client.address,
         client_tax_id_snapshot=client.tax_id,
-        lines=[
-            InvoiceLineCreate(description="Initial Audit", quantity=1, unit_price=500.0)
-        ]
+        lines=[InvoiceLineCreate(description="Audit Item", quantity=1, unit_price=100.0)],
+        original_invoice_id=None,
+        reason=None,
+        due_date=None,
     ))
 
     # 2. Log Creation

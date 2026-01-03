@@ -1,0 +1,6 @@
+<?xml version="1.0" ?>
+<Client>
+  <name>John Doe</name>
+  <email>john@example.com</email>
+  <id>1</id>
+</Client>

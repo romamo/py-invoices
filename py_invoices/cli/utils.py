@@ -1,5 +1,5 @@
-import typer
 from rich.console import Console
+
 from py_invoices import RepositoryFactory
 from py_invoices.config import get_settings
 

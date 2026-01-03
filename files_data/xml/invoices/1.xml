@@ -1,0 +1,24 @@
+<?xml version="1.0" ?>
+<Invoice>
+  <number>INV-XML-001</number>
+  <issue_date>2026-01-02T19:59:00.854732</issue_date>
+  <status>DRAFT</status>
+  <type>STANDARD</type>
+  <payment_terms>Net 30</payment_terms>
+  <company_id>1</company_id>
+  <id>1</id>
+  <client_id>1</client_id>
+  <lines>
+    <description>Consulting</description>
+    <quantity>10</quantity>
+    <unit_price>100.0</unit_price>
+    <id>1</id>
+    <invoice_id>1</invoice_id>
+    <total>1000.0</total>
+  </lines>
+  <total_amount>1000.0</total_amount>
+  <total_paid>0.0</total_paid>
+  <balance_due>1000.0</balance_due>
+  <is_overdue>False</is_overdue>
+  <days_overdue>0</days_overdue>
+</Invoice>

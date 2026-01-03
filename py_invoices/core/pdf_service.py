@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     pass
 
-from pydantic_invoices.schemas import Invoice  # type: ignore[import-untyped]
+    from pydantic_invoices.schemas import Invoice
 
 from py_invoices.core.html_service import HTMLService
 
@@ -41,7 +41,7 @@ class PDFService(HTMLService):
 
     def generate_facturx(
         self,
-        invoice: Invoice,
+        invoice: "Invoice",
         company: dict[str, Any],
         output_filename: str | None = None,
         template_name: str | None = None,
@@ -107,7 +107,7 @@ class PDFService(HTMLService):
 
     def generate_facturx_bytes(
         self,
-        invoice: Invoice,
+        invoice: "Invoice",
         company: dict[str, Any],
         template_name: str | None = None,
         ubl_template_name: str = "ubl_invoice.xml.j2",
@@ -167,7 +167,7 @@ class PDFService(HTMLService):
 
     def generate_pdf(
         self,
-        invoice: Invoice,
+        invoice: "Invoice",
         company: dict[str, Any],
         output_filename: str | None = None,
         template_name: str | None = None,
@@ -213,7 +213,7 @@ class PDFService(HTMLService):
 
     def generate_pdf_bytes(
         self,
-        invoice: Invoice,
+        invoice: "Invoice",
         company: dict[str, Any],
         template_name: str | None = None,
         logo_path: str | None = None,

@@ -1,12 +1,11 @@
 """Example using settings-based configuration."""
 
-from datetime import date, datetime
+from datetime import datetime
 
-from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
+from pydantic_invoices.schemas import (
     ClientCreate,
     InvoiceCreate,
     InvoiceLineCreate,
-    InvoiceStatus,
 )
 
 from py_invoices import InvoiceSettings, RepositoryFactory
@@ -29,10 +28,11 @@ def example_from_environment() -> None:
     # Create a client
     client = client_repo.create(
         ClientCreate(
-            name="Environment Corp",
-            address="123 Config St",
-            tax_id="ENV-123",
-            email="env@example.com",
+            name="Globex",
+            address="456 Global St",
+            tax_id="US-987654",
+            email=None,
+            phone=None
         )
     )
     print(f"✓ Created client: {client.name}\n")
@@ -61,31 +61,33 @@ def example_explicit_settings() -> None:
     # Create invoice
     client = client_repo.create(
         ClientCreate(
-            name="Settings Corp",
-            address="456 Config Ave",
-            tax_id="SET-456",
+            name="ACME Corp",
+            address="123 Industry Way",
+            tax_id="US-123456",
+            email=None,
+            phone=None,
         )
     )
 
     invoice = invoice_repo.create(
         InvoiceCreate(
-            number="INV-SETTINGS-001",
+            number="INV-2023-001",
             issue_date=datetime.now(),
-            due_date=date(2025, 1, 31),
-            status=InvoiceStatus.UNPAID,
-            payment_terms="Net 30",
             client_id=client.id,
+            company_id=1,
+            original_invoice_id=None,
+            reason=None,
+            due_date=None,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
             client_tax_id_snapshot=client.tax_id,
-            company_id=1,
             lines=[
                 InvoiceLineCreate(
-                    description="Configuration Services",
-                    quantity=10.0,
-                    unit_price=100.0,
+                    description="Consulting Services",
+                    quantity=10,
+                    unit_price=150.0
                 )
-            ],
+            ]
         )
     )
 

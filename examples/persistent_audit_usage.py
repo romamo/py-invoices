@@ -5,7 +5,7 @@ from datetime import datetime
 
 from pydantic_invoices.schemas import InvoiceStatus, PaymentCreate
 
-from py_invoices.core import AuditService, NumberingService
+from py_invoices.core import AuditService
 from py_invoices.plugins import RepositoryFactory
 
 
@@ -26,24 +26,42 @@ def main() -> None:
     # 2. Initialize services
     # Now we pass the audit_repo to AuditService for persistence
     audit_service = AuditService(audit_repo=audit_repo)
-    numbering_service = NumberingService(invoice_repo=invoice_repo)
+    audit_service = AuditService(audit_repo=audit_repo)
 
     # 3. Create some data and perform actions
     print("\n1. Creating a client and an invoice...")
     client_repo = factory.create_client_repository()
     from pydantic_invoices.schemas import ClientCreate, InvoiceCreate, InvoiceLineCreate
-    client = client_repo.create(ClientCreate(name="Acme Corp", tax_id="123-456"))
-
-    invoice_number = numbering_service.generate_number(client_id=client.id)
-    invoice = invoice_repo.create(
-        InvoiceCreate(
-            client_id=client.id,
-            number=invoice_number,
-            issue_date=datetime.now(),
-            lines=[InvoiceLineCreate(description="Consulting", quantity=10, unit_price=100.0)]
-        )
+    # Create Client
+    client = client_repo.create(ClientCreate(
+        name="Audit Corp",
+        address="123 Audit Lane",
+        tax_id="AUD-001",
+        email="audit@example.com",
+        phone="555-0000"
+    ))
+    # Create invoice
+    invoice_in = InvoiceCreate(
+        number="PERSIST-001",
+        issue_date=datetime.now(),
+        status=InvoiceStatus.DRAFT,
+        client_id=client.id,
+        company_id=1,
+        client_name_snapshot=client.name,
+        client_address_snapshot=client.address,
+        client_tax_id_snapshot=client.tax_id,
+        lines=[
+            InvoiceLineCreate(description="Service A", quantity=10, unit_price=150.0)
+        ],
+        original_invoice_id=None,
+        reason=None,
+        due_date=None,
     )
-
+    repo_invoice = invoice_repo.create(invoice_in)
+    # We need to fetch it to get the version with ID
+    # if create doesn't return full object with ID (it should)
+    # But to satisfy type checker if create returns Invoice and we need to be sure
+    invoice = repo_invoice
     # Log creation
     audit_service.log_invoice_created(invoice, user_id="admin")
 
@@ -57,13 +75,17 @@ def main() -> None:
             invoice_id=invoice.id,
             amount=500.0,
             payment_date=datetime.now(),
+            reference="REF-001",
             payment_method="Bank Transfer"
         )
     )
 
     # Log payment
-    # Re-fetch invoice to get updated balance if needed, or just pass current
-    invoice = invoice_repo.get_by_id(invoice.id)
+    # Retrieve invoice to see balance update
+    invoice_or_none = invoice_repo.get_by_id(invoice.id)
+    if invoice_or_none:
+        invoice = invoice_or_none
+        print(f"Updated Balance: ${invoice.balance_due}")
     audit_service.log_payment_added(invoice, payment, user_id="admin")
 
     # 5. Change status

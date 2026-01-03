@@ -1,7 +1,7 @@
 """SQLModel product repository implementation."""
 
-from pydantic_invoices.interfaces import ProductRepository  # type: ignore[import-untyped]
-from pydantic_invoices.schemas.product import (  # type: ignore[import-untyped]
+from pydantic_invoices.interfaces import ProductRepository
+from pydantic_invoices.schemas.product import (
     Product,
     ProductCreate,
 )
@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from .models import ProductDB
 
 
-class SQLModelProductRepository(ProductRepository):  # type: ignore[misc]
+class SQLModelProductRepository(ProductRepository):
     """Generic SQLModel implementation for Product repository."""
 
     def __init__(self, session: Session):

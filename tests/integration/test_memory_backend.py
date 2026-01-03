@@ -2,7 +2,7 @@
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
+from pydantic_invoices.schemas import (
     ClientCreate,
     InvoiceCreate,
     InvoiceLineCreate,
@@ -20,6 +20,7 @@ def test_client_crud_operations(client_repo: Any) -> None:
             address="123 Test St",
             tax_id="12345",
             email="test@example.com",
+            phone=None,
         )
     )
     assert client.id is not None
@@ -51,6 +52,8 @@ def test_invoice_creation_with_lines(
             name="Invoice Test Client",
             address="456 Invoice St",
             tax_id="67890",
+            email=None,
+            phone=None,
         )
     )
 
@@ -59,7 +62,10 @@ def test_invoice_creation_with_lines(
         InvoiceCreate(
             number="INV-001",
             issue_date=datetime.now(),
-            status="UNPAID",
+            status=InvoiceStatus.UNPAID,
+            original_invoice_id=None,
+            reason=None,
+            due_date=None,
             client_id=client.id,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
@@ -67,12 +73,12 @@ def test_invoice_creation_with_lines(
             lines=[
                 InvoiceLineCreate(
                     description="Item 1",
-                    quantity=2.0,
+                    quantity=2,
                     unit_price=100.0,
                 ),
                 InvoiceLineCreate(
                     description="Item 2",
-                    quantity=1.0,
+                    quantity=1,
                     unit_price=50.0,
                 ),
             ],
@@ -89,7 +95,13 @@ def test_invoice_queries(client_repo: Any, invoice_repo: Any) -> None:
     """Test invoice query methods."""
     # Create client
     client = client_repo.create(
-        ClientCreate(name="Query Test", address="789 Query Ave", tax_id="11111")
+        ClientCreate(
+            name="Query Test",
+            address="789 Query Ave",
+            tax_id="11111",
+            email=None,
+            phone=None,
+        )
     )
 
     # Create multiple invoices
@@ -97,7 +109,9 @@ def test_invoice_queries(client_repo: Any, invoice_repo: Any) -> None:
         InvoiceCreate(
             number="INV-001",
             issue_date=datetime.now(),
-            status="UNPAID",
+            status=InvoiceStatus.UNPAID,
+            original_invoice_id=None,
+            reason=None,
             client_id=client.id,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
@@ -111,6 +125,8 @@ def test_invoice_queries(client_repo: Any, invoice_repo: Any) -> None:
             number="INV-002",
             issue_date=datetime.now(),
             status=InvoiceStatus.UNPAID,
+            original_invoice_id=None,
+            reason=None,
             client_id=client.id,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
@@ -148,7 +164,13 @@ def test_payment_operations(
     """Test payment operations."""
     # Create client and invoice
     client = client_repo.create(
-        ClientCreate(name="Payment Test", address="321 Pay St", tax_id="22222")
+        ClientCreate(
+            name="Payment Test",
+            address="321 Pay St",
+            tax_id="22222",
+            email=None,
+            phone=None,
+        )
     )
 
     invoice = invoice_repo.create(
@@ -157,6 +179,8 @@ def test_payment_operations(
             issue_date=datetime.now(),
             due_date=date.today() + timedelta(days=7),
             status=InvoiceStatus.UNPAID,
+            original_invoice_id=None,
+            reason=None,
             client_id=client.id,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
@@ -172,6 +196,7 @@ def test_payment_operations(
             amount=250.0,
             payment_date=datetime.now(),
             payment_method="Bank Transfer",
+            reference=None,
         )
     )
 

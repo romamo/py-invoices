@@ -2,15 +2,15 @@
 
 from typing import Any
 
-from pydantic_invoices.interfaces import InvoiceRepository  # type: ignore[import-untyped]
-from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
+from pydantic_invoices.interfaces import InvoiceRepository
+from pydantic_invoices.schemas import (
     Invoice,
     InvoiceCreate,
     InvoiceStatus,
 )
 
 
-class MemoryInvoiceRepository(InvoiceRepository):  # type: ignore[misc]
+class MemoryInvoiceRepository(InvoiceRepository):
     """In-memory implementation of InvoiceRepository for testing."""
 
     def __init__(self) -> None:

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     pass
 
-from pydantic_invoices.schemas import Invoice  # type: ignore[import-untyped]
+    from pydantic_invoices.schemas import Invoice
 
 
 class HTMLService:
@@ -66,7 +66,7 @@ class HTMLService:
 
     def generate_html(
         self,
-        invoice: Invoice,
+        invoice: "Invoice",
         company: dict[str, Any],
         template_name: str | None = None,
         logo_path: str | None = None,
@@ -95,7 +95,7 @@ class HTMLService:
 
     def save_html(
         self,
-        invoice: Invoice,
+        invoice: "Invoice",
         company: dict[str, Any],
         output_filename: str | None = None,
         template_name: str | None = None,

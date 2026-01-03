@@ -1,7 +1,7 @@
 """Example showing how to generate PDF invoices."""
 from datetime import date, datetime, timedelta
 
-from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
+from pydantic_invoices.schemas import (
     ClientCreate,
     InvoiceCreate,
     InvoiceLineCreate,
@@ -32,13 +32,23 @@ def main() -> None:
         name="Acme Services Ltd",
         address="123 Business Way, New York, NY 10001",
         tax_id="NY-123456789",
-        email="info@acmeservices.com"
+        email="info@acmeservices.com",
+        legal_name="Acme Legal",
+        registration_number="REG-001",
+        city="New York",
+        postal_code="10001",
+        country="USA",
+        phone="555-0000",
+        website="https://acme.com",
+        logo_path=None
     ))
 
     client = client_repo.create(ClientCreate(
         name="Tech Solutions Inc.",
-        address="456 Innovation Drive, Suite 100, San Francisco, CA",
-        tax_id="US-987654321"
+        address="123 Tech Blvd, Silicon Valley, CA",
+        tax_id="US-987654321",
+        email=None,
+        phone=None
     ))
 
     invoice = invoice_repo.create(InvoiceCreate(
@@ -51,22 +61,12 @@ def main() -> None:
         client_address_snapshot=client.address,
         client_tax_id_snapshot=client.tax_id,
         company_id=company_schema.id,
+        payment_terms="Net 30",
+        original_invoice_id=None,
+        reason=None,
         lines=[
-            InvoiceLineCreate(
-                description="Cloud Infrastructure Setup",
-                quantity=1,
-                unit_price=2500.0
-            ),
-            InvoiceLineCreate(
-                description="Software Development (Frontend)",
-                quantity=40.0,
-                unit_price=120.0
-            ),
-            InvoiceLineCreate(
-                description="Backend Integration Services",
-                quantity=20.0,
-                unit_price=150.0
-            )
+            InvoiceLineCreate(description="Consulting Services", quantity=10, unit_price=150.0),
+            InvoiceLineCreate(description="Software License", quantity=1, unit_price=500.0)
         ]
     ))
 

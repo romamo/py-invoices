@@ -1,13 +1,10 @@
 """In-memory storage backend for testing and development."""
 
-from pydantic_invoices.interfaces import ClientRepository  # type: ignore[import-untyped]
-from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
-    Client,
-    ClientCreate,
-)
+from pydantic_invoices.interfaces import ClientRepository
+from pydantic_invoices.schemas import Client, ClientCreate
 
 
-class MemoryClientRepository(ClientRepository):  # type: ignore[misc]
+class MemoryClientRepository(ClientRepository):
     """In-memory implementation of ClientRepository for testing."""
 
     def __init__(self) -> None:

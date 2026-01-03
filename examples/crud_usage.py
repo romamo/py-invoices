@@ -2,7 +2,7 @@
 import os
 from datetime import datetime
 
-from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
+from pydantic_invoices.schemas import (
     ClientCreate,
     InvoiceCreate,
     InvoiceLineCreate,
@@ -30,13 +30,14 @@ def main() -> None:
     # 2. CREATE
     print("\n[CREATE] Adding new client...")
     client = client_repo.create(ClientCreate(
-        name="Star Labs",
+        name="Acme Corp",
         address="1 Central City Plaza",
-        tax_id="SL-1002"
+        tax_id="123-456",
+        email=None,
+        phone=None
     ))
     print(f"Created client {client.name} with ID: {client.id}")
 
-    print("[CREATE] Creating invoice...")
     invoice = invoice_repo.create(InvoiceCreate(
         number="INV-STAR-001",
         issue_date=datetime.now(),
@@ -45,6 +46,10 @@ def main() -> None:
         client_name_snapshot=client.name,
         client_address_snapshot=client.address,
         client_tax_id_snapshot=client.tax_id,
+        original_invoice_id=None,
+        reason=None,
+        due_date=None,
+        company_id=1,
         lines=[
             InvoiceLineCreate(
                 description="Particle Accelerator Tune-up", quantity=1, unit_price=5000.0

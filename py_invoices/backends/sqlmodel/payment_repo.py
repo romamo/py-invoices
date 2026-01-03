@@ -2,17 +2,18 @@
 
 from datetime import datetime
 
-from pydantic_invoices.interfaces import (  # type: ignore[import-untyped]
-    PaymentRepository,
+from pydantic_invoices.interfaces import PaymentRepository
+from pydantic_invoices.schemas import (
+    Payment,
+    PaymentCreate,
 )
-from pydantic_invoices.schemas import Payment, PaymentCreate  # type: ignore[import-untyped]
 from sqlalchemy import func
 from sqlmodel import Session, select
 
 from .models import PaymentDB
 
 
-class SQLModelPaymentRepository(PaymentRepository):  # type: ignore[misc]
+class SQLModelPaymentRepository(PaymentRepository):
     """Generic SQLModel implementation for Payment repository."""
 
     def __init__(self, session: Session):

@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING, Any
 
-from pydantic_invoices.interfaces import (  # type: ignore[import-untyped]
+from pydantic_invoices.interfaces import (
     ClientRepository,
     CompanyRepository,
     InvoiceRepository,
@@ -93,6 +93,9 @@ class RepositoryFactory:
             config["database_url"] = settings.database_url
         if settings.database_echo:
             config["echo"] = settings.database_echo
+        
+        if settings.backend == "files":
+            config["file_format"] = settings.file_format
 
         return cls(backend=settings.backend, **config)
 
@@ -112,6 +115,11 @@ class RepositoryFactory:
         # Always available - memory backend has no dependencies
         try:
             from ..backends.memory.plugin import MemoryPlugin  # noqa: F401
+        except ImportError:
+            pass
+
+        try:
+            from ..backends.files.plugin import FilesPlugin  # noqa: F401
         except ImportError:
             pass
 

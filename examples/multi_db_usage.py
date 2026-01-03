@@ -3,7 +3,7 @@
 import os
 from datetime import date, datetime
 
-from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
+from pydantic_invoices.schemas import (
     ClientCreate,
     InvoiceCreate,
     InvoiceLineCreate,
@@ -33,6 +33,8 @@ def run_example(backend: str, **config: str) -> None:
                     name=f"Client for {backend}",
                     address=f"Street in {backend} City",
                     tax_id=f"TAX-{backend.upper()}-001",
+                    email=None,
+                    phone=None,
                 )
             )
             print(f"✓ Created client: {client.name}")
@@ -45,6 +47,8 @@ def run_example(backend: str, **config: str) -> None:
                 InvoiceCreate(
                     number=invoice_num,
                     issue_date=datetime.now(),
+                    original_invoice_id=None,
+                    reason=None,
                     status=InvoiceStatus.UNPAID,
                     due_date=date(2025, 12, 31),
                     client_id=client.id,

@@ -1,11 +1,10 @@
 """SQLite backend usage example."""
-from datetime import date, datetime
+from datetime import datetime
 
-from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
+from pydantic_invoices.schemas import (
     ClientCreate,
     InvoiceCreate,
     InvoiceLineCreate,
-    InvoiceStatus,
 )
 
 from py_invoices import RepositoryFactory
@@ -47,17 +46,19 @@ def main() -> None:
 
     invoice = invoice_repo.create(
         InvoiceCreate(
+            client_id=client.id,
             number=invoice_number,
             issue_date=datetime.now(),
-            status=InvoiceStatus.UNPAID,
-            due_date=date(2025, 1, 31),
+            original_invoice_id=None,
+            reason=None,
+            due_date=None,
             payment_terms="Net 30",
-            client_id=client.id,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
             client_tax_id_snapshot=client.tax_id,
             company_id=1,
             lines=[
+                InvoiceLineCreate(description="Consulting", quantity=10, unit_price=100.0),
                 InvoiceLineCreate(
                     description="Cloud Infrastructure - Monthly",
                     quantity=1,

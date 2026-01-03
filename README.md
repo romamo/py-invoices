@@ -115,9 +115,9 @@ Configure backends using environment variables or `.env` files:
 
 ```bash
 # Set environment variables
-export PY_INVOICES_BACKEND=sqlite
-export PY_INVOICES_DATABASE_URL=sqlite:///invoices.db
-export PY_INVOICES_DATABASE_ECHO=false
+export INVOICES_BACKEND=sqlite
+export INVOICES_DATABASE_URL=sqlite:///invoices.db
+export INVOICES_DATABASE_ECHO=false
 ```
 
 ```python
@@ -132,11 +132,11 @@ factory = RepositoryFactory.from_settings()
 Create a `.env` file in your project root:
 
 ```bash
-PY_INVOICES_BACKEND=sqlite
-PY_INVOICES_DATABASE_URL=sqlite:///invoices.db
-PY_INVOICES_DATABASE_ECHO=false
-# PY_INVOICES_TEMPLATE_DIR=templates
-PY_INVOICES_OUTPUT_DIR=output
+INVOICES_BACKEND=sqlite
+INVOICES_DATABASE_URL=sqlite:///invoices.db
+INVOICES_DATABASE_ECHO=false
+# INVOICES_TEMPLATE_DIR=templates
+INVOICES_OUTPUT_DIR=output
 ```
 
 ```python
@@ -164,11 +164,13 @@ factory = RepositoryFactory.from_settings(settings)
 
 | Setting | Environment Variable | Default | Description |
 |---------|---------------------|---------|-------------|
-| `backend` | `PY_INVOICES_BACKEND` | `memory` | Backend type: `memory`, `sqlite`, `postgres`, or `mysql` |
-| `database_url` | `PY_INVOICES_DATABASE_URL` | `None` | Database connection URL |
-| `database_echo` | `PY_INVOICES_DATABASE_ECHO` | `false` | Enable SQL query logging |
-| `template_dir` | `PY_INVOICES_TEMPLATE_DIR` | `None` | Directory for invoice templates (defaults to included) |
-| `output_dir` | `PY_INVOICES_OUTPUT_DIR` | `output` | Directory for generated files |
+| `backend` | `INVOICES_BACKEND` | `memory` | Backend type: `memory`, `files`, `sqlite`, `postgres`, `mysql` |
+| `database_url` | `INVOICES_DATABASE_URL` | `None` | Database connection URL |
+| `database_echo` | `INVOICES_DATABASE_ECHO` | `false` | Enable SQL query logging |
+| `file_format` | `INVOICES_FILE_FORMAT` | `md` | Format for files backend: `json`, `xml`, or `md` |
+| `root_dir` | `INVOICES_ROOT_DIR` | `./data` | Root directory for files backend |
+| `template_dir` | `INVOICES_TEMPLATE_DIR` | `None` | Directory for invoice templates (defaults to included) |
+| `output_dir` | `INVOICES_OUTPUT_DIR` | `output` | Directory for generated files |
 
 ## Core Services
 
@@ -317,7 +319,19 @@ factory = RepositoryFactory(
     database_url="mysql+pymysql://user:pass@localhost/invoices"
 )
 ```
+### Files (Local Storage)
 
+Stores data as individual files (JSON, XML, or Markdown) in a local directory. Markdown format is recommended for human readability and direct editing.
+
+```python
+factory = RepositoryFactory(
+    backend="files",
+    root_dir="./data",
+    file_format="md"  # Defaults to "md" for *writing* new files
+)
+```
+
+**Note:** The backend automatically detects and reads files in any supported format (`json`, `xml`, `md`) regardless of the `file_format` setting. This allows you to mix formats or manually edit files in your preferred format.
 ## Architecture
 
 ```

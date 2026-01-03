@@ -2,7 +2,7 @@
 import io
 from datetime import date, datetime, timedelta
 
-from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
+from pydantic_invoices.schemas import (
     ClientCreate,
     InvoiceCreate,
     InvoiceLineCreate,
@@ -26,9 +26,11 @@ def main() -> None:
 
     # 3. Create Sample Data
     client = client_repo.create(ClientCreate(
-        name="Memory Stream Inc.",
+        name="Acme Corp",
         address="777 Buffer St, Stream City",
-        tax_id="BUFFER-123"
+        tax_id="123-456",
+        email=None,
+        phone=None
     ))
 
     invoice = invoice_repo.create(InvoiceCreate(
@@ -40,6 +42,8 @@ def main() -> None:
         client_name_snapshot=client.name,
         client_address_snapshot=client.address,
         client_tax_id_snapshot=client.tax_id,
+        original_invoice_id=None,
+        reason=None,
         lines=[
             InvoiceLineCreate(description="Memory Optimization", quantity=10, unit_price=150.0),
             InvoiceLineCreate(description="Stream Processing", quantity=5, unit_price=200.0)

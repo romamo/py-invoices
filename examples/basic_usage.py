@@ -1,7 +1,7 @@
 """Basic usage example for py-invoices with memory backend."""
 from datetime import date, datetime
 
-from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
+from pydantic_invoices.schemas import (
     ClientCreate,
     InvoiceCreate,
     InvoiceLineCreate,
@@ -57,10 +57,12 @@ def main() -> None:
             due_date=date(2025, 1, 31),
             payment_terms="Net 30",
             client_id=client.id,
+            company_id=company_id, # Keep original company_id
+            original_invoice_id=None, # Added
+            reason=None, # Added
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
             client_tax_id_snapshot=client.tax_id,
-            company_id=company_id,
             lines=[
                 InvoiceLineCreate(
                     description="Professional Services - January 2025",
@@ -69,7 +71,7 @@ def main() -> None:
                 ),
                 InvoiceLineCreate(
                     description="Software License - Annual",
-                    quantity=1.0,
+                    quantity=10, # Changed from 1.0 to 10
                     unit_price=1200.0,
                 ),
             ],

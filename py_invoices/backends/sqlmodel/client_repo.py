@@ -1,7 +1,7 @@
 """SQLModel client repository implementation."""
 
-from pydantic_invoices.interfaces import ClientRepository  # type: ignore[import-untyped]
-from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
+from pydantic_invoices.interfaces import ClientRepository
+from pydantic_invoices.schemas import (
     Client,
     ClientCreate,
 )
@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from .models import ClientDB
 
 
-class SQLModelClientRepository(ClientRepository):  # type: ignore[misc]
+class SQLModelClientRepository(ClientRepository):
     """Generic SQLModel implementation for Client repository."""
 
     def __init__(self, session: Session):

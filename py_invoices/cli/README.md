@@ -91,7 +91,7 @@ py-invoices validate invoice output/INV-2024-0001.xml
 
 ## Storage Backends
 
-You can select the storage backend using the `--backend` option or `PY_INVOICES_BACKEND` environment variable.
+You can select the storage backend using the `--backend` option or `INVOICES_BACKEND` environment variable.
 
 - `memory` (default for dev): Data is lost after command exits (mostly useful for testing logic).
 - `sqlite`: Persistent local database.

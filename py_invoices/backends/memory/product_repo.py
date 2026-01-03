@@ -1,10 +1,10 @@
 """In-memory product repository."""
 
-from pydantic_invoices.interfaces import ProductRepository  # type: ignore[import-untyped]
-from pydantic_invoices.schemas.product import Product, ProductCreate  # type: ignore[import-untyped]
+from pydantic_invoices.interfaces import ProductRepository
+from pydantic_invoices.schemas.product import Product, ProductCreate
 
 
-class MemoryProductRepository(ProductRepository):  # type: ignore[misc]
+class MemoryProductRepository(ProductRepository):
     """In-memory implementation for Product repository."""
 
     def __init__(self) -> None:

@@ -2,19 +2,43 @@
 description: Release new version of a library
 ---
 
-1. Review changes since the latest release
+1. Ensure working directory is clean
+```bash
+if [[ -n $(git status --porcelain) ]]; then
+  echo "Error: Uncommitted changes detected:"
+  git status --short
+  echo "Please commit your changes before releasing."
+  exit 1
+fi
+```
+
+2. Review changes since the latest release
 ```bash
 git log $(git describe --tags --abbrev=0)..HEAD --oneline
 ```
 
-2. Write changes to changelog file (`CHANGELOG.md`)
+3. Write changes to changelog file (`CHANGELOG.md`)
 
-3. Identify major, minor, or patch changes
+4. Identify major, minor, or patch changes
    - Major: Breaking changes
    - Minor: New features (backward compatible)
    - Patch: Bug fixes (backward compatible)
 
-4. Bump version
+5. Confirm and commit changes
+```bash
+git diff
+read -p "Do you want to commit these changes? (y/n) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    git add CHANGELOG.md
+    git commit -m "Update changelog"
+else
+    echo "Changes not committed. Exiting."
+    exit 1
+fi
+```
+
+6. Bump version
    - For major version:
    ```bash
    uv version --bump major
@@ -28,16 +52,18 @@ git log $(git describe --tags --abbrev=0)..HEAD --oneline
    uv version --bump patch
    ```
 
-5. Validate that `__version__` matches `pyproject.toml`
-   - Check `py_invoices/__init__.py` or related init file.
+7. Verify strict version match
+   ```bash
+   uv run pytest tests/test_version.py
+   ```
 
-6. Tag using git
+8. Tag using git
    - Replace `v0.1.0` with the actual new version:
    ```bash
    git tag -a v0.1.0 -m "Release v0.1.0"
    ```
 
-7. Push tags
+9. Push tags
 ```bash
 git push --tags
 ```

@@ -1,10 +1,10 @@
 """In-memory company repository."""
 
-from pydantic_invoices.interfaces import CompanyRepository  # type: ignore[import-untyped]
-from pydantic_invoices.schemas.company import Company, CompanyCreate  # type: ignore[import-untyped]
+from pydantic_invoices.interfaces import CompanyRepository
+from pydantic_invoices.schemas.company import Company, CompanyCreate
 
 
-class MemoryCompanyRepository(CompanyRepository):  # type: ignore[misc]
+class MemoryCompanyRepository(CompanyRepository):
     """In-memory implementation for Company repository."""
 
     def __init__(self) -> None:

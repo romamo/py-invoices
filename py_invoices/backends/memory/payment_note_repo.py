@@ -1,30 +1,41 @@
 """In-memory payment note repository."""
 
-from pydantic_invoices.interfaces import PaymentNoteRepository  # type: ignore[import-untyped]
-from pydantic_invoices.schemas.payment_note import (  # type: ignore[import-untyped]
+from typing import cast
+
+from pydantic_invoices.interfaces.payment_note_repo import PaymentNoteRepository
+from pydantic_invoices.schemas.payment_note import (
     PaymentNote,
     PaymentNoteCreate,
 )
 
 
-class MemoryPaymentNoteRepository(PaymentNoteRepository):  # type: ignore[misc]
-    """In-memory implementation for PaymentNote repository."""
+class MemoryPaymentNoteRepository(PaymentNoteRepository):
+    """In-memory implementation of PaymentNoteRepository for testing."""
 
     def __init__(self) -> None:
         """Initialize with empty storage."""
         self._storage: dict[int, PaymentNote] = {}
-        self._next_id = 1
 
-    def create(self, data: PaymentNoteCreate) -> PaymentNote:
-        """Create payment note."""
-        note = PaymentNote(id=self._next_id, **data.model_dump())
-        self._storage[self._next_id] = note
-        self._next_id += 1
+    def create(self, entity: PaymentNoteCreate) -> PaymentNote:
+        """Create a new payment note."""
+        note_id = len(self._storage) + 1
+        note_id = len(self._storage) + 1
+
+        note = PaymentNote(
+            id=note_id,
+            title=entity.title,
+            content=entity.content,
+            company_id=entity.company_id,
+            is_active=entity.is_active,
+            is_default=entity.is_default,
+            display_order=entity.display_order,
+        )
+        self._storage[note_id] = note
         return note
 
     def get_by_id(self, note_id: int) -> PaymentNote | None:
         """Get payment note by ID."""
-        return self._storage.get(note_id)
+        return cast(PaymentNote | None, self._storage.get(note_id))
 
     def get_all(self, skip: int = 0, limit: int = 100) -> list[PaymentNote]:
         """Get all payment notes."""
@@ -37,17 +48,26 @@ class MemoryPaymentNoteRepository(PaymentNoteRepository):  # type: ignore[misc]
             if n.is_active and (company_id is None or n.company_id == company_id)
         ]
 
-    def get_by_company(self, company_id: int) -> list[PaymentNote]:
-        """Get payment notes for a company."""
-        return [n for n in self._storage.values() if n.company_id == company_id]
+    def get_by_company(self, company_id: int | None = None) -> list[PaymentNote]:
+        """Get all payment notes for a company."""
+        return [
+            note
+            for note in self._storage.values()
+            if note.company_id == company_id
+        ]
 
     def get_default(self, company_id: int | None = None) -> PaymentNote | None:
         """Get default payment note."""
-        for note in self._storage.values():
-            if note.is_default:
-                if company_id is None or note.company_id == company_id:
-                    return note
-        return None
+        return next(
+            (
+                n
+                for n in self._storage.values()
+                if n.is_default
+                and n.is_active
+                and (company_id is None or n.company_id == company_id)
+            ),
+            None,
+        )
 
     def update(self, note: PaymentNote) -> PaymentNote:
         """Update payment note."""

@@ -1,7 +1,7 @@
 """SQLModel company repository implementation."""
 
-from pydantic_invoices.interfaces import CompanyRepository  # type: ignore[import-untyped]
-from pydantic_invoices.schemas.company import (  # type: ignore[import-untyped]
+from pydantic_invoices.interfaces import CompanyRepository
+from pydantic_invoices.schemas.company import (
     Company,
     CompanyCreate,
 )
@@ -10,7 +10,7 @@ from sqlmodel import Session, select
 from .models import CompanyDB
 
 
-class SQLModelCompanyRepository(CompanyRepository):  # type: ignore[misc]
+class SQLModelCompanyRepository(CompanyRepository):
     """Generic SQLModel implementation for Company repository."""
 
     def __init__(self, session: Session):

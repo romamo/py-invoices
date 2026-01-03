@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from pydantic_invoices.interfaces import (  # type: ignore[import-untyped]
+from pydantic_invoices.interfaces import (
     ClientRepository,
     CompanyRepository,
     InvoiceRepository,

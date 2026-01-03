@@ -1,11 +1,27 @@
 import xml.etree.ElementTree as ET
-from rich.console import Console
+from typing import TYPE_CHECKING
 
-console = Console()
+if TYPE_CHECKING:
+    from pydantic_invoices.schemas import Invoice
+
+from dataclasses import dataclass, field
+
+@dataclass
+class ValidationMessage:
+    level: str  # 'info', 'success', 'warning', 'error'
+    text: str
+
+@dataclass
+class ValidationResult:
+    success: bool
+    messages: list[ValidationMessage] = field(default_factory=list)
+
+    def add_message(self, level: str, text: str) -> None:
+        self.messages.append(ValidationMessage(level, text))
 
 class UBLValidator:
     """Validates UBL 2.1 XML invoices."""
-    
+
     NAMESPACES = {
         'ubl': 'urn:oasis:names:specification:ubl:schema:xsd:Invoice-2',
         'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2',
@@ -13,40 +29,39 @@ class UBLValidator:
     }
 
     @staticmethod
-    def validate_file(xml_path: str) -> bool:
+    def validate_file(xml_path: str) -> ValidationResult:
         """
         Validate a UBL XML file against basic UBL 2.1 structural requirements.
-        
+
         Args:
             xml_path: Path to the XML file to validate.
-            
+
         Returns:
-            bool: True if validation passed, False otherwise.
+            ValidationResult: Result object containing success status and messages.
         """
-        console.print(f"Validating [bold]{xml_path}[/bold]...")
-        
+        result = ValidationResult(success=True)
+        result.add_message("info", f"Validating {xml_path}...")
+
         try:
             tree = ET.parse(xml_path)
             root = tree.getroot()
-            
-            success = True
-            
+
             # 1. Validate Root Element
             expected_tag = f"{{{UBLValidator.NAMESPACES['ubl']}}}Invoice"
             if root.tag == expected_tag:
-                 console.print("[green]✓ Root element is UBL Invoice-2[/green]")
+                 result.add_message("success", "Root element is UBL Invoice-2")
             else:
-                 console.print(f"[red]✗ Root element mismatch. Found: {root.tag}, Expected: {expected_tag}[/red]")
-                 success = False
-            
+                 result.add_message("error", f"Root element mismatch. Found: {root.tag}, Expected: {expected_tag}")
+                 result.success = False
+
             # 2. Validate Key Fields
             def check_field(path: str, name: str) -> bool:
                 elem = root.find(path, UBLValidator.NAMESPACES)
                 if elem is not None and elem.text:
-                    console.print(f"[green]✓ Found {name}: {elem.text}[/green]")
+                    result.add_message("success", f"Found {name}: {elem.text}")
                     return True
                 else:
-                    console.print(f"[red]✗ Missing Mandaory Field: {name} ({path})[/red]")
+                    result.add_message("error", f"Missing Mandatory Field: {name} ({path})")
                     return False
 
             fields_to_check = [
@@ -58,32 +73,34 @@ class UBLValidator:
                 ('cac:TaxTotal/cbc:TaxAmount', "Tax Amount"),
                 ('cac:LegalMonetaryTotal/cbc:PayableAmount', "Payable Amount")
             ]
-            
+
             for path, name in fields_to_check:
                 if not check_field(path, name):
-                    success = False
+                    result.success = False
 
             # 3. Check Line Items
             lines = root.findall('cac:InvoiceLine', UBLValidator.NAMESPACES)
-            console.print(f"[blue]ℹ Found {len(lines)} Invoice Lines[/blue]")
+            result.add_message("info", f"Found {len(lines)} Invoice Lines")
             if len(lines) > 0:
-                 console.print("[green]✓ Contains line items[/green]")
+                 result.add_message("success", "Contains line items")
             else:
-                 console.print("[yellow]⚠ Warning: No line items found (technical UBL requires at least one)[/yellow]")
-                 # We treat this as a warning for now, strictly it might be invalid depending on profile
-            
-            return success
+                 result.add_message("warning", "No line items found (technical UBL requires at least one)")
+
+            return result
 
         except ET.ParseError as e:
-            console.print(f"[red]Fatal: XML Parse Error - {e}[/red]")
-            return False
+            result.add_message("error", f"Fatal: XML Parse Error - {e}")
+            result.success = False
+            return result
         except FileNotFoundError:
-            console.print(f"[red]Fatal: File not found - {xml_path}[/red]")
-            return False
+            result.add_message("error", f"Fatal: File not found - {xml_path}")
+            result.success = False
+            return result
 
         except Exception as e:
-            console.print(f"[red]Fatal: Validation Error - {e}[/red]")
-            return False
+            result.add_message("error", f"Fatal: Validation Error - {e}")
+            result.success = False
+            return result
 
 
 class BusinessValidator:
@@ -100,7 +117,7 @@ class BusinessValidator:
         Raises:
             ValueError: If transition is invalid
         """
-        from pydantic_invoices.schemas import InvoiceStatus  # type: ignore[import-untyped]
+        from pydantic_invoices.schemas import InvoiceStatus
 
         # Valid Transitions:
         # DRAFT -> SENT
@@ -111,7 +128,8 @@ class BusinessValidator:
         if old_status == new_status:
             return
 
-        # If already in a closed state, cannot change status (unless to CREDITED/REFUNDED in specific flows)
+        # If already in a closed state, cannot change status
+        # (unless to CREDITED/REFUNDED in specific flows)
         if old_status in (InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED, InvoiceStatus.CREDITED):
              raise ValueError(f"Cannot change status from final state {old_status}")
 
@@ -127,7 +145,9 @@ class BusinessValidator:
                 InvoiceStatus.CREDITED
             )
             if new_status not in allowed:
-                raise ValueError(f"Cannot change status from SENT to {new_status}. Must be one of {allowed}")
+                raise ValueError(
+                    f"Cannot change status from SENT to {new_status}. Must be one of {allowed}"
+                )
 
         if old_status == InvoiceStatus.DRAFT:
              # Draft effectively can go to SENT.
@@ -144,7 +164,7 @@ class BusinessValidator:
         Raises:
             ValueError: If modification is not allowed
         """
-        from pydantic_invoices.schemas import Invoice, InvoiceStatus # type: ignore[import-untyped]
+        from pydantic_invoices.schemas import InvoiceStatus
 
         # In strict mode, only DRAFT invoices can be edited (content, lines, amounts)
         if invoice.status != InvoiceStatus.DRAFT:

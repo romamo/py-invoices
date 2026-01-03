@@ -1,7 +1,8 @@
 """SQLModel payment note repository implementation."""
 
-from pydantic_invoices.interfaces import PaymentNoteRepository  # type: ignore[import-untyped]
-from pydantic_invoices.schemas.payment_note import (  # type: ignore[import-untyped]
+
+from pydantic_invoices.interfaces.payment_note_repo import PaymentNoteRepository
+from pydantic_invoices.schemas.payment_note import (
     PaymentNote,
     PaymentNoteCreate,
 )
@@ -10,7 +11,7 @@ from sqlmodel import Session, select
 from .models import PaymentNoteDB
 
 
-class SQLModelPaymentNoteRepository(PaymentNoteRepository):  # type: ignore[misc]
+class SQLModelPaymentNoteRepository(PaymentNoteRepository):
     """Generic SQLModel implementation for PaymentNote repository."""
 
     def __init__(self, session: Session):
@@ -44,7 +45,7 @@ class SQLModelPaymentNoteRepository(PaymentNoteRepository):  # type: ignore[misc
         db_notes = self.session.exec(stmt).all()
         return [n.to_schema() for n in db_notes]
 
-    def get_by_company(self, company_id: int) -> list[PaymentNote]:
+    def get_by_company(self, company_id: int | None = None) -> list[PaymentNote]:
         """Get payment notes for a specific company."""
         stmt = select(PaymentNoteDB).where(PaymentNoteDB.company_id == company_id)
         db_notes = self.session.exec(stmt).all()

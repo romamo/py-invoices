@@ -4,10 +4,11 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
-from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
+from pydantic_invoices.schemas import (
     ClientCreate,
     InvoiceCreate,
     InvoiceLineCreate,
+    InvoiceStatus,
     PaymentCreate,
 )
 from sqlmodel import Session, SQLModel, create_engine
@@ -53,7 +54,9 @@ def test_client_crud_operations(client_repo: SQLModelClientRepository) -> None:
     client_data = ClientCreate(
         name="Test Client",
         address="123 Test St",
-        tax_id="TEST-001"
+        tax_id="TEST-001",
+        email=None,
+        phone=None,
     )
     client = client_repo.create(client_data)
     assert client.id is not None
@@ -88,14 +91,19 @@ def test_invoice_creation_with_lines(
     client = client_repo.create(ClientCreate(
         name="Invoice Client",
         address="456 Client Rd",
-        tax_id="TAX-999"
+        tax_id="TAX-999",
+        email=None,
+        phone=None,
     ))
 
     # Create invoice
     invoice_data = InvoiceCreate(
         number="INV-001",
         issue_date=datetime.now(),
-        status="UNPAID",
+        status=InvoiceStatus.UNPAID,
+        original_invoice_id=None,
+        reason=None,
+        due_date=None,
         client_id=client.id,
         client_name_snapshot=client.name,
         client_address_snapshot=client.address,
@@ -103,12 +111,12 @@ def test_invoice_creation_with_lines(
         lines=[
             InvoiceLineCreate(
                 description="Consulting",
-                quantity=10.0,
+                quantity=10,
                 unit_price=100.0
             ),
             InvoiceLineCreate(
                 description="Travel",
-                quantity=1.0,
+                quantity=1,
                 unit_price=50.0
             )
         ]
@@ -131,14 +139,24 @@ def test_invoice_queries(
     invoice_repo: SQLModelInvoiceRepository
 ) -> None:
     """Test various invoice query methods."""
-    client = client_repo.create(ClientCreate(name="Q Client", address="...", tax_id="..."))
+    client = client_repo.create(
+        ClientCreate(name="Q Client",
+            address="...",
+            tax_id="...",
+            email=None,
+            phone=None,
+        )
+    )
 
     # Create several invoices
     for i in range(5):
         invoice_repo.create(InvoiceCreate(
             number=f"QUERY-{i}",
             issue_date=datetime.now(),
-            status="UNPAID" if i < 3 else "PAID",
+            status=InvoiceStatus.UNPAID if i < 3 else InvoiceStatus.PAID,
+            original_invoice_id=None,
+            reason=None,
+            due_date=None,
             client_id=client.id,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
@@ -151,7 +169,7 @@ def test_invoice_queries(
     assert len(all_invoices) == 5
 
     # Filter by status
-    unpaid = invoice_repo.get_by_status("UNPAID")
+    unpaid = invoice_repo.get_by_status(InvoiceStatus.UNPAID)
     assert len(unpaid) == 3
 
     # Filter by client
@@ -170,11 +188,22 @@ def test_payment_operations(
     payment_repo: SQLModelPaymentRepository
 ) -> None:
     """Test adding and querying payments."""
-    client = client_repo.create(ClientCreate(name="P Client", address="...", tax_id="..."))
+    client = client_repo.create(
+        ClientCreate(
+            name="P Client",
+            address="...",
+            tax_id="...",
+            email=None,
+            phone=None,
+        )
+    )
     invoice = invoice_repo.create(InvoiceCreate(
         number="PAY-001",
         issue_date=datetime.now(),
-        status="UNPAID",
+        status=InvoiceStatus.UNPAID,
+        original_invoice_id=None,
+        reason=None,
+        due_date=None,
         client_id=client.id,
         client_name_snapshot=client.name,
         client_address_snapshot=client.address,
@@ -187,7 +216,8 @@ def test_payment_operations(
         invoice_id=invoice.id,
         amount=600.0,
         payment_date=datetime.now(),
-        payment_method="Wire Transfer"
+        payment_method="Wire Transfer",
+        reference=None,
     )
     payment = payment_repo.create(payment_data)
     assert payment.id is not None

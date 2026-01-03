@@ -6,12 +6,10 @@ integrate with your storage backend's audit log repository.
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 from pydantic import BaseModel, Field
-
-if TYPE_CHECKING:
-    from pydantic_invoices.schemas import Invoice, Payment  # type: ignore[import-untyped]
+from pydantic_invoices.schemas import Invoice, Payment
 
 
 class AuditLogEntry(BaseModel):

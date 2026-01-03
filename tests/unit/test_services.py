@@ -1,9 +1,10 @@
 """Tests for core services."""
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
-from pydantic_invoices.schemas import (  # type: ignore[import-untyped]
+from pydantic_invoices.schemas import (
     Invoice,
+    InvoiceStatus,
 )
 
 from py_invoices.core import AuditService, NumberingService, PDFService, UBLService
@@ -176,10 +177,16 @@ class TestPDFService:
         invoice = Invoice(
             id=1,
             number="INV-001",
-            issue_date=date.today(),
-            status="UNPAID",
+            issue_date=datetime.now(),
+            status=InvoiceStatus.UNPAID,
             client_id=1,
             company_id=1,
+            original_invoice_id=None,
+            reason=None,
+            due_date=None,
+            client_name_snapshot=None,
+            client_address_snapshot=None,
+            client_tax_id_snapshot=None,
             lines=[],
             payments=[],
         )
@@ -209,10 +216,16 @@ class TestPDFService:
         invoice = Invoice(
             id=1,
             number="INV-001",
-            issue_date=date.today(),
-            status="UNPAID",
+            issue_date=datetime.now(),
+            status=InvoiceStatus.UNPAID,
             client_id=1,
             company_id=1,
+            client_name_snapshot="Test Client",
+            client_address_snapshot="123 Test St",
+            client_tax_id_snapshot="US-12345",
+            original_invoice_id=None,
+            reason=None,
+            due_date=None,
             lines=[],
             payments=[],
         )
