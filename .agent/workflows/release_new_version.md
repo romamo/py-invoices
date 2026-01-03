@@ -67,3 +67,9 @@ fi
 ```bash
 git push --tags
 ```
+
+10. Create GitHub Release
+```bash
+gh release create <tag_name> --generate-notes
+```
+
