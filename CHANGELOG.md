@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.1] - 2026-01-04
+
+### Documentation
+- Updated `README.md` with YAML storage details.
+- Updated `py_invoices/cli/README.md` with all available CLI commands (stats, clone, details, etc.) and entity management sections.
+
 ## [1.3.0] - 2026-01-04
 
 ### Added
