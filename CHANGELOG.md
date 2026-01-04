@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.3.0] - 2026-01-04
+
+### Added
+- **YAML Storage**: Added YAML support to the files backend.
+- **CLI Enhancements**: Migrated `stats` and `clone-invoice` commands to the main CLI.
+- **Testing**: Added unit tests for YAML storage and no-extras scenarios.
+
+### Removed
+- **Legacy Data**: Cleaned up unused data files from project root.
+
 ## [1.2.1] - 2026-01-03
 
 ### Added
