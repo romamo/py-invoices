@@ -75,11 +75,21 @@ class FileStorage(Generic[T]):
         return self.entity_dir / f"{entity_id}.{fmt}"
         
     def _find_entity_file(self, entity_id: int) -> Path | None:
-        """Find the file for an entity ID, checking all supported formats."""
+        """Find the file for an entity ID, checking for ID prefix."""
+        # 1. Look for exact ID match first (optimization)
         for ext in ["json", "yaml", "yml", "xml", "md"]:
             path = self.entity_dir / f"{entity_id}.{ext}"
             if path.exists():
                 return path
+
+        # 2. Look for friendly names: "{id}.anything.{ext}"
+        prefix = f"{entity_id}."
+        for item in self.entity_dir.iterdir():
+            if item.is_file() and item.name.startswith(prefix):
+                 # Verify it's not just a partial number like "10.json" when looking for "1"
+                 # checking startswith "1." is sufficient because 10. starts with "10."
+                 return item
+        
         return None
 
     def save(self, entity: T, entity_id: int, fmt: str | None = None) -> Path:
@@ -92,12 +102,23 @@ class FileStorage(Generic[T]):
         """
         fmt = fmt or self.default_format
 
-        # Remove any existing file for this ID in other formats to avoid duplicates
+        # Try to find existing file first (handles friendly names and format changes)
         existing_file = self._find_entity_file(entity_id)
-        if existing_file and existing_file.suffix.lstrip(".") != fmt:
-            existing_file.unlink()
-
-        path = self._get_file_path(entity_id, fmt)
+        
+        if existing_file:
+            path = existing_file
+            # If format is explicitly requested and different, we might need to change extension
+            # But usually we want to preserve the existing file's format/name
+            if fmt:
+                 # If explicit format requested differs from existing, we swap
+                 if existing_file.suffix.lstrip(".") != fmt:
+                     existing_file.unlink()
+                     path = self._get_file_path(entity_id, fmt)
+            else:
+                # Infer format from existing file
+                fmt = existing_file.suffix.lstrip(".")
+        else:
+            path = self._get_file_path(entity_id, fmt)
         # Exclude none for XML to avoid "None" strings
         exclude_none = (fmt == "xml")
         data = entity.model_dump(mode="json", exclude_none=exclude_none)
@@ -144,9 +165,22 @@ class FileStorage(Generic[T]):
             if path.name.startswith("_") or not path.is_file():
                 continue
             
+            # Parse ID from filename: "1.json" -> 1, "1.item.json" -> 1
+            entity_id = None
+            
+            # Check for simple digit stem ("1")
             if path.stem.isdigit():
+                entity_id = int(path.stem)
+            else:
+                # Check for friendly name pattern "1.something"
+                # Note: path.stem for "1.item.json" is "1.item"
+                parts = path.name.split(".", 1)
+                if len(parts) > 1 and parts[0].isdigit():
+                     entity_id = int(parts[0])
+
+            if entity_id is not None:
                 try:
-                    entity = self.load(int(path.stem))
+                    entity = self.load(entity_id)
                     if entity:
                         entities.append(entity)
                 except Exception:
