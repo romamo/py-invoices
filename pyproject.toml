@@ -11,9 +11,12 @@ dependencies = [
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "jinja2>=3.1.5",
-    "rich>=14.2.0",
+
     "python-multipart>=0.0.21",
 ]
+
+[project.urls]
+Homepage = "https://github.com/romamo/py-invoices"
 
 [project.optional-dependencies]
 # Storage backends
@@ -24,6 +27,7 @@ postgres = ["sqlmodel>=0.0.22", "psycopg2-binary>=2.9.0"]
 mysql = ["sqlmodel>=0.0.22", "pymysql>=1.1.0"]
 memory = []  # No extra dependencies
 files = []   # No extra dependencies (std lib: json, xml)
+yaml = ["pyyaml>=6.0"] # Optional YAML support
 
 # PDF generation
 pdf = [
@@ -32,7 +36,7 @@ pdf = [
 ]
 
 # Distribution layers
-cli = ["typer>=0.9.0"]
+cli = ["typer>=0.9.0", "rich>=14.2.0"]
 api = ["fastapi>=0.100.0", "uvicorn>=0.20.0"]
 
 # All features

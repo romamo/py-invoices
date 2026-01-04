@@ -52,24 +52,20 @@ fi
    uv version --bump patch
    ```
 
-7. Verify strict version match
+7. Update __version__ in __init__.py to the corresponding value too
+8. Verify strict version match
    ```bash
    uv run pytest tests/test_version.py
    ```
-
-8. Tag using git
+9. Tag using git
    - Replace `v0.1.0` with the actual new version:
    ```bash
    git tag -a v0.1.0 -m "Release v0.1.0"
    ```
-
-9. Push tags
+10. Push tags
 ```bash
 git push --tags
 ```
-
-10. Create GitHub Release
+11. Create GitHub Release
 ```bash
 gh release create <tag_name> --generate-notes
-```
-

@@ -18,6 +18,9 @@ Framework-agnostic invoice management with pluggable storage backends.
 # Basic installation (includes HTML generation)
 pip install py-invoices
 
+# With CLI support (recommended for interactive use)
+pip install "py-invoices[cli]"
+
 # With SQLite support
 pip install py-invoices[sqlite]
 

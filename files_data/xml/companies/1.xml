@@ -1,8 +1,0 @@
-<?xml version="1.0" ?>
-<Company>
-  <name>Acme Corp</name>
-  <tax_id>123456789</tax_id>
-  <is_active>True</is_active>
-  <is_default>False</is_default>
-  <id>1</id>
-</Company>
