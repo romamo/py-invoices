@@ -334,7 +334,7 @@ factory = RepositoryFactory(
 )
 ```
 
-**Note:** The backend automatically detects and reads files in any supported format (`json`, `yaml`, `xml`, `md`) regardless of the `file_format` setting. This allows you to mix formats or manually edit files in your preferred format.
+**Note:** The backend automatically detects and reads files in any supported format (`json`, `yaml`, `xml`, `md`) regardless of the `file_format` setting. This allows you to mix formats or manually edit files in your preferred format. It also supports friendly filenames for better organization (e.g., `1.Customer Name.json` instead of just `1.json`).
 ## Architecture
 
 ```
