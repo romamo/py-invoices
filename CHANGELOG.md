@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.0] - 2026-01-04
+
+### Added
+- **Friendly Filenames**: Added support for reading entity files with friendly filenames (e.g., `1.Customer Name.json`) in the files backend.
+
 ## [1.3.1] - 2026-01-04
 
 ### Documentation
