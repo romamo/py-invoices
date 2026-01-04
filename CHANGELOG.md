@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.4.1] - 2026-01-04
+
+### Documentation
+- Updated `README.md` to include information about friendly filename support in the Files backend.
+- Updated release workflow to include documentation update steps.
+
 ## [1.4.0] - 2026-01-04
 
 ### Added
