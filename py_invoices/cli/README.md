@@ -59,6 +59,26 @@ py-invoices invoices create \
   --description "Services"
 ```
 
+**Details:**
+```bash
+py-invoices invoices details <invoice_number_or_id>
+```
+
+**Overdue Invoices:**
+```bash
+py-invoices invoices overdue
+```
+
+**Statistics:**
+```bash
+py-invoices invoices stats --start-date 2024-01-01 --end-date 2024-12-31
+```
+
+**Clone Invoice:**
+```bash
+py-invoices invoices clone <invoice_number_or_id>
+```
+
 **Generate PDF:**
 ```bash
 py-invoices invoices pdf <invoice_number_or_id> --company-name "My Company" --company-address "123 Business Rd"
@@ -75,6 +95,63 @@ py-invoices invoices html <invoice_number_or_id> --company-name "My Company" --c
 *Example:*
 ```bash
 py-invoices invoices html INV-2024-001
+```
+
+
+## Products Management
+
+Manage your product catalog.
+
+**List Products:**
+```bash
+py-invoices products list
+```
+
+**Create Product:**
+```bash
+py-invoices products create --name "Consulting" --price 150.00 --sku "CONS-001"
+```
+
+## Companies Management
+
+Manage company profiles.
+
+**List Companies:**
+```bash
+py-invoices companies list
+```
+
+**Create Company:**
+```bash
+py-invoices companies create --name "My Configured Company" --address "123 HQ Blvd" --tax-id "US-TAX-ID"
+```
+
+## Credit Notes Management
+
+Manage credit notes.
+
+**List Credit Notes:**
+```bash
+py-invoices credit-notes list
+```
+
+**Create Credit Note:**
+```bash
+py-invoices credit-notes create --invoice-number "INV-2024-001" --reason "Refund"
+```
+
+## Payments Management
+
+Manage payments.
+
+**List Payments:**
+```bash
+py-invoices payments list
+```
+
+**Create Payment:**
+```bash
+py-invoices payments create --invoice-number "INV-2024-001" --amount 1500.00 --reference "Wire Transfer"
 ```
 
 ## Validation
@@ -94,6 +171,7 @@ py-invoices validate invoice output/INV-2024-0001.xml
 You can select the storage backend using the `--backend` option or `INVOICES_BACKEND` environment variable.
 
 - `memory` (default for dev): Data is lost after command exits (mostly useful for testing logic).
+- `files`: Local file storage (JSON, YAML, Markdown).
 - `sqlite`: Persistent local database.
 - `postgres`: PostgreSQL database.
 

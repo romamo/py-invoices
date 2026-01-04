@@ -170,7 +170,7 @@ factory = RepositoryFactory.from_settings(settings)
 | `backend` | `INVOICES_BACKEND` | `memory` | Backend type: `memory`, `files`, `sqlite`, `postgres`, `mysql` |
 | `database_url` | `INVOICES_DATABASE_URL` | `None` | Database connection URL |
 | `database_echo` | `INVOICES_DATABASE_ECHO` | `false` | Enable SQL query logging |
-| `file_format` | `INVOICES_FILE_FORMAT` | `md` | Format for files backend: `json`, `xml`, or `md` |
+| `file_format` | `INVOICES_FILE_FORMAT` | `md` | Format for files backend: `json`, `yaml`, `yml`, or `md` |
 | `root_dir` | `INVOICES_ROOT_DIR` | `./data` | Root directory for files backend |
 | `template_dir` | `INVOICES_TEMPLATE_DIR` | `None` | Directory for invoice templates (defaults to included) |
 | `output_dir` | `INVOICES_OUTPUT_DIR` | `output` | Directory for generated files |
@@ -324,17 +324,17 @@ factory = RepositoryFactory(
 ```
 ### Files (Local Storage)
 
-Stores data as individual files (JSON, XML, or Markdown) in a local directory. Markdown format is recommended for human readability and direct editing.
+Stores data as individual files (JSON, YAML, XML, or Markdown) in a local directory. Markdown format is recommended for human readability and direct editing.
 
 ```python
 factory = RepositoryFactory(
     backend="files",
     root_dir="./data",
-    file_format="md"  # Defaults to "md" for *writing* new files
+    file_format="yaml"  # Defaults to "md" for *writing* new files
 )
 ```
 
-**Note:** The backend automatically detects and reads files in any supported format (`json`, `xml`, `md`) regardless of the `file_format` setting. This allows you to mix formats or manually edit files in your preferred format.
+**Note:** The backend automatically detects and reads files in any supported format (`json`, `yaml`, `xml`, `md`) regardless of the `file_format` setting. This allows you to mix formats or manually edit files in your preferred format.
 ## Architecture
 
 ```
