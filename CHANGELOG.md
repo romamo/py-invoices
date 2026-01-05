@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.0] - 2026-01-05
+
+### Added
+- **CLI Creation Commands**: Added `create` command for:
+    - Companies (`py-invoices companies create`)
+    - Products (`py-invoices products create`)
+    - Payment Notes (`py-invoices payment-notes create`)
+
 ## [1.4.1] - 2026-01-04
 
 ### Documentation

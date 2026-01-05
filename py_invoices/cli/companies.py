@@ -6,6 +6,9 @@ from py_invoices.cli.utils import get_console, get_factory
 app = typer.Typer()
 console = get_console()
 
+from pydantic_invoices.schemas.company import CompanyCreate
+
+
 
 @app.command("list")
 def list_companies(
@@ -63,3 +66,36 @@ def get_default_company(
     console.print(f"Tax ID: {company.tax_id}")
     console.print(f"Email: {company.email}")
     console.print(f"Phone: {company.phone}")
+
+
+@app.command("create")
+def create_company(
+    name: str = typer.Option(..., help="Company name"),
+    tax_id: str = typer.Option(None, help="Company Tax ID"),
+    address: str = typer.Option(None, help="Company address"),
+    email: str = typer.Option(None, help="Company email"),
+    phone: str = typer.Option(None, help="Company phone"),
+    backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
+) -> None:
+    """Create a new company."""
+    factory = get_factory(backend)
+    repo = factory.create_company_repository()
+
+    company_data = CompanyCreate(
+        name=name,
+        tax_id=tax_id,
+        address=address,
+        email=email,
+        phone=phone
+    )
+
+    company = repo.create(company_data)
+
+    console.print(f"[green]✓ Created Company {company.name}[/green]")
+    console.print(f"  ID: {company.id}")
+    console.print(f"  Tax ID: {company.tax_id or 'N/A'}")
+
+    if backend == "memory":
+        console.print(
+            "\n[yellow]Note: stored in memory. It will be lost when this command exits.[/yellow]"
+        )

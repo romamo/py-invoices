@@ -6,6 +6,8 @@ from py_invoices.cli.utils import get_console, get_factory
 app = typer.Typer()
 console = get_console()
 
+from pydantic_invoices.schemas.payment_note import PaymentNoteCreate
+
 
 @app.command("list")
 def list_payment_notes(
@@ -76,3 +78,36 @@ def get_default_note(
 
     console.print(f"[bold]Default Payment Note[/bold]")
     console.print(getattr(note, "note", getattr(note, "content", "")))
+
+
+@app.command("create")
+def create_payment_note(
+    content: str = typer.Option(..., help="Payment note content"),
+    title: str = typer.Option("Payment Note", help="Note title"),
+    company_id: int = typer.Option(None, help="Associated Company ID"),
+    is_default: bool = typer.Option(False, help="Set as default"),
+    backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
+) -> None:
+    """Create a new payment note."""
+    factory = get_factory(backend)
+    repo = factory.create_payment_note_repository()
+
+    note_data = PaymentNoteCreate(
+        title=title,
+        content=content,
+        company_id=company_id,
+        is_default=is_default
+    )
+
+    created_note = repo.create(note_data)
+
+    console.print(f"[green]✓ Created Payment Note[/green]")
+    console.print(f"  ID: {created_note.id}")
+    console.print(f"  Title: {created_note.title}")
+
+    if backend == "memory":
+        console.print(
+            "\n[yellow]Note: stored in memory. It will be lost when this command exits.[/yellow]"
+        )
+
+

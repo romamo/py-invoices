@@ -6,6 +6,9 @@ from py_invoices.cli.utils import get_console, get_factory
 app = typer.Typer()
 console = get_console()
 
+from pydantic_invoices.schemas.product import ProductCreate
+
+
 
 @app.command("list")
 def list_products(
@@ -94,3 +97,39 @@ def search_products(
         )
 
     console.print(table)
+
+
+@app.command("create")
+def create_product(
+    name: str = typer.Option(..., help="Product name"),
+    code: str = typer.Option(..., help="Product code"),
+    unit_price: float = typer.Option(..., help="Unit price"),
+    category: str = typer.Option(None, help="Product category"),
+    description: str = typer.Option(None, help="Product description"),
+    tax_rate: float = typer.Option(0.0, help="Tax rate (0.0 - 1.0)"),
+    backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
+) -> None:
+    """Create a new product."""
+    factory = get_factory(backend)
+    repo = factory.create_product_repository()
+
+    product_data = ProductCreate(
+        name=name,
+        code=code,
+        unit_price=unit_price,
+        category=category,
+        description=description,
+        tax_rate=tax_rate
+    )
+
+    product = repo.create(product_data)
+
+    console.print(f"[green]✓ Created Product {product.name}[/green]")
+    console.print(f"  Code: {product.code}")
+    console.print(f"  Price: ${product.unit_price:.2f}")
+
+    if backend == "memory":
+        console.print(
+            "\n[yellow]Note: stored in memory. It will be lost when this command exits.[/yellow]"
+        )
+
