@@ -71,3 +71,24 @@ git push --tags
 12. Create GitHub Release
 ```bash
 gh release create <tag_name> --generate-notes
+```
+
+13. Verify PyPI Publication
+```bash
+# Get the current version from the project
+VERSION=$(uv run python -c "import py_invoices; print(py_invoices.__version__)")
+echo "Waiting 30 seconds for PyPI propagation..."
+sleep 30
+
+# Check PyPI
+PYPI_VERSION=$(curl -s https://pypi.org/pypi/py-invoices/json | python3 -c "import sys, json; print(json.load(sys.stdin)['info']['version'])")
+
+if [ "$VERSION" == "$PYPI_VERSION" ]; then
+    echo "✅ Success: Version $VERSION is published on PyPI."
+else
+    echo "❌ ERROR: Version $VERSION not found on PyPI! (Found: $PYPI_VERSION)"
+    echo "Check: https://pypi.org/project/py-invoices/"
+    exit 1
+fi
+```
+

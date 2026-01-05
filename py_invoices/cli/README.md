@@ -7,6 +7,26 @@ The package includes a configured CLI tool `py-invoices`.
 
 - `--help`: Show help message.
 
+## Setup & Configuration
+
+Configure the application interactively or via CLI arguments.
+
+**Interactive Wizard:**
+```bash
+py-invoices setup
+```
+
+**Automated Setup (Agent Friendly):**
+```bash
+py-invoices setup --backend files --storage-path ./my-invoices --force
+```
+
+**Initialize Backend:**
+After setup, run initialization to prepare the database or storage:
+```bash
+py-invoices init
+```
+
 ## Clients Management
 
 Manage your client database.

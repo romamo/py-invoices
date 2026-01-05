@@ -997,6 +997,7 @@ all = [
     { name = "fastapi" },
     { name = "psycopg2-binary" },
     { name = "pymysql" },
+    { name = "python-dotenv" },
     { name = "pyyaml" },
     { name = "rich" },
     { name = "sqlmodel" },
@@ -1011,6 +1012,9 @@ api = [
 cli = [
     { name = "rich" },
     { name = "typer" },
+]
+dotenv = [
+    { name = "python-dotenv" },
 ]
 mysql = [
     { name = "pymysql" },
@@ -1045,11 +1049,12 @@ requires-dist = [
     { name = "fastapi", marker = "extra == 'api'", specifier = ">=0.100.0" },
     { name = "jinja2", specifier = ">=3.1.5" },
     { name = "psycopg2-binary", marker = "extra == 'postgres'", specifier = ">=2.9.0" },
-    { name = "py-invoices", extras = ["sqlite", "postgres", "mysql", "files", "pdf", "cli", "api"], marker = "extra == 'all'" },
+    { name = "py-invoices", extras = ["sqlite", "postgres", "mysql", "files", "pdf", "cli", "api", "dotenv"], marker = "extra == 'all'" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pydantic-invoices", editable = "../pydantic-invoices" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
     { name = "pymysql", marker = "extra == 'mysql'", specifier = ">=1.1.0" },
+    { name = "python-dotenv", marker = "extra == 'dotenv'", specifier = ">=1.0.0" },
     { name = "python-multipart", specifier = ">=0.0.21" },
     { name = "pyyaml", marker = "extra == 'pdf'", specifier = ">=6.0" },
     { name = "pyyaml", marker = "extra == 'yaml'", specifier = ">=6.0" },
@@ -1061,7 +1066,7 @@ requires-dist = [
     { name = "uvicorn", marker = "extra == 'api'", specifier = ">=0.20.0" },
     { name = "weasyprint", marker = "extra == 'pdf'", specifier = ">=63.1" },
 ]
-provides-extras = ["sqlite", "postgres", "mysql", "memory", "files", "yaml", "pdf", "cli", "api", "all"]
+provides-extras = ["sqlite", "postgres", "mysql", "memory", "files", "yaml", "pdf", "cli", "api", "dotenv", "all"]
 
 [package.metadata.requires-dev]
 dev = [

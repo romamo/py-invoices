@@ -9,6 +9,7 @@ from py_invoices.cli.invoices import app as invoices_app
 from py_invoices.cli.payment_notes import app as payment_notes_app
 from py_invoices.cli.payments import app as payments_app
 from py_invoices.cli.products import app as products_app
+from py_invoices.cli.setup import interactive_setup
 from py_invoices.cli.utils import get_console, get_factory
 from py_invoices.cli.validate import app as validate_app
 from py_invoices.config import get_settings
@@ -28,6 +29,7 @@ app.add_typer(payments_app, name="payments", help="Manage payments")
 app.add_typer(payment_notes_app, name="payment-notes", help="Manage payment notes")
 app.add_typer(audit_app, name="audit", help="Manage audit logs")
 app.add_typer(config_app, name="config", help="View configuration")
+app.command(name="setup", help="Configure application (interactive)")(interactive_setup)
 app.add_typer(validate_app, name="validate", help="Validate invoice files")
 
 

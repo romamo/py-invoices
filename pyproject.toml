@@ -1,6 +1,6 @@
 [project]
 name = "py-invoices"
-version = "1.6.0"
+version = "1.7.0"
 description = "Framework-agnostic invoice management with pluggable storage backends"
 authors = [{name = "Roman Medvedev", email = "pypi@romavm.dev"}]
 readme = "README.md"
@@ -39,8 +39,10 @@ pdf = [
 cli = ["typer>=0.9.0", "rich>=14.2.0"]
 api = ["fastapi>=0.100.0", "uvicorn>=0.20.0"]
 
+dotenv = ["python-dotenv>=1.0.0"]
+
 # All features
-all = ["py-invoices[sqlite,postgres,mysql,files,pdf,cli,api]"]
+all = ["py-invoices[sqlite,postgres,mysql,files,pdf,cli,api,dotenv]"]
 
 [build-system]
 requires = ["hatchling"]

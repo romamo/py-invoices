@@ -96,6 +96,7 @@ class RepositoryFactory:
         
         if settings.backend == "files":
             config["file_format"] = settings.file_format
+            config["root_dir"] = settings.storage_path
 
         return cls(backend=settings.backend, **config)
 

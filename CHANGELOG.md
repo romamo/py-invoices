@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7.0] - 2026-01-05
+
+### Added
+- **Setup Wizard**: Added `setup` command to interactively configure the application and backend.
+- **Auto-Install**: The `setup` command automatically installs missing dependencies (like `python-dotenv` or database drivers) using `uv` or `pip`.
+- **Dotenv Support**: Optional `.env` file loading via `[dotenv]` extra.
+
 ## [1.6.0] - 2026-01-05
 
 ### Added

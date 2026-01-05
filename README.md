@@ -33,6 +33,9 @@ pip install py-invoices[mysql]
 # With PDF generation
 pip install py-invoices[pdf]
 
+# With .env file support (for setup command)
+pip install py-invoices[dotenv]
+
 # Everything
 pip install py-invoices[all]
 ```
@@ -61,7 +64,13 @@ The package includes a configured CLI tool `py-invoices`.
 
 **Quick Start:**
 ```bash
-# Create an invoice (and auto-create client)
+# 1. Setup configuration (interactive wizard)
+py-invoices setup
+
+# 2. Initialize the backend
+py-invoices init
+
+# 3. Create an invoice (and auto-create client)
 py-invoices invoices create --client-name "Acme Corp" --amount 1500.00 --description "Consulting"
 ```
 
