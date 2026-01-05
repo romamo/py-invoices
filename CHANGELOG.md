@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6.0] - 2026-01-05
+
+### Added
+- **Config Command**: Added `config` command to CLI to show current configuration details (`py-invoices config show`).
+
 ## [1.5.0] - 2026-01-05
 
 ### Added
