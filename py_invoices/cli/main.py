@@ -3,6 +3,7 @@ import typer
 from py_invoices.cli.audit import app as audit_app
 from py_invoices.cli.clients import app as clients_app
 from py_invoices.cli.companies import app as companies_app
+from py_invoices.cli.config import app as config_app
 from py_invoices.cli.credit_notes import app as credit_notes_app
 from py_invoices.cli.invoices import app as invoices_app
 from py_invoices.cli.payment_notes import app as payment_notes_app
@@ -26,6 +27,7 @@ app.add_typer(credit_notes_app, name="credit-notes", help="Manage credit notes")
 app.add_typer(payments_app, name="payments", help="Manage payments")
 app.add_typer(payment_notes_app, name="payment-notes", help="Manage payment notes")
 app.add_typer(audit_app, name="audit", help="Manage audit logs")
+app.add_typer(config_app, name="config", help="View configuration")
 app.add_typer(validate_app, name="validate", help="Validate invoice files")
 
 
