@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.1] - 2026-01-06
+
+### Fixed
+- **CLI Configuration**: Fixed an issue where CLI commands ignored `file_format` and `storage_path` settings.
+
 ## [1.8.0] - 2026-01-06
 
 ### Added
