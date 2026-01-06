@@ -39,6 +39,7 @@ def interactive_setup(
     storage_path: str = typer.Option(None, help="Storage path for files backend (default: ./data)"),
     file_format: str = typer.Option(None, help="File format for files backend (json, md, xml, default: json)"),
     db_url: str = typer.Option(None, help="Database URL for SQL backends"),
+    output_dir: str = typer.Option(None, help="Output directory for generated files (default: output)"),
     force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing .env file without asking"),
 ) -> None:
     """
@@ -131,6 +132,10 @@ def interactive_setup(
         
         if db_url:
             config_lines.append(f"INVOICES_DATABASE_URL={db_url}")
+
+    # 3. Output Directory
+    if output_dir:
+        config_lines.append(f"INVOICES_OUTPUT_DIR={output_dir}")
 
     # Write to .env
     with open(env_path, "w") as f:
