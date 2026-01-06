@@ -18,7 +18,7 @@ py-invoices setup
 
 **Automated Setup (Agent Friendly):**
 ```bash
-py-invoices setup --backend files --storage-path ./my-invoices --force
+py-invoices setup --backend files --storage-path ./my-invoices --output-dir ./Outbox --force
 ```
 
 **Initialize Backend:**

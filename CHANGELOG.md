@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.8.0] - 2026-01-06
+
+### Added
+- **Setup Output Dir**: Added `--output-dir` argument to the `setup` command to configure the default output directory.
+
 ## [1.7.0] - 2026-01-05
 
 ### Added
