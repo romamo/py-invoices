@@ -6,7 +6,7 @@ This package provides:
 - PDF generation capabilities
 """
 
-__version__ = "1.8.1"
+__version__ = "1.8.2"
 
 from .config import InvoiceSettings
 from .core import AuditService, NumberingService, PDFService
