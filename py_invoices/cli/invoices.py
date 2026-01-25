@@ -222,7 +222,7 @@ def get_invoice_details(
             line.description,
             str(line.quantity),
             f"${line.unit_price:.2f}",
-            f"${line.line_total:.2f}"
+            f"${line.total:.2f}"
         )
     
     console.print(table)
