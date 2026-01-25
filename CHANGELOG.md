@@ -1,6 +1,13 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+ 
+## [1.8.2] - 2026-01-25
+ 
+### Fixed
+- **CLI Invoices**: Fixed `AttributeError` in `invoices details` command where `line_total` was accessed instead of `total`.
+- **Regression Tests**: Added CLI regression tests for invoice details.
+
 
 ## [1.8.1] - 2026-01-06
 
