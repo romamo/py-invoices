@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
  
+## [1.8.3] - 2026-02-27
+
+### Fixed
+- **Code Quality**: Extensive refactoring for enhanced code safety, including replacing broad exceptions with fail-fast mechanisms.
+- **Security**: Introduced `defusedxml` for secure XML parsing.
+- **Typing & Abstractions**: Strict Mypy compliance and abstract methods cleanup.
+
 ## [1.8.2] - 2026-01-25
  
 ### Fixed
