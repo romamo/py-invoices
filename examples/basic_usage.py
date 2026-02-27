@@ -1,4 +1,5 @@
 """Basic usage example for py-invoices with memory backend."""
+
 from datetime import date, datetime
 
 from pydantic_invoices.schemas import (

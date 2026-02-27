@@ -185,6 +185,7 @@ class InvoiceDB(SQLModel, table=True):
             payments=[payment.to_schema() for payment in self.payments],
         )
 
+
 class PaymentDB(SQLModel, table=True):
     """Payment database model."""
 

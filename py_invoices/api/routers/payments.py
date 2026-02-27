@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends
 from pydantic_invoices.schemas import Payment
 
@@ -6,6 +5,7 @@ from py_invoices import RepositoryFactory
 from py_invoices.api.deps import get_factory
 
 router = APIRouter()
+
 
 @router.get("/", response_model=list[Payment])
 def list_payments(

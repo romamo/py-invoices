@@ -6,6 +6,8 @@ from py_invoices.cli.utils import get_console, get_factory
 
 app = typer.Typer()
 console = get_console()
+
+
 @app.command("list")
 def list_products(
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
@@ -32,10 +34,7 @@ def list_products(
 
     for product in products:
         table.add_row(
-            product.code,
-            product.name,
-            product.category or "-",
-            f"${product.unit_price:.2f}"
+            product.code, product.name, product.category or "-", f"${product.unit_price:.2f}"
         )
 
     console.print(table)
@@ -86,10 +85,7 @@ def search_products(
 
     for product in products:
         table.add_row(
-            product.code,
-            product.name,
-            product.category or "-",
-            f"${product.unit_price:.2f}"
+            product.code, product.name, product.category or "-", f"${product.unit_price:.2f}"
         )
 
     console.print(table)
@@ -117,7 +113,7 @@ def create_product(
         category=category,
         description=description,
         tax_rate=tax_rate,
-        preferred_template=preferred_template
+        preferred_template=preferred_template,
     )
 
     product = repo.create(product_data)
@@ -130,4 +126,3 @@ def create_product(
         console.print(
             "\n[yellow]Note: stored in memory. It will be lost when this command exits.[/yellow]"
         )
-

@@ -70,7 +70,6 @@ class SQLModelInvoiceRepository(InvoiceRepository):
         db_invoices = self.session.exec(stmt).all()
         return [inv.to_schema() for inv in db_invoices]
 
-
     def get_overdue(self) -> list[Invoice]:
         """Get all overdue invoices."""
         today = date.today()

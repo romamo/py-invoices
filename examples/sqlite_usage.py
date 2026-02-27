@@ -1,4 +1,5 @@
 """SQLite backend usage example."""
+
 from datetime import datetime
 
 from pydantic_invoices.schemas import (
@@ -17,9 +18,7 @@ def main() -> None:
 
     # Create factory with SQLite backend
     print("1. Initializing SQLite backend...")
-    factory = RepositoryFactory(
-        backend="sqlite", database_url="sqlite:///test_invoices.db"
-    )
+    factory = RepositoryFactory(backend="sqlite", database_url="sqlite:///test_invoices.db")
     print(f"   ✓ Backend initialized. Health check: {factory.health_check()}\n")
 
     # Get repositories

@@ -18,11 +18,8 @@ class InvoiceSettings(BaseSettings):
     # Path for files backend data
     storage_path: str = "./data"
 
-    model_config = SettingsConfigDict(
-        env_prefix="INVOICES_",
-        env_file=".env",
-        extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_prefix="INVOICES_", env_file=".env", extra="ignore")
+
 
 @lru_cache
 def get_settings() -> InvoiceSettings:

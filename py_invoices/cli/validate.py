@@ -6,9 +6,10 @@ from py_invoices.core.validator import UBLValidator
 app = typer.Typer()
 console = Console()
 
+
 @app.command("invoice")
 def validate_invoice(
-    file_path: str = typer.Argument(..., help="Path to UBL XML invoice file to validate")
+    file_path: str = typer.Argument(..., help="Path to UBL XML invoice file to validate"),
 ) -> None:
     """
     Validate a UBL 2.1 invoice XML file.

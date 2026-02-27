@@ -64,8 +64,7 @@ class HTMLService:
 
         # Setup Jinja2 environment
         self.env: Environment = Environment(
-            loader=loader,
-            autoescape=select_autoescape(["html", "xml"])
+            loader=loader, autoescape=select_autoescape(["html", "xml"])
         )
 
     def generate_html(

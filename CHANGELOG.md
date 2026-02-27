@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
  
+## [1.8.4] - 2026-02-27
+
+### Fixed
+- **Packaging**: Excluded internal development materials (`uv.lock`, `.agent`, `.github`) from source distributions.
+- **Dependencies**: Removed local path overrides for `pydantic-invoices` to ensure proper PyPI resolution.
+
 ## [1.8.3] - 2026-02-27
 
 ### Fixed

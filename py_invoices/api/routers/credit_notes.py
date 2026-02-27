@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from pydantic_invoices.schemas import Invoice, InvoiceLineCreate
@@ -13,6 +12,7 @@ router = APIRouter()
 
 class CreditNoteRequest(BaseModel):
     """Request body for creating a credit note."""
+
     original_invoice_id: int
     reason: str | None = None
     lines: list[InvoiceLineCreate] | None = None
@@ -32,7 +32,7 @@ def create_credit_note(
     if not original_invoice:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Invoice {request.original_invoice_id} not found"
+            detail=f"Invoice {request.original_invoice_id} not found",
         )
 
     # 2. Setup services
@@ -49,10 +49,7 @@ def create_credit_note(
         )
         return credit_note
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.get("/{credit_note_number}", response_model=Invoice)

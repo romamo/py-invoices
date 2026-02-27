@@ -1,4 +1,5 @@
 """Example showing how to use the AuditService to track changes."""
+
 from datetime import datetime
 
 from pydantic_invoices.schemas import (
@@ -40,9 +41,7 @@ def main() -> None:
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
             client_tax_id_snapshot=client.tax_id,
-            lines=[
-                InvoiceLineCreate(description="Audit Item", quantity=1, unit_price=100.0)
-            ],
+            lines=[InvoiceLineCreate(description="Audit Item", quantity=1, unit_price=100.0)],
             original_invoice_id=None,
             reason=None,
             due_date=None,
@@ -65,9 +64,7 @@ def main() -> None:
     print("\n--- 3. Changing Status ---")
     # In a real app, you'd update via invoice_repo.update(invoice)
     audit_service.log_status_changed(
-        invoice,
-        new_status=str(InvoiceStatus.PARTIALLY_PAID),
-        user_id="payment_processor"
+        invoice, new_status=str(InvoiceStatus.PARTIALLY_PAID), user_id="payment_processor"
     )
 
     # 5. Review Audit Logs
@@ -84,6 +81,7 @@ def main() -> None:
         if entry.notes:
             print(f"    Notes: {entry.notes}")
         print("-" * 30)
+
 
 if __name__ == "__main__":
     main()

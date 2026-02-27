@@ -13,6 +13,7 @@ class ValidationMessage:
     level: str  # 'info', 'success', 'warning', 'error'
     text: str
 
+
 @dataclass
 class ValidationResult:
     success: bool
@@ -21,13 +22,14 @@ class ValidationResult:
     def add_message(self, level: str, text: str) -> None:
         self.messages.append(ValidationMessage(level, text))
 
+
 class UBLValidator:
     """Validates UBL 2.1 XML invoices."""
 
     NAMESPACES = {
-        'ubl': 'urn:oasis:names:specification:ubl:schema:xsd:Invoice-2',
-        'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2',
-        'cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2'
+        "ubl": "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2",
+        "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
+        "cac": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
     }
 
     @staticmethod
@@ -49,18 +51,18 @@ class UBLValidator:
             root = tree.getroot()
 
             if root is None:
-                 result.add_message("error", "XML root is missing")
-                 result.success = False
-                 return result
+                result.add_message("error", "XML root is missing")
+                result.success = False
+                return result
 
             # 1. Validate Root Element
             expected_tag = f"{{{UBLValidator.NAMESPACES['ubl']}}}Invoice"
             if root.tag == expected_tag:
-                 result.add_message("success", "Root element is UBL Invoice-2")
+                result.add_message("success", "Root element is UBL Invoice-2")
             else:
-                 msg = f"Root element mismatch. Found: {root.tag}, Expected: {expected_tag}"
-                 result.add_message("error", msg)
-                 result.success = False
+                msg = f"Root element mismatch. Found: {root.tag}, Expected: {expected_tag}"
+                result.add_message("error", msg)
+                result.success = False
 
             # 2. Validate Key Fields
             def check_field(path: str, name: str) -> bool:
@@ -73,13 +75,13 @@ class UBLValidator:
                     return False
 
             fields_to_check = [
-                ('cbc:ID', "Invoice ID"),
-                ('cbc:IssueDate', "Issue Date"),
-                ('cbc:InvoiceTypeCode', "Invoice Type Code"),
-                ('cac:AccountingSupplierParty/cac:Party/cac:PartyName/cbc:Name', "Supplier Name"),
-                ('cac:AccountingCustomerParty/cac:Party/cac:PartyName/cbc:Name', "Customer Name"),
-                ('cac:TaxTotal/cbc:TaxAmount', "Tax Amount"),
-                ('cac:LegalMonetaryTotal/cbc:PayableAmount', "Payable Amount")
+                ("cbc:ID", "Invoice ID"),
+                ("cbc:IssueDate", "Issue Date"),
+                ("cbc:InvoiceTypeCode", "Invoice Type Code"),
+                ("cac:AccountingSupplierParty/cac:Party/cac:PartyName/cbc:Name", "Supplier Name"),
+                ("cac:AccountingCustomerParty/cac:Party/cac:PartyName/cbc:Name", "Customer Name"),
+                ("cac:TaxTotal/cbc:TaxAmount", "Tax Amount"),
+                ("cac:LegalMonetaryTotal/cbc:PayableAmount", "Payable Amount"),
             ]
 
             for path, name in fields_to_check:
@@ -87,14 +89,14 @@ class UBLValidator:
                     result.success = False
 
             # 3. Check Line Items
-            lines = root.findall('cac:InvoiceLine', UBLValidator.NAMESPACES)
+            lines = root.findall("cac:InvoiceLine", UBLValidator.NAMESPACES)
             result.add_message("info", f"Found {len(lines)} Invoice Lines")
             if len(lines) > 0:
-                 result.add_message("success", "Contains line items")
+                result.add_message("success", "Contains line items")
             else:
-                 result.add_message(
-                     "warning", "No line items found (technical UBL requires at least one)"
-                 )
+                result.add_message(
+                    "warning", "No line items found (technical UBL requires at least one)"
+                )
 
             return result
 
@@ -140,18 +142,18 @@ class BusinessValidator:
         # If already in a closed state, cannot change status
         # (unless to CREDITED/REFUNDED in specific flows)
         if old_status in (InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED, InvoiceStatus.CREDITED):
-             raise ValueError(f"Cannot change status from final state {old_status}")
+            raise ValueError(f"Cannot change status from final state {old_status}")
 
         if old_status == InvoiceStatus.PAID:
-             if new_status not in (InvoiceStatus.REFUNDED, InvoiceStatus.CREDITED):
-                 raise ValueError(f"Cannot change status from PAID to {new_status}")
+            if new_status not in (InvoiceStatus.REFUNDED, InvoiceStatus.CREDITED):
+                raise ValueError(f"Cannot change status from PAID to {new_status}")
 
         if old_status == InvoiceStatus.SENT:
             allowed = (
                 InvoiceStatus.PAID,
                 InvoiceStatus.PARTIALLY_PAID,
                 InvoiceStatus.CANCELLED,
-                InvoiceStatus.CREDITED
+                InvoiceStatus.CREDITED,
             )
             if new_status not in allowed:
                 raise ValueError(
@@ -159,9 +161,9 @@ class BusinessValidator:
                 )
 
         if old_status == InvoiceStatus.DRAFT:
-             # Draft effectively can go to SENT.
-             # Going directly to PAID is possible for simple flows but discouraged.
-             pass
+            # Draft effectively can go to SENT.
+            # Going directly to PAID is possible for simple flows but discouraged.
+            pass
 
     @staticmethod
     def validate_modification(invoice: "Invoice") -> None:

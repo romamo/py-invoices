@@ -1,6 +1,5 @@
 """In-memory payment note repository."""
 
-
 from pydantic_invoices.interfaces.payment_note_repo import PaymentNoteRepository
 from pydantic_invoices.schemas.payment_note import (
     PaymentNote,
@@ -43,17 +42,14 @@ class MemoryPaymentNoteRepository(PaymentNoteRepository):
     def get_active(self, company_id: int | None = None) -> list[PaymentNote]:
         """Get active payment notes."""
         return [
-            n for n in self._storage.values()
+            n
+            for n in self._storage.values()
             if n.is_active and (company_id is None or n.company_id == company_id)
         ]
 
     def get_by_company(self, company_id: int | None = None) -> list[PaymentNote]:
         """Get all payment notes for a company."""
-        return [
-            note
-            for note in self._storage.values()
-            if note.company_id == company_id
-        ]
+        return [note for note in self._storage.values() if note.company_id == company_id]
 
     def get_default(self, company_id: int | None = None) -> PaymentNote | None:
         """Get default payment note."""

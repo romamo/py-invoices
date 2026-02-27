@@ -10,6 +10,7 @@ from py_invoices.config import get_settings
 app = typer.Typer()
 console = get_console()
 
+
 @app.command("list")
 def list_templates() -> None:
     """List available templates and their resolve paths."""
@@ -17,6 +18,7 @@ def list_templates() -> None:
 
     # 1. Package templates
     import py_invoices
+
     package_dir = os.path.dirname(os.path.abspath(py_invoices.__file__))
     package_templates_dir = Path(package_dir) / "templates"
 

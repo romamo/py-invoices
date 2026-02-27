@@ -25,11 +25,7 @@ def list_logs(
     audit_repo = factory.create_audit_repository()
     service = AuditService(audit_repo=audit_repo)
 
-    logs = service.get_logs(
-        invoice_id=invoice_id,
-        invoice_number=invoice_number,
-        action=action
-    )
+    logs = service.get_logs(invoice_id=invoice_id, invoice_number=invoice_number, action=action)
 
     # Slice for limit since get_logs might return all
     # Ideally repo handles limit, but service interface shown didn't have limit arg
@@ -63,7 +59,7 @@ def list_logs(
             log.action,
             log.invoice_number or str(log.invoice_id or "-"),
             detail_str,
-            log.user or "-"
+            log.user or "-",
         )
 
     console.print(table)

@@ -11,7 +11,7 @@ console = get_console()
 @app.command("list")
 def list_clients(
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
-    limit: int = typer.Option(10, help="Number of clients to show")
+    limit: int = typer.Option(10, help="Number of clients to show"),
 ) -> None:
     """List recent clients."""
     factory = get_factory(backend)
@@ -30,12 +30,7 @@ def list_clients(
         return
 
     for client in clients:
-        table.add_row(
-            str(client.id),
-            client.name,
-            client.tax_id or "-",
-            client.email or "-"
-        )
+        table.add_row(str(client.id), client.name, client.tax_id or "-", client.email or "-")
 
     console.print(table)
 
@@ -93,12 +88,7 @@ def search_clients(
         return
 
     for client in clients:
-        table.add_row(
-            str(client.id),
-            client.name,
-            client.tax_id or "-",
-            client.email or "-"
-        )
+        table.add_row(str(client.id), client.name, client.tax_id or "-", client.email or "-")
 
     console.print(table)
 
@@ -112,10 +102,7 @@ def create_client(
     phone: str = typer.Option(None, help="Client phone"),
     preferred_template: str = typer.Option(None, help="Preferred template filename"),
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
-    formats: list[str] = typer.Option(
-        [], "--format", "-f",
-        help="Output formats (json)"
-    )
+    formats: list[str] = typer.Option([], "--format", "-f", help="Output formats (json)"),
 ) -> None:
     """Create a new client."""
     factory = get_factory(backend)
@@ -127,7 +114,7 @@ def create_client(
         tax_id=tax_id,
         email=email,
         phone=phone,
-        preferred_template=preferred_template
+        preferred_template=preferred_template,
     )
 
     client = repo.create(client_data)
@@ -151,6 +138,6 @@ def create_client(
                 # Let's print it to stdout nicely.
                 console.print(client.model_dump_json(indent=2))
             else:
-                 console.print(
-                     f"[yellow]Warning: Format '{fmt}' not supported for clients.[/yellow]"
-                 )
+                console.print(
+                    f"[yellow]Warning: Format '{fmt}' not supported for clients.[/yellow]"
+                )

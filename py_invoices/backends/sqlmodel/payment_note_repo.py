@@ -1,6 +1,5 @@
 """SQLModel payment note repository implementation."""
 
-
 from pydantic_invoices.interfaces.payment_note_repo import PaymentNoteRepository
 from pydantic_invoices.schemas.payment_note import (
     PaymentNote,

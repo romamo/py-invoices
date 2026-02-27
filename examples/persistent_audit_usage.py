@@ -32,14 +32,17 @@ def main() -> None:
     print("\n1. Creating a client and an invoice...")
     client_repo = factory.create_client_repository()
     from pydantic_invoices.schemas import ClientCreate, InvoiceCreate, InvoiceLineCreate
+
     # Create Client
-    client = client_repo.create(ClientCreate(
-        name="Audit Corp",
-        address="123 Audit Lane",
-        tax_id="AUD-001",
-        email="audit@example.com",
-        phone="555-0000"
-    ))
+    client = client_repo.create(
+        ClientCreate(
+            name="Audit Corp",
+            address="123 Audit Lane",
+            tax_id="AUD-001",
+            email="audit@example.com",
+            phone="555-0000",
+        )
+    )
     # Create invoice
     invoice_in = InvoiceCreate(
         number="PERSIST-001",
@@ -50,9 +53,7 @@ def main() -> None:
         client_name_snapshot=client.name,
         client_address_snapshot=client.address,
         client_tax_id_snapshot=client.tax_id,
-        lines=[
-            InvoiceLineCreate(description="Service A", quantity=10, unit_price=150.0)
-        ],
+        lines=[InvoiceLineCreate(description="Service A", quantity=10, unit_price=150.0)],
         original_invoice_id=None,
         reason=None,
         due_date=None,
@@ -76,7 +77,7 @@ def main() -> None:
             amount=500.0,
             payment_date=datetime.now(),
             reference="REF-001",
-            payment_method="Bank Transfer"
+            payment_method="Bank Transfer",
         )
     )
 
@@ -104,8 +105,7 @@ def main() -> None:
     logs = audit_service.get_logs(invoice_id=invoice.id)
     for log in logs:
         print(
-            f"   [{log.timestamp.strftime('%H:%M:%S')}] {log.action}: "
-            f"{log.new_value or log.notes}"
+            f"   [{log.timestamp.strftime('%H:%M:%S')}] {log.action}: {log.new_value or log.notes}"
         )
 
     # 7. Verification of persistence

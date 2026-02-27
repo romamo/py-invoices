@@ -6,6 +6,7 @@ from py_invoices.api.deps import get_factory
 
 router = APIRouter()
 
+
 @router.get("/default", response_model=PaymentNote)
 def get_default_payment_note(
     factory: RepositoryFactory = Depends(get_factory),

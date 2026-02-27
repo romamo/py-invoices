@@ -8,13 +8,12 @@ from py_invoices.core.validator import UBLValidator, ValidationResult
 
 router = APIRouter()
 
+
 @router.post("/ubl", response_model=ValidationResult)
-async def validate_ubl_file(
-    file: UploadFile = File(...)
-) -> Any:
+async def validate_ubl_file(file: UploadFile = File(...)) -> Any:
     """Validate a UBL XML file."""
     if not file.filename:
-         raise HTTPException(status_code=400, detail="No filename provided")
+        raise HTTPException(status_code=400, detail="No filename provided")
 
     # UBLValidator currently requires a file path.
     # We save to a temp file.

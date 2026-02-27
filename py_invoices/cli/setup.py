@@ -17,29 +17,24 @@ def install_package(package: str) -> bool:
         uv_path = shutil.which("uv")
         if uv_path:
             subprocess.run(  # nosec B603
-                [uv_path, "pip", "install", package],
-                check=True,
-                capture_output=True
+                [uv_path, "pip", "install", package], check=True, capture_output=True
             )
             return True
 
         # Fallback to pip
         subprocess.run(  # nosec B603
-            [sys.executable, "-m", "pip", "install", package],
-            check=True,
-            capture_output=True
+            [sys.executable, "-m", "pip", "install", package], check=True, capture_output=True
         )
         return True
     except subprocess.CalledProcessError:
         return False
 
+
 def interactive_setup(
     backend: str = typer.Option(
         None, help="Backend to use (files, sqlite, postgres, mysql, memory)"
     ),
-    storage_path: str = typer.Option(
-        None, help="Storage path for files backend (default: ./data)"
-    ),
+    storage_path: str = typer.Option(None, help="Storage path for files backend (default: ./data)"),
     file_format: str = typer.Option(
         None, help="File format for files backend (json, md, xml, default: json)"
     ),
@@ -101,6 +96,7 @@ def interactive_setup(
         # Check if sqlmodel is installed (common dep for all SQL backends)
         try:
             import sqlmodel  # noqa: F401
+
             # For postgres/mysql specifically check drivers?
             # Keeping it simple: if generic sqlmodel missing, install extra.
             if backend == "postgres":
@@ -128,9 +124,7 @@ def interactive_setup(
         # format
         if file_format is None:
             file_format = Prompt.ask(
-                "Enter file format",
-                choices=["json", "xml", "md"],
-                default=default_format_real
+                "Enter file format", choices=["json", "xml", "md"], default=default_format_real
             )
         config_lines.append(f"INVOICES_FILE_FORMAT={file_format}")
 

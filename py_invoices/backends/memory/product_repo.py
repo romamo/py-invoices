@@ -46,7 +46,8 @@ class MemoryProductRepository(ProductRepository):
         """Search products."""
         query = query.lower()
         return [
-            p for p in self._storage.values()
+            p
+            for p in self._storage.values()
             if query in p.name.lower() or (p.code and query in p.code.lower())
         ]
 

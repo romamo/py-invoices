@@ -52,4 +52,3 @@ app.include_router(validation.router, prefix="/validation", tags=["validation"])
 @app.get("/")
 def read_root() -> FileResponse:
     return FileResponse(os.path.join(static_dir, "index.html"))
-

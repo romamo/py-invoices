@@ -56,5 +56,6 @@ def init_db(backend: str = typer.Option(None, help="Storage backend to use")) ->
 def main() -> None:
     app()
 
+
 if __name__ == "__main__":
     main()

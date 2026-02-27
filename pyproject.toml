@@ -54,6 +54,20 @@ py-invoices = "py_invoices.cli.main:main"
 [tool.hatch.build.targets.wheel]
 packages = ["py_invoices"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+    "/py_invoices",
+    "/tests",
+    "/CHANGELOG.md",
+    "/README.md"
+]
+exclude = [
+    "/.agent",
+    "/.github",
+    "/uv.lock",
+    "/.gemini"
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
@@ -89,8 +103,6 @@ target-version = "py310"
 select = ["E", "F", "I", "N", "W", "UP"]
 ignore = []
 
-[tool.uv.sources]
-pydantic-invoices = { path = "../pydantic-invoices", editable = true }
 
 [dependency-groups]
 # Development dependencies

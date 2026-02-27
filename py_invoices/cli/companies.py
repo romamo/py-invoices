@@ -6,6 +6,8 @@ from py_invoices.cli.utils import get_console, get_factory
 
 app = typer.Typer()
 console = get_console()
+
+
 @app.command("list")
 def list_companies(
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
@@ -33,12 +35,7 @@ def list_companies(
 
     for company in companies:
         is_default = "*" if company.id == default_id else ""
-        table.add_row(
-            company.name,
-            company.tax_id or "-",
-            company.email or "-",
-            is_default
-        )
+        table.add_row(company.name, company.tax_id or "-", company.email or "-", is_default)
 
     console.print(table)
 

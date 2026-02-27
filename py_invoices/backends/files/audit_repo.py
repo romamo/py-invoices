@@ -42,10 +42,7 @@ class FileAuditRepository:
 
     def get_by_invoice(self, invoice_id: int) -> list[Any]:
         """Get logs for an invoice."""
-        return [
-            log for log in self.storage.load_all()
-            if log.invoice_id == invoice_id
-        ]
+        return [log for log in self.storage.load_all() if log.invoice_id == invoice_id]
 
     def get_all(self, skip: int = 0, limit: int = 100) -> list[Any]:
         """Get all logs."""
@@ -59,13 +56,14 @@ class FileAuditRepository:
         # FileStorage doesn't expose 'clear' or 'delete_all'.
         # Let's iterate.
         for log in self.storage.load_all():
-             # We need ID to delete. load_all returns entities, logic loses generic generic ID.
-             # Wait, storage.load_all() returns entities.
-             # I should probably expose clearing in FileStorage or loop files directly.
-             pass
+            # We need ID to delete. load_all returns entities, logic loses generic generic ID.
+            # Wait, storage.load_all() returns entities.
+            # I should probably expose clearing in FileStorage or loop files directly.
+            pass
 
         # Pragmatic approach: recreate storage or delete dir
         import shutil
+
         if self.storage.entity_dir.exists():
             shutil.rmtree(self.storage.entity_dir)
             self.storage.entity_dir.mkdir()

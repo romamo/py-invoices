@@ -72,9 +72,9 @@ class CreditService:
         elif refund_lines_indices:
             # credit specific lines from original
             for idx in refund_lines_indices:
-                 if 0 <= idx < len(original_invoice.lines):
-                     orig_line = original_invoice.lines[idx]
-                     cn_lines.append(
+                if 0 <= idx < len(original_invoice.lines):
+                    orig_line = original_invoice.lines[idx]
+                    cn_lines.append(
                         InvoiceLineCreate(
                             description=f"Refund: {orig_line.description}",
                             quantity=orig_line.quantity,
@@ -85,9 +85,9 @@ class CreditService:
                             # Let's stick to positive quantities and amounts for now,
                             # and let the "InvoiceType=CREDIT_NOTE" handle the accounting logic
                             # (subtraction).
-                            unit_price=orig_line.unit_price
+                            unit_price=orig_line.unit_price,
                         )
-                     )
+                    )
         else:
             # Full Credit
             for line in original_invoice.lines:
@@ -99,7 +99,6 @@ class CreditService:
                     )
                 )
 
-
         # Generate Number
         # Use a specific series prefix for CN? e.g. CN-2025-0001
         # For simplicity, we use the standard numbering but users can configure prefix
@@ -108,20 +107,20 @@ class CreditService:
         inv_number = self.numbering_service.generate_number()
         cn_number = inv_number.replace("INV-", "CN-")
         if cn_number == inv_number:
-             # If custom format didn't have INV-, prepend CN-
-             cn_number = f"CN-{inv_number}"
+            # If custom format didn't have INV-, prepend CN-
+            cn_number = f"CN-{inv_number}"
 
         cn_data = InvoiceCreate(
             number=cn_number,
             issue_date=datetime.now(),
-            status=InvoiceStatus.DRAFT, # Start as draft
+            status=InvoiceStatus.DRAFT,  # Start as draft
             type=InvoiceType.CREDIT_NOTE,
             original_invoice_id=original_invoice.id,
             reason=reason,
             client_id=original_invoice.client_id,
             company_id=original_invoice.company_id,
             lines=cn_lines,
-            due_date=original_invoice.due_date, # Or immediate?
+            due_date=original_invoice.due_date,  # Or immediate?
             payment_terms="Immediate",
             # Snapshots handled by repo or manually?
             # Ideally repo handles snapshotting on creation if not provided,

@@ -13,9 +13,7 @@ class FileClientRepository(ClientRepository):
 
     def __init__(self, root_dir: str | Path, file_format: str = "json") -> None:
         """Initialize file repository."""
-        self.storage = FileStorage[Client](
-            root_dir, "clients", Client, default_format=file_format
-        )
+        self.storage = FileStorage[Client](root_dir, "clients", Client, default_format=file_format)
 
     def create(self, data: ClientCreate) -> Client:
         """Create a new client."""
@@ -43,10 +41,7 @@ class FileClientRepository(ClientRepository):
     def search_by_name(self, name: str) -> list[Client]:
         """Search clients by name (case-insensitive partial match)."""
         name_lower = name.lower()
-        return [
-            client for client in self.storage.load_all()
-            if name_lower in client.name.lower()
-        ]
+        return [client for client in self.storage.load_all() if name_lower in client.name.lower()]
 
     def get_by_name(self, name: str) -> Client | None:
         """Get client by exact name match."""

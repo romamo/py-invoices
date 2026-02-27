@@ -34,17 +34,17 @@ def generate_pdf(
     # Try to find invoice by ID first (if integer), then by number
     invoice = None
     if invoice_identifier.isdigit():
-         if hasattr(invoice_repo, "get_by_id"):
-             invoice = invoice_repo.get_by_id(int(invoice_identifier))
-         elif hasattr(invoice_repo, "get"):
-             invoice = invoice_repo.get(int(invoice_identifier))
+        if hasattr(invoice_repo, "get_by_id"):
+            invoice = invoice_repo.get_by_id(int(invoice_identifier))
+        elif hasattr(invoice_repo, "get"):
+            invoice = invoice_repo.get(int(invoice_identifier))
 
     if not invoice:
         if hasattr(invoice_repo, "get_by_number"):
             invoice = invoice_repo.get_by_number(invoice_identifier)
         else:
-             all_invoices = invoice_repo.get_all()
-             invoice = next((i for i in all_invoices if i.number == invoice_identifier), None)
+            all_invoices = invoice_repo.get_all()
+            invoice = next((i for i in all_invoices if i.number == invoice_identifier), None)
 
     if not invoice:
         console.print(f"[red]Error: Invoice '{invoice_identifier}' not found.[/red]")
@@ -64,6 +64,7 @@ def generate_pdf(
         template_dir = settings.template_dir
         if not template_dir:
             import py_invoices
+
             package_dir = os.path.dirname(os.path.abspath(py_invoices.__file__))
             template_dir = os.path.join(package_dir, "templates")
 
@@ -89,20 +90,17 @@ def generate_pdf(
             context["payment_notes"] = payment_notes
 
         output_path = service.generate_pdf(
-            invoice=invoice,
-            company=company_data,
-            template_name=template_to_use,
-            **context
+            invoice=invoice, company=company_data, template_name=template_to_use, **context
         )
 
         console.print(f"[green]✓ Generated PDF for Invoice {invoice.number}[/green]")
         console.print(f"  Path: {output_path}")
 
     except ImportError as e:
-         console.print("[red]Error: PDF generation dependencies missing.[/red]")
-         console.print(f"{e}")
-         console.print("[yellow]Tip: Install with `pip install 'py-invoices[pdf]'`[/yellow]")
-         raise typer.Exit(code=1)
+        console.print("[red]Error: PDF generation dependencies missing.[/red]")
+        console.print(f"{e}")
+        console.print("[yellow]Tip: Install with `pip install 'py-invoices[pdf]'`[/yellow]")
+        raise typer.Exit(code=1)
 
 
 @app.command("html")
@@ -125,17 +123,17 @@ def generate_html(
 
     invoice = None
     if invoice_identifier.isdigit():
-         if hasattr(invoice_repo, "get_by_id"):
-             invoice = invoice_repo.get_by_id(int(invoice_identifier))
-         elif hasattr(invoice_repo, "get"):
-             invoice = invoice_repo.get(int(invoice_identifier))
+        if hasattr(invoice_repo, "get_by_id"):
+            invoice = invoice_repo.get_by_id(int(invoice_identifier))
+        elif hasattr(invoice_repo, "get"):
+            invoice = invoice_repo.get(int(invoice_identifier))
 
     if not invoice:
         if hasattr(invoice_repo, "get_by_number"):
             invoice = invoice_repo.get_by_number(invoice_identifier)
         else:
-             all_invoices = invoice_repo.get_all()
-             invoice = next((i for i in all_invoices if i.number == invoice_identifier), None)
+            all_invoices = invoice_repo.get_all()
+            invoice = next((i for i in all_invoices if i.number == invoice_identifier), None)
 
     if not invoice:
         console.print(f"[red]Error: Invoice '{invoice_identifier}' not found.[/red]")
@@ -154,6 +152,7 @@ def generate_html(
     template_dir = settings.template_dir
     if not template_dir:
         import py_invoices
+
         package_dir = os.path.dirname(os.path.abspath(py_invoices.__file__))
         template_dir = os.path.join(package_dir, "templates")
 
@@ -179,21 +178,17 @@ def generate_html(
         context["payment_notes"] = payment_notes
 
     output_path = service.save_html(
-        invoice=invoice,
-        company=company_data,
-        template_name=template_to_use,
-        **context
+        invoice=invoice, company=company_data, template_name=template_to_use, **context
     )
 
     console.print(f"[green]✓ Generated HTML for Invoice {invoice.number}[/green]")
     console.print(f"  Path: {output_path}")
 
 
-
 @app.command("list")
 def list_invoices(
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
-    limit: int = typer.Option(10, help="Number of invoice to show")
+    limit: int = typer.Option(10, help="Number of invoice to show"),
 ) -> None:
     """List recent invoices."""
     factory = get_factory(backend)
@@ -218,7 +213,7 @@ def list_invoices(
             str(invoice.issue_date.date()),
             invoice.client_name_snapshot,
             f"${invoice.total_amount:.2f}",
-            invoice.status.value
+            invoice.status.value,
         )
 
     console.print(table)
@@ -236,17 +231,17 @@ def get_invoice_details(
     # Reuse resolution logic? Simpler here for now.
     invoice = None
     if invoice_identifier.isdigit():
-         if hasattr(invoice_repo, "get_by_id"):
-             invoice = invoice_repo.get_by_id(int(invoice_identifier))
-         elif hasattr(invoice_repo, "get"):
-             invoice = invoice_repo.get(int(invoice_identifier))
+        if hasattr(invoice_repo, "get_by_id"):
+            invoice = invoice_repo.get_by_id(int(invoice_identifier))
+        elif hasattr(invoice_repo, "get"):
+            invoice = invoice_repo.get(int(invoice_identifier))
 
     if not invoice:
         if hasattr(invoice_repo, "get_by_number"):
             invoice = invoice_repo.get_by_number(invoice_identifier)
         else:
-             all_invoices = invoice_repo.get_all()
-             invoice = next((i for i in all_invoices if i.number == invoice_identifier), None)
+            all_invoices = invoice_repo.get_all()
+            invoice = next((i for i in all_invoices if i.number == invoice_identifier), None)
 
     if not invoice:
         console.print(f"[red]Error: Invoice '{invoice_identifier}' not found.[/red]")
@@ -266,10 +261,7 @@ def get_invoice_details(
 
     for line in invoice.lines:
         table.add_row(
-            line.description,
-            str(line.quantity),
-            f"${line.unit_price:.2f}",
-            f"${line.total:.2f}"
+            line.description, str(line.quantity), f"${line.unit_price:.2f}", f"${line.total:.2f}"
         )
 
     console.print(table)
@@ -301,7 +293,7 @@ def list_overdue(
             invoice.number,
             str(invoice.due_date),
             invoice.client_name_snapshot,
-            f"${invoice.total_amount:.2f}"
+            f"${invoice.total_amount:.2f}",
         )
 
     console.print(table)
@@ -324,7 +316,7 @@ def show_summary(
         if "amount" in key or "revenue" in key:
             console.print(f"{key.replace('_', ' ').title()}: ${value:.2f}")
         else:
-             console.print(f"{key.replace('_', ' ').title()}: {value}")
+            console.print(f"{key.replace('_', ' ').title()}: {value}")
 
 
 @app.command("create")
@@ -344,8 +336,7 @@ def create_invoice(
     bank_account: str = typer.Option(None, help="Bank account details to display"),
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
     formats: list[str] = typer.Option(
-        [], "--format", "-f",
-        help="Output formats to generate immediately (pdf, html, json, ubl)"
+        [], "--format", "-f", help="Output formats to generate immediately (pdf, html, json, ubl)"
     ),
     output_dir: str = typer.Option("output", help="Directory for generated files"),
     # Company Details
@@ -380,19 +371,22 @@ def create_invoice(
         client = next((c for c in all_clients if c.name.lower() == client_name.lower()), None)
 
         if not client:
-             console.print(
-                 f"[yellow]Client '{client_name}' not found. Creating new client...[/yellow]"
-             )
-             from pydantic_invoices.schemas import ClientCreate
-             client = client_repo.create(ClientCreate(
-                 name=client_name,
-                 address=client_address, # Optional in schema
-                 tax_id=client_tax_id,
-                 email=client_email,
-                 phone=client_phone,
-                 preferred_template=None
-             ))
-             console.print(f"[green]✓ Created Client {client.name} (ID: {client.id})[/green]")
+            console.print(
+                f"[yellow]Client '{client_name}' not found. Creating new client...[/yellow]"
+            )
+            from pydantic_invoices.schemas import ClientCreate
+
+            client = client_repo.create(
+                ClientCreate(
+                    name=client_name,
+                    address=client_address,  # Optional in schema
+                    tax_id=client_tax_id,
+                    email=client_email,
+                    phone=client_phone,
+                    preferred_template=None,
+                )
+            )
+            console.print(f"[green]✓ Created Client {client.name} (ID: {client.id})[/green]")
     else:
         console.print("[red]Error: Must provide --client-id or --client-name[/red]")
         raise typer.Exit(code=1)
@@ -403,33 +397,30 @@ def create_invoice(
         invoice_number = numbering.generate_number()
 
     # 3. Create Invoice
-    invoice = invoice_repo.create(InvoiceCreate(
-        number=invoice_number,
-        issue_date=datetime.now(),
-        status=InvoiceStatus.UNPAID,
-        due_date=date.today(),
-        payment_terms=payment_terms,
-        original_invoice_id=None,
-        reason=None,
-        client_id=client.id,
-        client_name_snapshot=client.name,
-        client_address_snapshot=client.address,
-        client_tax_id_snapshot=client.tax_id,
-        company_id=1,
-        template_name=(
-            template if isinstance(template, str)
-            else getattr(client, "preferred_template", None)
-            if isinstance(getattr(client, "preferred_template", None), str)
-            else None
-        ),
-        lines=[
-            InvoiceLineCreate(
-                description=description,
-                quantity=1,
-                unit_price=amount
-            )
-        ]
-    ))
+    invoice = invoice_repo.create(
+        InvoiceCreate(
+            number=invoice_number,
+            issue_date=datetime.now(),
+            status=InvoiceStatus.UNPAID,
+            due_date=date.today(),
+            payment_terms=payment_terms,
+            original_invoice_id=None,
+            reason=None,
+            client_id=client.id,
+            client_name_snapshot=client.name,
+            client_address_snapshot=client.address,
+            client_tax_id_snapshot=client.tax_id,
+            company_id=1,
+            template_name=(
+                template
+                if isinstance(template, str)
+                else getattr(client, "preferred_template", None)
+                if isinstance(getattr(client, "preferred_template", None), str)
+                else None
+            ),
+            lines=[InvoiceLineCreate(description=description, quantity=1, unit_price=amount)],
+        )
+    )
 
     console.print(f"[green]✓ Created Invoice {invoice.number}[/green]")
     console.print(f"  Client: {invoice.client_name_snapshot}")
@@ -453,7 +444,7 @@ def create_invoice(
             "name": company_name or "Unknown Company",
             "address": company_address or "Unknown Address",
             "email": company_email,
-            "tax_id": company_tax_id
+            "tax_id": company_tax_id,
         }
 
         # Construct Payment Notes for Template
@@ -465,6 +456,7 @@ def create_invoice(
             payment_notes_context.append({"title": "Bank Account", "content": bank_account})
 
         import py_invoices
+
         package_dir = os.path.dirname(os.path.abspath(py_invoices.__file__))
         template_dir = os.path.join(package_dir, "templates")
         os.makedirs(output_dir, exist_ok=True)
@@ -477,18 +469,14 @@ def create_invoice(
                 if fmt == "pdf":
                     pdf_service = PDFService(template_dir=template_dir, output_dir=output_dir)
                     path = pdf_service.generate_pdf(
-                        invoice=invoice,
-                        company=company_data,
-                        payment_notes=payment_notes_context
+                        invoice=invoice, company=company_data, payment_notes=payment_notes_context
                     )
                     console.print(f"[blue]  -> Generated PDF: {path}[/blue]")
 
                 elif fmt == "html":
                     html_service = HTMLService(template_dir=template_dir, output_dir=output_dir)
                     path = html_service.save_html(
-                        invoice=invoice,
-                        company=company_data,
-                        payment_notes=payment_notes_context
+                        invoice=invoice, company=company_data, payment_notes=payment_notes_context
                     )
                     console.print(f"[blue]  -> Generated HTML: {path}[/blue]")
 
@@ -507,9 +495,9 @@ def create_invoice(
                     console.print(f"[yellow]  Warning: Unknown format '{fmt}'[/yellow]")
 
             except ImportError:
-                 console.print(
-                     f"[red]  Failed to generate {fmt.upper()}: Missing dependencies.[/red]"
-                 )
+                console.print(
+                    f"[red]  Failed to generate {fmt.upper()}: Missing dependencies.[/red]"
+                )
 
 
 @app.command("stats")
@@ -535,8 +523,7 @@ def clone_invoice(
     invoice_identifier: str = typer.Argument(..., help="Invoice Number or ID to clone"),
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
     formats: list[str] = typer.Option(
-        [], "--format", "-f",
-        help="Output formats to generate immediately (pdf, html, json, ubl)"
+        [], "--format", "-f", help="Output formats to generate immediately (pdf, html, json, ubl)"
     ),
     output_dir: str = typer.Option("output", help="Directory for generated files"),
     # Company Details for generation
@@ -556,15 +543,15 @@ def clone_invoice(
         if hasattr(invoice_repo, "get_by_id"):
             original = invoice_repo.get_by_id(int(invoice_identifier))
         elif hasattr(invoice_repo, "get"):
-             original = invoice_repo.get(int(invoice_identifier))
+            original = invoice_repo.get(int(invoice_identifier))
 
     if not original:
         if hasattr(invoice_repo, "get_by_number"):
             original = invoice_repo.get_by_number(invoice_identifier)
         else:
-             all_invoices = invoice_repo.get_all()
-             # Note: inefficient for many invoices, but acceptable for CLI for now
-             original = next((i for i in all_invoices if i.number == invoice_identifier), None)
+            all_invoices = invoice_repo.get_all()
+            # Note: inefficient for many invoices, but acceptable for CLI for now
+            original = next((i for i in all_invoices if i.number == invoice_identifier), None)
 
     if not original:
         console.print(f"[red]Error: Invoice '{invoice_identifier}' not found.[/red]")
@@ -577,9 +564,7 @@ def clone_invoice(
     # 3. Create New Invoice Data
     lines = [
         InvoiceLineCreate(
-            description=line.description,
-            quantity=line.quantity,
-            unit_price=line.unit_price
+            description=line.description, quantity=line.quantity, unit_price=line.unit_price
         )
         for line in original.lines
     ]
@@ -619,7 +604,7 @@ def clone_invoice(
         invoice_id=new_invoice.id,
         invoice_number=new_invoice.number,
         original_number=original.number,
-        total_amount=new_invoice.total_amount
+        total_amount=new_invoice.total_amount,
     )
 
     console.print(f"[green]✓ Cloned Invoice {original.number} -> {new_invoice.number}[/green]")
@@ -634,7 +619,7 @@ def clone_invoice(
                     "[red]Error: --company-name and --company-address are required when "
                     "generating files.[/red]"
                 )
-                pass # Don't exit, just skip or let it fail downstream gracefully?
+                pass  # Don't exit, just skip or let it fail downstream gracefully?
                 # Actually, let's continue but it will probably fail or use defaults?
                 # Create command logic used 'pass', effectively ignoring the error and continuing?
                 # Ah, existing 'create' logic checks but 'pass' does nothing.
@@ -644,16 +629,17 @@ def clone_invoice(
             "name": company_name or "Unknown Company",
             "address": company_address or "Unknown Address",
             "email": company_email,
-            "tax_id": company_tax_id
+            "tax_id": company_tax_id,
         }
 
         payment_notes_context = []
         if new_invoice.payment_terms:
-             payment_notes_context.append(
-                 {"title": "Payment Terms", "content": new_invoice.payment_terms}
-             )
+            payment_notes_context.append(
+                {"title": "Payment Terms", "content": new_invoice.payment_terms}
+            )
 
         import py_invoices
+
         package_dir = os.path.dirname(os.path.abspath(py_invoices.__file__))
         template_dir = os.path.join(package_dir, "templates")
         os.makedirs(output_dir, exist_ok=True)
@@ -668,7 +654,7 @@ def clone_invoice(
                     path = pdf_service.generate_pdf(
                         invoice=new_invoice,
                         company=company_data,
-                        payment_notes=payment_notes_context
+                        payment_notes=payment_notes_context,
                     )
                     console.print(f"[blue]  -> Generated PDF: {path}[/blue]")
 
@@ -677,7 +663,7 @@ def clone_invoice(
                     path = html_service.save_html(
                         invoice=new_invoice,
                         company=company_data,
-                        payment_notes=payment_notes_context
+                        payment_notes=payment_notes_context,
                     )
                     console.print(f"[blue]  -> Generated HTML: {path}[/blue]")
 
@@ -696,8 +682,6 @@ def clone_invoice(
                     console.print(f"[yellow]  Warning: Unknown format '{fmt}'[/yellow]")
 
             except ImportError:
-                 console.print(
-                     f"[red]  Failed to generate {fmt.upper()}: Missing dependencies.[/red]"
-                 )
-
-
+                console.print(
+                    f"[red]  Failed to generate {fmt.upper()}: Missing dependencies.[/red]"
+                )

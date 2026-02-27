@@ -22,13 +22,13 @@ def show_config() -> None:
     # Backend settings
     table.add_row("Backend", settings.backend)
     if settings.database_url:
-         # Simple masking just in case, though usually env var
+        # Simple masking just in case, though usually env var
         db_url = settings.database_url
         if "://" in db_url:
-             scheme, rest = db_url.split("://", 1)
-             table.add_row("Database URL", f"{scheme}://***")
+            scheme, rest = db_url.split("://", 1)
+            table.add_row("Database URL", f"{scheme}://***")
         else:
-             table.add_row("Database URL", "***")
+            table.add_row("Database URL", "***")
 
     # Files backend settings
     table.add_row("Default File Format", settings.file_format)

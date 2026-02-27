@@ -6,6 +6,8 @@ from py_invoices.cli.utils import get_console, get_factory
 
 app = typer.Typer()
 console = get_console()
+
+
 @app.command("list")
 def list_payment_notes(
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
@@ -48,12 +50,7 @@ def list_payment_notes(
         content = getattr(note, "note", getattr(note, "content", ""))
         is_default_flag = getattr(note, "is_default", False)
 
-        table.add_row(
-            note_id,
-            title,
-            content,
-            "*" if is_default_flag else ""
-        )
+        table.add_row(note_id, title, content, "*" if is_default_flag else "")
 
     console.print(table)
 
@@ -90,10 +87,7 @@ def create_payment_note(
     repo = factory.create_payment_note_repository()
 
     note_data = PaymentNoteCreate(
-        title=title,
-        content=content,
-        company_id=company_id,
-        is_default=is_default
+        title=title, content=content, company_id=company_id, is_default=is_default
     )
 
     created_note = repo.create(note_data)
@@ -106,5 +100,3 @@ def create_payment_note(
         console.print(
             "\n[yellow]Note: stored in memory. It will be lost when this command exits.[/yellow]"
         )
-
-

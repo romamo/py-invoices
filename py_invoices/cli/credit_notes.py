@@ -42,7 +42,7 @@ def create_credit_note(
         )
         console.print(f"[green]✓ Created Credit Note {cn.number}[/green]")
         console.print(f"  Reference: {original_invoice.number}")
-        console.print(f"  Total Credited: ${cn.total_amount:.2f}") # Assuming positive for display?
+        console.print(f"  Total Credited: ${cn.total_amount:.2f}")  # Assuming positive for display?
 
     except ValueError as e:
         console.print(f"[red]Error: {e}[/red]")

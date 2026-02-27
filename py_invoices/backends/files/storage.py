@@ -23,7 +23,7 @@ class FileStorage(Generic[T]):
         root_dir: str | Path,
         entity_name: str,
         model_class: type[T],
-        default_format: str = "json"
+        default_format: str = "json",
     ):
         """Initialize file storage.
 
@@ -85,9 +85,9 @@ class FileStorage(Generic[T]):
         prefix = f"{entity_id}."
         for item in self.entity_dir.iterdir():
             if item.is_file() and item.name.startswith(prefix):
-                 # Verify it's not just a partial number like "10.json" when looking for "1"
-                 # checking startswith "1." is sufficient because 10. starts with "10."
-                 return item
+                # Verify it's not just a partial number like "10.json" when looking for "1"
+                # checking startswith "1." is sufficient because 10. starts with "10."
+                return item
 
         return None
 
@@ -109,17 +109,17 @@ class FileStorage(Generic[T]):
             # If format is explicitly requested and different, we might need to change extension
             # But usually we want to preserve the existing file's format/name
             if fmt:
-                 # If explicit format requested differs from existing, we swap
-                 if existing_file.suffix.lstrip(".") != fmt:
-                     existing_file.unlink()
-                     path = self._get_file_path(entity_id, fmt)
+                # If explicit format requested differs from existing, we swap
+                if existing_file.suffix.lstrip(".") != fmt:
+                    existing_file.unlink()
+                    path = self._get_file_path(entity_id, fmt)
             else:
                 # Infer format from existing file
                 fmt = existing_file.suffix.lstrip(".")
         else:
             path = self._get_file_path(entity_id, fmt)
         # Exclude none for XML to avoid "None" strings
-        exclude_none = (fmt == "xml")
+        exclude_none = fmt == "xml"
         data = entity.model_dump(mode="json", exclude_none=exclude_none)
 
         if fmt == "json":
@@ -175,7 +175,7 @@ class FileStorage(Generic[T]):
                 # Note: path.stem for "1.item.json" is "1.item"
                 parts = path.name.split(".", 1)
                 if len(parts) > 1 and parts[0].isdigit():
-                     entity_id = int(parts[0])
+                    entity_id = int(parts[0])
 
             if entity_id is not None:
                 entity = self.load(entity_id)
@@ -215,6 +215,7 @@ class FileStorage(Generic[T]):
 
         with open(path) as f:
             from typing import cast
+
             return cast(dict[str, Any], yaml.safe_load(f))
 
     def _save_markdown(self, path: Path, data: dict[str, Any]) -> None:
@@ -242,11 +243,12 @@ class FileStorage(Generic[T]):
             if len(parts) >= 3:
                 frontmatter = parts[1]
                 from typing import cast
+
                 if yaml:
                     return cast(dict[str, Any], yaml.safe_load(frontmatter))
                 else:
                     # Fallback: try JSON load
-                     return cast(dict[str, Any], json.loads(frontmatter))
+                    return cast(dict[str, Any], json.loads(frontmatter))
 
         raise ValueError(f"Invalid markdown format in {path}")
 
@@ -288,6 +290,7 @@ class FileStorage(Generic[T]):
         root = tree.getroot()
 
         from typing import Any
+
         def xml_to_dict(element: Any) -> Any:
             result: dict[str, Any] = {}
             for child in element:
@@ -301,15 +304,17 @@ class FileStorage(Generic[T]):
             return result
 
         from typing import cast
+
         data = cast(dict[str, Any], xml_to_dict(root))
 
         # Post-process to ensure list fields are lists
         for field_name, field_info in self.model_class.model_fields.items():
             if field_name in data:
                 from typing import get_origin
+
                 origin = get_origin(field_info.annotation)
                 if origin is list and not isinstance(data[field_name], list):
-                     data[field_name] = [data[field_name]]
+                    data[field_name] = [data[field_name]]
 
                 elif origin is dict and data[field_name] is None:
                     data[field_name] = {}

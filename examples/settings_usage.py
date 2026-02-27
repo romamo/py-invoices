@@ -28,11 +28,7 @@ def example_from_environment() -> None:
     # Create a client
     client = client_repo.create(
         ClientCreate(
-            name="Globex",
-            address="456 Global St",
-            tax_id="US-987654",
-            email=None,
-            phone=None
+            name="Globex", address="456 Global St", tax_id="US-987654", email=None, phone=None
         )
     )
     print(f"✓ Created client: {client.name}\n")
@@ -82,12 +78,8 @@ def example_explicit_settings() -> None:
             client_address_snapshot=client.address,
             client_tax_id_snapshot=client.tax_id,
             lines=[
-                InvoiceLineCreate(
-                    description="Consulting Services",
-                    quantity=10,
-                    unit_price=150.0
-                )
-            ]
+                InvoiceLineCreate(description="Consulting Services", quantity=10, unit_price=150.0)
+            ],
         )
     )
 

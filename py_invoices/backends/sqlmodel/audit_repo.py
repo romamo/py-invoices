@@ -45,10 +45,7 @@ class SQLModelAuditRepository:
     def get_all(self, skip: int = 0, limit: int = 100) -> list[Any]:
         """Get all audit logs with pagination."""
         stmt = (
-            select(AuditLogDB)
-            .offset(skip)
-            .limit(limit)
-            .order_by(desc(AuditLogDB.timestamp))  # type: ignore[arg-type]
+            select(AuditLogDB).offset(skip).limit(limit).order_by(desc(AuditLogDB.timestamp))  # type: ignore[arg-type]
         )
         db_entries = self.session.exec(stmt).all()
         return [e.to_schema() for e in db_entries]

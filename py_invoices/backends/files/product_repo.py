@@ -52,7 +52,8 @@ class FileProductRepository(ProductRepository):
         """Search products."""
         query = query.lower()
         return [
-            p for p in self.storage.load_all()
+            p
+            for p in self.storage.load_all()
             if query in p.name.lower() or (p.code and query in p.code.lower())
         ]
 

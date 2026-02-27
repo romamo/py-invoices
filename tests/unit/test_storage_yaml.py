@@ -20,6 +20,7 @@ def temp_storage(tmp_path):
 def test_save_load_yaml_success(temp_storage, tmp_path) -> None:
     """Test saving and loading YAML when pyyaml is available."""
     import importlib.util
+
     if importlib.util.find_spec("yaml") is None:
         pytest.skip("pyyaml not installed")
 
@@ -68,6 +69,7 @@ def test_load_yaml_missing_lib_error(temp_storage, tmp_path) -> None:
 def test_markdown_yaml_integration(temp_storage) -> None:
     """Test Markdown using YAML frontmatter if available."""
     import importlib.util
+
     if importlib.util.find_spec("yaml") is None:
         pytest.skip("pyyaml not installed")
 

@@ -1,0 +1,12 @@
+include pyproject.toml
+include LICENSE
+include README.md
+include CHANGELOG.md
+include py_invoices/py.typed
+recursive-include tests *
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude .agent *
+recursive-exclude .github *
+exclude uv.lock
+exclude .gemini

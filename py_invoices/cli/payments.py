@@ -42,7 +42,7 @@ def list_payments(
             str(payment.payment_date),
             f"${payment.amount:.2f}",
             payment.payment_method or "-",
-            payment.reference or "-"
+            payment.reference or "-",
         )
 
     total_paid = sum(p.amount for p in payments)

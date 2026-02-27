@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter, Depends
 
 from py_invoices import RepositoryFactory
@@ -6,6 +5,7 @@ from py_invoices.api.deps import get_factory
 from py_invoices.core.audit_service import AuditLogEntry, AuditService
 
 router = APIRouter()
+
 
 @router.get("/", response_model=list[AuditLogEntry])
 def list_audit_logs(

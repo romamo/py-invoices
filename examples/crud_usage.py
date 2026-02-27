@@ -1,4 +1,5 @@
 """Example showing typical CRUD operations using the SQLite backend."""
+
 import os
 from datetime import datetime
 
@@ -19,44 +20,47 @@ def main() -> None:
         os.remove(db_file)
 
     print(f"--- Setting up SQLite backend: {db_file} ---")
-    factory = RepositoryFactory(
-        backend="sqlite",
-        database_url=f"sqlite:///{db_file}"
-    )
+    factory = RepositoryFactory(backend="sqlite", database_url=f"sqlite:///{db_file}")
 
     client_repo = factory.create_client_repository()
     invoice_repo = factory.create_invoice_repository()
 
     # 2. CREATE
     print("\n[CREATE] Adding new client...")
-    client = client_repo.create(ClientCreate(
-        name="Acme Corp",
-        address="1 Central City Plaza",
-        tax_id="123-456",
-        email=None,
-        phone=None
-    ))
+    client = client_repo.create(
+        ClientCreate(
+            name="Acme Corp",
+            address="1 Central City Plaza",
+            tax_id="123-456",
+            email=None,
+            phone=None,
+        )
+    )
     print(f"Created client {client.name} with ID: {client.id}")
 
-    invoice = invoice_repo.create(InvoiceCreate(
-        number="INV-STAR-001",
-        issue_date=datetime.now(),
-        status=InvoiceStatus.UNPAID,
-        client_id=client.id,
-        client_name_snapshot=client.name,
-        client_address_snapshot=client.address,
-        client_tax_id_snapshot=client.tax_id,
-        original_invoice_id=None,
-        reason=None,
-        due_date=None,
-        company_id=1,
-        lines=[
-            InvoiceLineCreate(
-                description="Particle Accelerator Tune-up", quantity=1, unit_price=5000.0
-            ),
-            InvoiceLineCreate(description="Speed Force Measurement", quantity=5, unit_price=200.0)
-        ]
-    ))
+    invoice = invoice_repo.create(
+        InvoiceCreate(
+            number="INV-STAR-001",
+            issue_date=datetime.now(),
+            status=InvoiceStatus.UNPAID,
+            client_id=client.id,
+            client_name_snapshot=client.name,
+            client_address_snapshot=client.address,
+            client_tax_id_snapshot=client.tax_id,
+            original_invoice_id=None,
+            reason=None,
+            due_date=None,
+            company_id=1,
+            lines=[
+                InvoiceLineCreate(
+                    description="Particle Accelerator Tune-up", quantity=1, unit_price=5000.0
+                ),
+                InvoiceLineCreate(
+                    description="Speed Force Measurement", quantity=5, unit_price=200.0
+                ),
+            ],
+        )
+    )
     print(f"Created invoice {invoice.number} for ${invoice.total_amount}")
 
     # 3. READ / SEARCH
@@ -93,6 +97,7 @@ def main() -> None:
     if os.path.exists(db_file):
         os.remove(db_file)
     print("\nDemo completed.")
+
 
 if __name__ == "__main__":
     main()

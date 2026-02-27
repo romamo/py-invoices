@@ -5,8 +5,10 @@ from py_invoices.config import get_settings
 
 console = Console()
 
+
 def get_console() -> Console:
     return console
+
 
 def get_factory(backend: str | None = None) -> RepositoryFactory:
     settings = get_settings()

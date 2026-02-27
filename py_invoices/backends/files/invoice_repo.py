@@ -57,24 +57,15 @@ class FileInvoiceRepository(InvoiceRepository):
 
     def get_by_client(self, client_id: int) -> list[Invoice]:
         """Get all invoices for a client."""
-        return [
-            inv for inv in self.storage.load_all()
-            if inv.client_id == client_id
-        ]
+        return [inv for inv in self.storage.load_all() if inv.client_id == client_id]
 
     def get_by_status(self, status: InvoiceStatus) -> list[Invoice]:
         """Get invoices by status."""
-        return [
-            inv for inv in self.storage.load_all()
-            if inv.status == status
-        ]
+        return [inv for inv in self.storage.load_all() if inv.status == status]
 
     def get_overdue(self) -> list[Invoice]:
         """Get all overdue invoices."""
-        return [
-            inv for inv in self.storage.load_all()
-            if inv.is_overdue
-        ]
+        return [inv for inv in self.storage.load_all() if inv.is_overdue]
 
     def get_summary(self) -> dict[str, Any]:
         """Get invoice statistics summary."""

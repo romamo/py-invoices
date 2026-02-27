@@ -69,7 +69,7 @@ class PDFService(HTMLService):
             template_name=template_name,
             ubl_template_name=ubl_template_name,
             logo_path=logo_path,
-            **context
+            **context,
         )
 
         # Determine output path
@@ -178,11 +178,11 @@ class PDFService(HTMLService):
         ).write_pdf(attachments=[attachment], pdf_variant="pdf/a-3b")
 
         if pdf_bytes is None:
-             raise RuntimeError("Failed to generate PDF")
+            raise RuntimeError("Failed to generate PDF")
 
         from typing import cast
-        return cast(bytes, pdf_bytes)
 
+        return cast(bytes, pdf_bytes)
 
     def generate_pdf(
         self,
@@ -275,4 +275,3 @@ class PDFService(HTMLService):
         from typing import cast
 
         return cast(bytes, pdf_bytes)
-
