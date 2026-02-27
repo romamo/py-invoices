@@ -1,14 +1,11 @@
 import typer
+from pydantic_invoices.schemas.payment_note import PaymentNoteCreate
 from rich.table import Table
 
 from py_invoices.cli.utils import get_console, get_factory
 
 app = typer.Typer()
 console = get_console()
-
-from pydantic_invoices.schemas.payment_note import PaymentNoteCreate
-
-
 @app.command("list")
 def list_payment_notes(
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
@@ -32,25 +29,25 @@ def list_payment_notes(
     if not notes:
         console.print("[yellow]No payment notes found.[/yellow]")
         return
-    
+
     # We don't have get_default easily here without querying again or knowing it
     # We can check if is_default is a field in the schema, likely yes.
-    # Assuming schema has is_default based on typical patterns, but let's check repo.get_default(company_id)
-    # to mark it if we really want, but listing is fine.
-    
+    # Assuming schema has is_default based on typical patterns, but let's
+    # check repo.get_default(company_id) to mark it if we really want, but listing is fine.
+
     for note in notes:
         # Check attributes of PaymentNote schema (not shown but assumed similar to others)
         # Often it has 'note' or 'content' field.
         # Let's assume 'title' and 'note' based on table columns intended.
         # If schema is unknown, we might risk attribute error.
         # But 'get_default' suggests there is a concept of default.
-        
+
         # Safe access to common fields
         note_id = str(getattr(note, "id", ""))
         title = getattr(note, "title", "Payment Note")
         content = getattr(note, "note", getattr(note, "content", ""))
         is_default_flag = getattr(note, "is_default", False)
-        
+
         table.add_row(
             note_id,
             title,
@@ -76,7 +73,7 @@ def get_default_note(
         console.print("[yellow]No default payment note found.[/yellow]")
         return
 
-    console.print(f"[bold]Default Payment Note[/bold]")
+    console.print("[bold]Default Payment Note[/bold]")
     console.print(getattr(note, "note", getattr(note, "content", "")))
 
 
@@ -101,7 +98,7 @@ def create_payment_note(
 
     created_note = repo.create(note_data)
 
-    console.print(f"[green]✓ Created Payment Note[/green]")
+    console.print("[green]✓ Created Payment Note[/green]")
     console.print(f"  ID: {created_note.id}")
     console.print(f"  Title: {created_note.title}")
 

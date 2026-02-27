@@ -1,5 +1,6 @@
 """Base SQLModel storage plugin."""
 
+from abc import abstractmethod
 from typing import Any
 
 from pydantic_invoices.interfaces import (
@@ -10,6 +11,7 @@ from pydantic_invoices.interfaces import (
     PaymentRepository,
     ProductRepository,
 )
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, SQLModel, create_engine, text
 
 from ...plugins.base import StoragePlugin
@@ -34,14 +36,16 @@ class SQLModelBasePlugin(StoragePlugin):
         self.session: Session | None = None
 
     @property
+    @abstractmethod
     def name(self) -> str:
         """Plugin name must be implemented by subclasses."""
-        raise NotImplementedError
+        pass
 
     @property
+    @abstractmethod
     def default_url(self) -> str:
         """Default database URL must be implemented by subclasses."""
-        raise NotImplementedError
+        pass
 
     def initialize(self, **config: Any) -> None:
         """Initialize database connection.
@@ -112,7 +116,7 @@ class SQLModelBasePlugin(StoragePlugin):
         try:
             self.session.execute(text("SELECT 1"))
             return True
-        except Exception:
+        except SQLAlchemyError:
             return False
 
     def cleanup(self) -> None:

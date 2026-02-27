@@ -1,15 +1,11 @@
 import typer
+from pydantic_invoices.schemas.company import CompanyCreate
 from rich.table import Table
 
 from py_invoices.cli.utils import get_console, get_factory
 
 app = typer.Typer()
 console = get_console()
-
-from pydantic_invoices.schemas.company import CompanyCreate
-
-
-
 @app.command("list")
 def list_companies(
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
@@ -30,7 +26,7 @@ def list_companies(
         console.print("[yellow]No active companies found.[/yellow]")
         return
 
-    # Assuming 'is_default' or similar might exist, but repo interface doesn't show it explicitly 
+    # Assuming 'is_default' or similar might exist, but repo interface doesn't show it explicitly
     # on get_active items usually. Let's check if we can identify default.
     default_company = repo.get_default()
     default_id = default_company.id if default_company else -1
@@ -86,7 +82,14 @@ def create_company(
         tax_id=tax_id,
         address=address,
         email=email,
-        phone=phone
+        phone=phone,
+        legal_name=None,
+        registration_number=None,
+        city=None,
+        postal_code=None,
+        country=None,
+        website=None,
+        logo_path=None,
     )
 
     company = repo.create(company_data)

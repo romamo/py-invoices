@@ -1,4 +1,5 @@
 """Tests for core services."""
+
 from datetime import date, datetime
 from pathlib import Path
 
@@ -139,9 +140,7 @@ class TestPDFService:
     def test_initialization(self, tmp_path: Path) -> None:
         """Test PDF service initialization."""
         output_dir = tmp_path / "output"
-        service = PDFService(
-            template_dir="custom_templates", output_dir=str(output_dir)
-        )
+        service = PDFService(template_dir="custom_templates", output_dir=str(output_dir))
 
         assert service.template_dir == "custom_templates"
         assert service.output_dir == str(output_dir)
@@ -159,20 +158,15 @@ class TestPDFService:
         assert "templates" in service.template_dir
         assert Path(service.template_dir).is_absolute()
 
-
     def test_generate_html(self, tmp_path: Path) -> None:
         """Test HTML generation."""
         # Create a simple template
         template_dir = tmp_path / "templates"
         template_dir.mkdir()
         template_file = template_dir / "test.html.j2"
-        template_file.write_text(
-            "Invoice: {{ invoice.number }}, Client: {{ company.name }}"
-        )
+        template_file.write_text("Invoice: {{ invoice.number }}, Client: {{ company.name }}")
 
-        service = PDFService(
-            template_dir=str(template_dir), output_dir=str(tmp_path / "output")
-        )
+        service = PDFService(template_dir=str(template_dir), output_dir=str(tmp_path / "output"))
 
         invoice = Invoice(
             id=1,
@@ -193,9 +187,7 @@ class TestPDFService:
 
         company = {"name": "Test Company"}
 
-        html = service.generate_html(
-            invoice=invoice, company=company, template_name="test.html.j2"
-        )
+        html = service.generate_html(invoice=invoice, company=company, template_name="test.html.j2")
 
         assert "INV-001" in html
         assert "Test Company" in html
@@ -209,9 +201,7 @@ class TestPDFService:
         template_file.write_text("Invoice: {{ invoice.number }}")
 
         output_dir = tmp_path / "output"
-        service = PDFService(
-            template_dir=str(template_dir), output_dir=str(output_dir)
-        )
+        service = PDFService(template_dir=str(template_dir), output_dir=str(output_dir))
 
         invoice = Invoice(
             id=1,
@@ -230,9 +220,7 @@ class TestPDFService:
             payments=[],
         )
 
-        output_path = service.save_html(
-            invoice=invoice, company={}, template_name="test.html.j2"
-        )
+        output_path = service.save_html(invoice=invoice, company={}, template_name="test.html.j2")
 
         assert output_path == str(output_dir / "INV-001.html")
         assert (output_dir / "INV-001.html").exists()
@@ -250,7 +238,7 @@ class TestPDFService:
         invoice = MagicMock()
         invoice.number = "FX-BYTES-001"
         invoice.lines = []
-        invoice.client_name_snapshot = "Test Client" # For template compatibility
+        invoice.client_name_snapshot = "Test Client"  # For template compatibility
 
         company = {"name": "Test Co"}
 
@@ -282,6 +270,7 @@ class TestUBLService:
         service = UBLService(output_dir=str(tmp_path))
 
         from unittest.mock import MagicMock
+
         invoice = MagicMock()
         invoice.number = "UBL-BYTES-001"
         invoice.issue_date = date.today()

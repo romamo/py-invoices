@@ -1,15 +1,11 @@
 import typer
+from pydantic_invoices.schemas.product import ProductCreate
 from rich.table import Table
 
 from py_invoices.cli.utils import get_console, get_factory
 
 app = typer.Typer()
 console = get_console()
-
-from pydantic_invoices.schemas.product import ProductCreate
-
-
-
 @app.command("list")
 def list_products(
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
@@ -107,6 +103,7 @@ def create_product(
     category: str = typer.Option(None, help="Product category"),
     description: str = typer.Option(None, help="Product description"),
     tax_rate: float = typer.Option(0.0, help="Tax rate (0.0 - 1.0)"),
+    preferred_template: str = typer.Option(None, help="Preferred template filename"),
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
 ) -> None:
     """Create a new product."""
@@ -119,7 +116,8 @@ def create_product(
         unit_price=unit_price,
         category=category,
         description=description,
-        tax_rate=tax_rate
+        tax_rate=tax_rate,
+        preferred_template=preferred_template
     )
 
     product = repo.create(product_data)

@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic_invoices.schemas.payment_note import PaymentNote
 
-
 from py_invoices import RepositoryFactory
 from py_invoices.api.deps import get_factory
 

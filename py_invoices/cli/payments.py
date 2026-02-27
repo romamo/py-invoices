@@ -44,7 +44,7 @@ def list_payments(
             payment.payment_method or "-",
             payment.reference or "-"
         )
-    
+
     total_paid = sum(p.amount for p in payments)
     console.print(table)
     console.print(f"[bold]Total Paid: ${total_paid:.2f}[/bold]")

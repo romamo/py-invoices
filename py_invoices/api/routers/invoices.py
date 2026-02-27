@@ -1,9 +1,5 @@
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic_invoices.schemas import Invoice, InvoiceCreate
-
-from py_invoices import RepositoryFactory
-from py_invoices.api.deps import get_factory
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic_invoices.schemas import Invoice, InvoiceCreate
@@ -23,8 +19,8 @@ def list_overdue_invoices(
 
 @router.get("/summary")
 def get_invoices_summary(
-    factory: RepositoryFactory = Depends(get_factory)
-) -> dict:
+    factory: RepositoryFactory = Depends(get_factory),
+) -> dict[str, Any]:
     repo = factory.create_invoice_repository()
     return repo.get_summary()
 
@@ -71,19 +67,19 @@ def get_invoice_html(
     invoice = repo.get_by_number(invoice_number)
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
-        
+
     company_repo = factory.create_company_repository()
     company = company_repo.get_default()
     if not company:
          # Fallback or error? For now error
          raise HTTPException(status_code=404, detail="Default company not found")
-    
+
     # HTMLService requires company as a dict
     company_dict = company.model_dump()
-    
+
     html_service = HTMLService()
     html_content = html_service.generate_html(invoice=invoice, company=company_dict)
-    
+
     return Response(content=html_content, media_type="text/html")
 
 @router.get("/{invoice_number}/pdf", response_class=Response)

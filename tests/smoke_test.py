@@ -5,7 +5,9 @@ from py_invoices.plugins.factory import RepositoryFactory
 def test_import() -> None:
     """Test importing the package."""
     import py_invoices
+
     print(f"Successfully imported py_invoices version: {py_invoices.__version__}")
+
 
 def test_basic_flow() -> None:
     """Test a simple create flow."""
@@ -22,6 +24,7 @@ def test_basic_flow() -> None:
     next_num = numbering.generate_number()
     assert next_num.startswith("INV-")
     print(f"Generated number: {next_num}")
+
 
 if __name__ == "__main__":
     test_import()

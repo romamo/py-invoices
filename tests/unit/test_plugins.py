@@ -1,4 +1,5 @@
 """Unit tests for the plugin system."""
+
 import pytest
 
 from py_invoices.plugins import PluginRegistry, RepositoryFactory
@@ -70,4 +71,5 @@ def test_plugin_registry_unregister() -> None:
 
     # Re-register for other tests
     from py_invoices.backends.memory.plugin import MemoryPlugin
+
     PluginRegistry.register(MemoryPlugin)

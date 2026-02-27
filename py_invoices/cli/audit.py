@@ -19,7 +19,7 @@ def list_logs(
 ) -> None:
     """List audit logs."""
     factory = get_factory(backend)
-    
+
     # AuditService usually needs a repository if persistent, or it might just use memory
     # The factory logic for audit repo:
     audit_repo = factory.create_audit_repository()
@@ -30,11 +30,11 @@ def list_logs(
         invoice_number=invoice_number,
         action=action
     )
-    
+
     # Slice for limit since get_logs might return all
     # Ideally repo handles limit, but service interface shown didn't have limit arg
     display_logs = logs[-limit:] if limit and len(logs) > limit else logs
-    
+
     table = Table(title="Audit Logs")
     table.add_column("Timestamp", style="dim")
     table.add_column("Action", style="cyan")
@@ -55,9 +55,9 @@ def list_logs(
             details.append(f"New: {log.new_value}")
         if log.notes:
             details.append(f"Note: {log.notes}")
-        
+
         detail_str = "; ".join(details)
-        
+
         table.add_row(
             str(log.timestamp.strftime("%Y-%m-%d %H:%M:%S")),
             log.action,
@@ -82,7 +82,7 @@ def get_summary(
 
     console.print("[bold]Audit Log Summary[/bold]")
     console.print(f"Total Entries: {summary.get('total_entries', 0)}")
-    
+
     console.print("\n[bold]Actions Count:[/bold]")
     for action, count in summary.get("actions_count", {}).items():
         console.print(f"  {action}: {count}")

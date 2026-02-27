@@ -13,39 +13,40 @@ from py_invoices.core.validator import BusinessValidator
 def factory() -> Any:
     return RepositoryFactory(backend="memory")
 
+
 @pytest.fixture
 def invoice_repo(factory: Any) -> Any:
     return factory.create_invoice_repository()
+
 
 @pytest.fixture
 def client_repo(factory: Any) -> Any:
     return factory.create_client_repository()
 
+
 @pytest.fixture
 def base_invoice(invoice_repo: Any, client_repo: Any) -> Any:
     from pydantic_invoices.schemas import ClientCreate
-    client = client_repo.create(ClientCreate(
-        name="Credit Client",
-        address="123 St",
-        tax_id="123",
-        email=None,
-        phone=None
-    ))
 
-    return invoice_repo.create(InvoiceCreate(
-        number="INV-001",
-        client_id=client.id,
-        status=InvoiceStatus.DRAFT,
-        original_invoice_id=None,
-        reason=None,
-        due_date=None,
-        client_name_snapshot=client.name,
-        client_address_snapshot=client.address,
-        client_tax_id_snapshot=client.tax_id,
-        lines=[
-             InvoiceLineCreate(description="Item 1", quantity=1, unit_price=100.0)
-        ]
-    ))
+    client = client_repo.create(
+        ClientCreate(name="Credit Client", address="123 St", tax_id="123", email=None, phone=None)
+    )
+
+    return invoice_repo.create(
+        InvoiceCreate(
+            number="INV-001",
+            client_id=client.id,
+            status=InvoiceStatus.DRAFT,
+            original_invoice_id=None,
+            reason=None,
+            due_date=None,
+            client_name_snapshot=client.name,
+            client_address_snapshot=client.address,
+            client_tax_id_snapshot=client.tax_id,
+            lines=[InvoiceLineCreate(description="Item 1", quantity=1, unit_price=100.0)],
+        )
+    )
+
 
 def test_credit_note_state_machine_checks(invoice_repo: Any, base_invoice: Any) -> None:
     """Test legal and illegal state transitions."""
@@ -54,12 +55,14 @@ def test_credit_note_state_machine_checks(invoice_repo: Any, base_invoice: Any) 
     # DRAFT -> SENT (OK)
     BusinessValidator.validate_state_transition(inv.status, InvoiceStatus.SENT)
 
+
 def test_credit_note_creation_validation(invoice_repo: Any, base_invoice: Any) -> None:
     """Test that non-draft invoices cannot be modified."""
     inv = base_invoice
 
     # DRAFT: Modification OK
     BusinessValidator.validate_modification(inv)
+
 
 def test_strict_state_machine(invoice_repo: Any, base_invoice: Any) -> None:
     """Test legal and illegal state transitions."""
@@ -83,6 +86,7 @@ def test_strict_state_machine(invoice_repo: Any, base_invoice: Any) -> None:
     with pytest.raises(ValueError, match="Cannot change status from PAID"):
         BusinessValidator.validate_state_transition(inv.status, InvoiceStatus.SENT)
 
+
 def test_modification_restriction(invoice_repo: Any, base_invoice: Any) -> None:
     """Test that non-draft invoices cannot be modified."""
     inv = base_invoice
@@ -94,10 +98,10 @@ def test_modification_restriction(invoice_repo: Any, base_invoice: Any) -> None:
     inv.status = InvoiceStatus.SENT
     invoice_repo.update(inv)
 
-
     # SENT: Modification Fail
     with pytest.raises(ValueError, match="is in InvoiceStatus.SENT state"):
         BusinessValidator.validate_modification(inv)
+
 
 def test_credit_note_creation(client_repo: Any, invoice_repo: Any, base_invoice: Any) -> None:
     """Test creating a credit note linked to an invoice."""

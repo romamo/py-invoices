@@ -23,11 +23,11 @@ class FileAuditRepository:
             data = entry.model_dump()
         else:
             data = entry
-            
+
         # Ensure it's an AuditLogEntry
         if not isinstance(entry, AuditLogEntry):
             entry = AuditLogEntry(**data)
-            
+
         # For audit logs, we might want a simple incrementing ID
         log_id = self.storage.get_next_id()
         # AuditLogEntry doesn't technically have 'id' field in the schema I saw,
@@ -36,14 +36,14 @@ class FileAuditRepository:
         # It has invoice_id, etc.
         # FileStorage.save expects entity to have .model_dump() but it takes entity_id separate.
         # But it doesn't enforce entity.id exists.
-        
+
         self.storage.save(entry, log_id)
         return entry
 
     def get_by_invoice(self, invoice_id: int) -> list[Any]:
         """Get logs for an invoice."""
         return [
-            log for log in self.storage.load_all() 
+            log for log in self.storage.load_all()
             if log.invoice_id == invoice_id
         ]
 
@@ -63,7 +63,7 @@ class FileAuditRepository:
              # Wait, storage.load_all() returns entities.
              # I should probably expose clearing in FileStorage or loop files directly.
              pass
-        
+
         # Pragmatic approach: recreate storage or delete dir
         import shutil
         if self.storage.entity_dir.exists():

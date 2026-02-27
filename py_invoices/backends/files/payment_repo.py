@@ -1,7 +1,7 @@
 """File-based payment repository."""
 
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 from pydantic_invoices.interfaces import PaymentRepository
 from pydantic_invoices.schemas import Payment, PaymentCreate

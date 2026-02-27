@@ -1,10 +1,12 @@
-import xml.etree.ElementTree as ET
 from typing import TYPE_CHECKING
+
+import defusedxml.ElementTree as ET  # noqa: N817
 
 if TYPE_CHECKING:
     from pydantic_invoices.schemas import Invoice
 
 from dataclasses import dataclass, field
+
 
 @dataclass
 class ValidationMessage:
@@ -43,15 +45,21 @@ class UBLValidator:
         result.add_message("info", f"Validating {xml_path}...")
 
         try:
-            tree = ET.parse(xml_path)
+            tree = ET.parse(xml_path)  # nosec
             root = tree.getroot()
+
+            if root is None:
+                 result.add_message("error", "XML root is missing")
+                 result.success = False
+                 return result
 
             # 1. Validate Root Element
             expected_tag = f"{{{UBLValidator.NAMESPACES['ubl']}}}Invoice"
             if root.tag == expected_tag:
                  result.add_message("success", "Root element is UBL Invoice-2")
             else:
-                 result.add_message("error", f"Root element mismatch. Found: {root.tag}, Expected: {expected_tag}")
+                 msg = f"Root element mismatch. Found: {root.tag}, Expected: {expected_tag}"
+                 result.add_message("error", msg)
                  result.success = False
 
             # 2. Validate Key Fields
@@ -84,7 +92,9 @@ class UBLValidator:
             if len(lines) > 0:
                  result.add_message("success", "Contains line items")
             else:
-                 result.add_message("warning", "No line items found (technical UBL requires at least one)")
+                 result.add_message(
+                     "warning", "No line items found (technical UBL requires at least one)"
+                 )
 
             return result
 
@@ -96,9 +106,8 @@ class UBLValidator:
             result.add_message("error", f"Fatal: File not found - {xml_path}")
             result.success = False
             return result
-
-        except Exception as e:
-            result.add_message("error", f"Fatal: Validation Error - {e}")
+        except (ValueError, TypeError) as e:
+            result.add_message("error", f"Fatal: Data Error - {e}")
             result.success = False
             return result
 
@@ -173,3 +182,20 @@ class BusinessValidator:
                 "Only DRAFT invoices can be edited. "
                 "To correct a SENT invoice, issue a Credit Note."
             )
+
+    @staticmethod
+    def validate_dates(invoice: "Invoice") -> None:
+        """Validate invoice dates.
+
+        Args:
+            invoice: Invoice object
+
+        Raises:
+            ValueError: If dates are invalid
+        """
+        if invoice.due_date and invoice.issue_date:
+            if invoice.due_date < invoice.issue_date.date():
+                raise ValueError(
+                    f"Invoice {invoice.number} has a due date ({invoice.due_date}) "
+                    f"earlier than its issue date ({invoice.issue_date.date()})."
+                )

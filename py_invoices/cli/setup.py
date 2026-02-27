@@ -1,4 +1,6 @@
-import os
+import shutil
+import subprocess  # nosec B404
+import sys
 from pathlib import Path
 
 import typer
@@ -8,24 +10,21 @@ from rich.prompt import Confirm, Prompt
 console = Console()
 
 
-import shutil
-import subprocess
-import sys
-
 def install_package(package: str) -> bool:
     """Install a package using uv (preferred) or pip."""
     try:
         # Try uv first
-        if shutil.which("uv"):
-            subprocess.run(
-                ["uv", "pip", "install", package],
+        uv_path = shutil.which("uv")
+        if uv_path:
+            subprocess.run(  # nosec B603
+                [uv_path, "pip", "install", package],
                 check=True,
                 capture_output=True
             )
             return True
-        
+
         # Fallback to pip
-        subprocess.run(
+        subprocess.run(  # nosec B603
             [sys.executable, "-m", "pip", "install", package],
             check=True,
             capture_output=True
@@ -35,12 +34,22 @@ def install_package(package: str) -> bool:
         return False
 
 def interactive_setup(
-    backend: str = typer.Option(None, help="Backend to use (files, sqlite, postgres, mysql, memory)"),
-    storage_path: str = typer.Option(None, help="Storage path for files backend (default: ./data)"),
-    file_format: str = typer.Option(None, help="File format for files backend (json, md, xml, default: json)"),
+    backend: str = typer.Option(
+        None, help="Backend to use (files, sqlite, postgres, mysql, memory)"
+    ),
+    storage_path: str = typer.Option(
+        None, help="Storage path for files backend (default: ./data)"
+    ),
+    file_format: str = typer.Option(
+        None, help="File format for files backend (json, md, xml, default: json)"
+    ),
     db_url: str = typer.Option(None, help="Database URL for SQL backends"),
-    output_dir: str = typer.Option(None, help="Output directory for generated files (default: output)"),
-    force: bool = typer.Option(False, "--force", "-f", help="Overwrite existing .env file without asking"),
+    output_dir: str = typer.Option(
+        None, help="Output directory for generated files (default: output)"
+    ),
+    force: bool = typer.Option(
+        False, "--force", "-f", help="Overwrite existing .env file without asking"
+    ),
 ) -> None:
     """
     Configure py-invoices settings interactively or via CLI arguments.
@@ -54,7 +63,9 @@ def interactive_setup(
         if install_package("python-dotenv"):
             console.print("[green]Installed python-dotenv[/green]")
         else:
-            console.print("[yellow]Failed to install python-dotenv. Please install manually.[/yellow]")
+            console.print(
+                "[yellow]Failed to install python-dotenv. Please install manually.[/yellow]"
+            )
 
     env_path = Path(".env")
     if env_path.exists() and not force:
@@ -63,10 +74,9 @@ def interactive_setup(
             raise typer.Exit()
 
     # --- Configuration Logic ---
-    
+
     # Defaults
     default_storage_path = "./data"
-    default_format = "json" # Settings default is 'md', but json is safer for starters? config says 'md'. Let's match settings default.
     # Actually checking settings.py: default file_format is "md".
     default_format_real = "md"
 
@@ -78,14 +88,14 @@ def interactive_setup(
             choices=["files", "sqlite", "postgres", "mysql", "memory"],
             default="files",
         )
-    
+
     # Check/Install backend dependencies
     backend_extras = {
         "sqlite": "py-invoices[sqlite]",
         "postgres": "py-invoices[postgres]",
         "mysql": "py-invoices[mysql]",
     }
-    
+
     if backend in backend_extras:
         extra_pkg = backend_extras[backend]
         # Check if sqlmodel is installed (common dep for all SQL backends)
@@ -117,7 +127,11 @@ def interactive_setup(
 
         # format
         if file_format is None:
-            file_format = Prompt.ask("Enter file format", choices=["json", "xml", "md"], default=default_format_real)
+            file_format = Prompt.ask(
+                "Enter file format",
+                choices=["json", "xml", "md"],
+                default=default_format_real
+            )
         config_lines.append(f"INVOICES_FILE_FORMAT={file_format}")
 
     elif backend in ["sqlite", "postgres", "mysql"]:
@@ -127,9 +141,9 @@ def interactive_setup(
                 example = "postgresql://user:pass@localhost/db"
             elif backend == "mysql":
                 example = "mysql://user:pass@localhost/db"
-                
+
             db_url = Prompt.ask(f"Enter Database URL (e.g. {example})")
-        
+
         if db_url:
             config_lines.append(f"INVOICES_DATABASE_URL={db_url}")
 
@@ -144,6 +158,6 @@ def interactive_setup(
         f.write("\n")
 
     console.print(f"\n[green]Configuration saved to {env_path.absolute()}[/green]")
-    
+
     console.print("\n[dim]Next step: Run initialization[/dim]")
-    console.print(f"[bold]py-invoices init[/bold]")
+    console.print("[bold]py-invoices init[/bold]")

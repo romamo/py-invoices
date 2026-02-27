@@ -1,7 +1,6 @@
 """File-based client repository."""
 
 from pathlib import Path
-from typing import Any
 
 from pydantic_invoices.interfaces import ClientRepository
 from pydantic_invoices.schemas import Client, ClientCreate
@@ -45,7 +44,7 @@ class FileClientRepository(ClientRepository):
         """Search clients by name (case-insensitive partial match)."""
         name_lower = name.lower()
         return [
-            client for client in self.storage.load_all() 
+            client for client in self.storage.load_all()
             if name_lower in client.name.lower()
         ]
 

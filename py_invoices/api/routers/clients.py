@@ -1,6 +1,5 @@
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-
 from pydantic_invoices.schemas import Client, ClientCreate
 
 from py_invoices import RepositoryFactory

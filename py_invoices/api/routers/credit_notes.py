@@ -1,4 +1,3 @@
-from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
@@ -27,12 +26,12 @@ def create_credit_note(
 ) -> Invoice:
     """Create a credit note for an existing invoice."""
     invoice_repo = factory.create_invoice_repository()
-    
+
     # 1. Fetch original invoice
     original_invoice = invoice_repo.get_by_id(request.original_invoice_id)
     if not original_invoice:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, 
+            status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Invoice {request.original_invoice_id} not found"
         )
 
@@ -66,10 +65,10 @@ def get_credit_note(
     invoice = invoice_repo.get_by_number(credit_note_number)
     if not invoice:
         raise HTTPException(status_code=404, detail="Credit Note not found")
-    
+
     # Verify it is actually a credit note?
     # The requirement didn't strictly say we must hide normal invoices here,
     # but strictly speaking `get_by_number` returns any invoice.
     # We could check invoice.type if it exists or status to differentiate.
-    
+
     return invoice

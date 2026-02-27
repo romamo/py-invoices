@@ -1,4 +1,5 @@
 """Integration tests for memory backend."""
+
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -42,9 +43,7 @@ def test_client_crud_operations(client_repo: Any) -> None:
     assert client_repo.get_by_id(client.id) is None
 
 
-def test_invoice_creation_with_lines(
-    client_repo: Any, invoice_repo: Any
-) -> None:
+def test_invoice_creation_with_lines(client_repo: Any, invoice_repo: Any) -> None:
     """Test creating invoice with line items."""
     # Create client first
     client = client_repo.create(
@@ -123,7 +122,7 @@ def test_invoice_queries(client_repo: Any, invoice_repo: Any) -> None:
     invoice_repo.create(
         InvoiceCreate(
             number="INV-002",
-            issue_date=datetime.now(),
+            issue_date=datetime.now() - timedelta(days=10),
             status=InvoiceStatus.UNPAID,
             original_invoice_id=None,
             reason=None,
@@ -142,7 +141,7 @@ def test_invoice_queries(client_repo: Any, invoice_repo: Any) -> None:
 
     # Test get_by_status
     unpaid = invoice_repo.get_by_status(InvoiceStatus.UNPAID)
-    assert len(unpaid) == 2 # Both INV-001 and INV-002 are now UNPAID
+    assert len(unpaid) == 2  # Both INV-001 and INV-002 are now UNPAID
     assert unpaid[0].number == "INV-001"
 
     # Test get_overdue
@@ -158,9 +157,7 @@ def test_invoice_queries(client_repo: Any, invoice_repo: Any) -> None:
     assert summary["overdue_count"] == 1
 
 
-def test_payment_operations(
-    client_repo: Any, invoice_repo: Any, payment_repo: Any
-) -> None:
+def test_payment_operations(client_repo: Any, invoice_repo: Any, payment_repo: Any) -> None:
     """Test payment operations."""
     # Create client and invoice
     client = client_repo.create(

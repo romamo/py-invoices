@@ -35,7 +35,7 @@ class HTMLService:
         Raises:
             ImportError: If jinja2 is not installed
         """
-        from jinja2 import Environment, FileSystemLoader, select_autoescape
+        from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescape
 
         self.output_dir = output_dir
         self.default_template = default_template
@@ -43,20 +43,24 @@ class HTMLService:
         # Ensure output directory exists
         Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-        # Determine template directory and loader
-        # 1. If explicit template_dir provided, use it
-        # 2. Use package templates
-        loader: Any
+        # 1. Package templates (always available as fallback)
+        package_templates_dir = str(Path(__file__).parent.parent / "templates")
+
+        # 2. Determine loaders
+        loaders = []
         if template_dir:
             self.template_dir = template_dir
-            loader = FileSystemLoader(template_dir)
+            loaders.append(FileSystemLoader(template_dir))
+
+        loaders.append(FileSystemLoader(package_templates_dir))
+
+        # If we have multiple loaders, use ChoiceLoader
+        loader: ChoiceLoader | FileSystemLoader
+        if len(loaders) > 1:
+            loader = ChoiceLoader(loaders)
         else:
-            # Package loader - default
-            # Try to use PackageLoader if possible,
-            # but FileSystemLoader on absolute path is also fine
-            # We don't store a path str here as it's internal to the package
-            self.template_dir = str(Path(__file__).parent.parent / "templates")
-            loader = FileSystemLoader(self.template_dir)
+            loader = loaders[0]
+            self.template_dir = package_templates_dir
 
         # Setup Jinja2 environment
         self.env: Environment = Environment(

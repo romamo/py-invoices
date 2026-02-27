@@ -93,7 +93,7 @@ class RepositoryFactory:
             config["database_url"] = settings.database_url
         if settings.database_echo:
             config["echo"] = settings.database_echo
-        
+
         if settings.backend == "files":
             config["file_format"] = settings.file_format
             config["root_dir"] = settings.storage_path

@@ -1,4 +1,3 @@
-import pytest
 from typer.testing import CliRunner
 
 from py_invoices.cli.main import app
@@ -7,10 +6,10 @@ from py_invoices.config import get_settings
 runner = CliRunner()
 
 
-def test_config_show_command():
+def test_config_show_command() -> None:
     """Test the config show command displays expected information."""
     result = runner.invoke(app, ["config", "show"])
-    
+
     assert result.exit_code == 0
     assert "py-invoices Configuration" in result.stdout
     assert "Backend" in result.stdout

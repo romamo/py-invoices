@@ -1,4 +1,5 @@
 import os
+
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -13,7 +14,7 @@ console = Console()
 def show_config() -> None:
     """Show current configuration details."""
     settings = get_settings()
-    
+
     table = Table(title="py-invoices Configuration", show_header=True, header_style="bold magenta")
     table.add_column("Setting", style="dim")
     table.add_column("Value")
@@ -31,14 +32,14 @@ def show_config() -> None:
 
     # Files backend settings
     table.add_row("Default File Format", settings.file_format)
-    
+
     # Paths
     table.add_row("Output Directory", os.path.abspath(settings.output_dir))
     if settings.template_dir:
         table.add_row("Template Directory", os.path.abspath(settings.template_dir))
     else:
         table.add_row("Template Directory", "[italic]Default[/italic]")
-        
+
     console.print(table)
 
 

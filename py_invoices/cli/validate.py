@@ -1,5 +1,6 @@
 import typer
 from rich.console import Console
+
 from py_invoices.core.validator import UBLValidator
 
 app = typer.Typer()

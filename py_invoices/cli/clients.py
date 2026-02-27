@@ -68,6 +68,7 @@ def get_client_details(
     console.print(f"Tax ID: {client.tax_id or 'N/A'}")
     console.print(f"Email: {client.email or 'N/A'}")
     console.print(f"Phone: {client.phone or 'N/A'}")
+    console.print(f"Preferred Template: {getattr(client, 'preferred_template', 'N/A')}")
 
 
 @app.command("search")
@@ -109,6 +110,7 @@ def create_client(
     tax_id: str = typer.Option(None, help="Client Tax ID"),
     email: str = typer.Option(None, help="Client email"),
     phone: str = typer.Option(None, help="Client phone"),
+    preferred_template: str = typer.Option(None, help="Preferred template filename"),
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
     formats: list[str] = typer.Option(
         [], "--format", "-f",
@@ -124,7 +126,8 @@ def create_client(
         address=address,
         tax_id=tax_id,
         email=email,
-        phone=phone
+        phone=phone,
+        preferred_template=preferred_template
     )
 
     client = repo.create(client_data)

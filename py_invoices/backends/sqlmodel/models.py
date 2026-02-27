@@ -31,6 +31,7 @@ class ClientDB(SQLModel, table=True):
     tax_id: str | None = Field(None, max_length=50, index=True)
     email: str | None = Field(None, max_length=255)
     phone: str | None = Field(None, max_length=50)
+    preferred_template: str | None = Field(None, max_length=255)
 
     # Relationships
     invoices: list["InvoiceDB"] = Relationship(back_populates="client")
@@ -39,7 +40,8 @@ class ClientDB(SQLModel, table=True):
         """Convert to pydantic-invoices Client schema."""
         from pydantic_invoices.schemas import Client
 
-        assert self.id is not None
+        if self.id is None:
+            raise ValueError("ClientDB id cannot be None")
         return Client(
             id=self.id,
             name=self.name,
@@ -47,6 +49,7 @@ class ClientDB(SQLModel, table=True):
             tax_id=self.tax_id,
             email=self.email,
             phone=self.phone,
+            preferred_template=self.preferred_template,
         )
 
 
@@ -73,7 +76,8 @@ class InvoiceLineDB(SQLModel, table=True):
         """Convert to pydantic-invoices InvoiceLine schema."""
         from pydantic_invoices.schemas import InvoiceLine
 
-        assert self.id is not None
+        if self.id is None:
+            raise ValueError("InvoiceLineDB id cannot be None")
         return InvoiceLine(
             id=self.id,
             invoice_id=self.invoice_id,
@@ -111,6 +115,7 @@ class InvoiceDB(SQLModel, table=True):
     client_name_snapshot: str | None = None
     client_address_snapshot: str | None = None
     client_tax_id_snapshot: str | None = None
+    template_name: str | None = Field(None, max_length=255)
 
     # Relationships
     client: ClientDB = Relationship(back_populates="invoices")
@@ -158,7 +163,8 @@ class InvoiceDB(SQLModel, table=True):
         """Convert to pydantic-invoices Invoice schema."""
         from pydantic_invoices.schemas import Invoice, InvoiceType
 
-        assert self.id is not None
+        if self.id is None:
+            raise ValueError("InvoiceDB id cannot be None")
         return Invoice(
             id=self.id,
             number=self.number,
@@ -174,6 +180,7 @@ class InvoiceDB(SQLModel, table=True):
             client_name_snapshot=self.client_name_snapshot,
             client_address_snapshot=self.client_address_snapshot,
             client_tax_id_snapshot=self.client_tax_id_snapshot,
+            template_name=self.template_name,
             lines=[line.to_schema() for line in self.lines],
             payments=[payment.to_schema() for payment in self.payments],
         )
@@ -198,7 +205,8 @@ class PaymentDB(SQLModel, table=True):
         """Convert to pydantic-invoices Payment schema."""
         from pydantic_invoices.schemas import Payment
 
-        assert self.id is not None
+        if self.id is None:
+            raise ValueError("PaymentDB id cannot be None")
         return Payment(
             id=self.id,
             invoice_id=self.invoice_id,
@@ -264,7 +272,8 @@ class CompanyDB(SQLModel, table=True):
     def to_schema(self) -> Company:
         """Convert to pydantic-invoices Company schema."""
 
-        assert self.id is not None
+        if self.id is None:
+            raise ValueError("CompanyDB id cannot be None")
         return Company(
             id=self.id,
             name=self.name,
@@ -299,11 +308,13 @@ class ProductDB(SQLModel, table=True):
     unit: str = Field(default="unit", max_length=50)
     is_active: bool = Field(default=True)
     category: str | None = Field(default=None, max_length=100)
+    preferred_template: str | None = Field(None, max_length=255)
 
     def to_schema(self) -> Product:
         """Convert to pydantic-invoices Product schema."""
 
-        assert self.id is not None
+        if self.id is None:
+            raise ValueError("ProductDB id cannot be None")
         return Product(
             id=self.id,
             code=self.code or "",
@@ -315,6 +326,7 @@ class ProductDB(SQLModel, table=True):
             unit=self.unit,
             is_active=self.is_active,
             category=self.category,
+            preferred_template=self.preferred_template,
         )
 
 
@@ -334,7 +346,8 @@ class PaymentNoteDB(SQLModel, table=True):
     def to_schema(self) -> PaymentNote:
         """Convert to pydantic-invoices PaymentNote schema."""
 
-        assert self.id is not None
+        if self.id is None:
+            raise ValueError("PaymentNoteDB id cannot be None")
         return PaymentNote(
             id=self.id,
             title=self.title,

@@ -1,6 +1,5 @@
 """In-memory payment note repository."""
 
-from typing import cast
 
 from pydantic_invoices.interfaces.payment_note_repo import PaymentNoteRepository
 from pydantic_invoices.schemas.payment_note import (
@@ -35,7 +34,7 @@ class MemoryPaymentNoteRepository(PaymentNoteRepository):
 
     def get_by_id(self, note_id: int) -> PaymentNote | None:
         """Get payment note by ID."""
-        return cast(PaymentNote | None, self._storage.get(note_id))
+        return self._storage.get(note_id)
 
     def get_all(self, skip: int = 0, limit: int = 100) -> list[PaymentNote]:
         """Get all payment notes."""

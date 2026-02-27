@@ -17,7 +17,6 @@ from py_invoices.api.routers import (
     validation,
 )
 
-
 app = FastAPI(
     title="py-invoices API",
     description="API for managing invoices and clients using py-invoices.",

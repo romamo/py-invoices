@@ -5,6 +5,7 @@ from pathlib import Path
 
 from pydantic_invoices.schemas import ClientCreate, InvoiceCreate, InvoiceLineCreate
 from pydantic_invoices.schemas.company import CompanyCreate
+
 from py_invoices.plugins.factory import RepositoryFactory
 
 # Clean up previous run
@@ -14,7 +15,7 @@ if DATA_DIR.exists():
 
 def verify_files_backend(fmt: str):
     print(f"\nVerifying {fmt} format...")
-    
+
     # Initialize factory with files backend
     factory = RepositoryFactory(
         backend="files",
@@ -32,7 +33,7 @@ def verify_files_backend(fmt: str):
         name="Acme Corp",
         tax_id="123456789"
     ))
-    
+
     client = client_repo.create(ClientCreate(
         name="John Doe",
         email="john@example.com"

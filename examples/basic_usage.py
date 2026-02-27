@@ -40,6 +40,7 @@ def main() -> None:
             tax_id="12-3456789",
             email="billing@acme.com",
             phone="+1-555-0100",
+            preferred_template=None,
         )
     )
     print(f"   ✓ Created client: {client.name} (ID: {client.id})\n")
@@ -57,9 +58,7 @@ def main() -> None:
             due_date=date(2025, 1, 31),
             payment_terms="Net 30",
             client_id=client.id,
-            company_id=company_id, # Keep original company_id
-            original_invoice_id=None, # Added
-            reason=None, # Added
+            company_id=1,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
             client_tax_id_snapshot=client.tax_id,
@@ -71,10 +70,13 @@ def main() -> None:
                 ),
                 InvoiceLineCreate(
                     description="Software License - Annual",
-                    quantity=10, # Changed from 1.0 to 10
+                    quantity=10,  # Changed from 1.0 to 10
                     unit_price=1200.0,
                 ),
             ],
+            original_invoice_id=None,
+            reason=None,
+            template_name=None,
         )
     )
     print(f"   ✓ Created invoice: {invoice.number}")

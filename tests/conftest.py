@@ -1,4 +1,5 @@
 """Test configuration for py-invoices."""
+
 from collections.abc import Generator
 from typing import Any
 

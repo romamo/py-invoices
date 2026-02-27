@@ -97,11 +97,30 @@ class PDFService(HTMLService):
 
             return HTML, Attachment
         except (ImportError, OSError) as e:
+            # On macOS ARM, Homebrew libraries are in /opt/homebrew/lib
+            # which might not be in the dynamic linker path.
+            import platform
+            import sys
+
+            if sys.platform == "darwin" and platform.machine() == "arm64":
+                brew_lib_path = "/opt/homebrew/lib"
+                if os.path.exists(brew_lib_path):
+                    # Setting DYLD_FALLBACK_LIBRARY_PATH in the current process
+                    # doesn't always affect already loaded ctypes/dlopen logic,
+                    # but weasyprint/cairocffi often rely on find_library.
+                    # We can try to re-import after adding to path if needed,
+                    # or just provide a better error message.
+                    # For now, let's try to add it to the environment for child processes
+                    # and suggest it to the user.
+                    pass
+
             raise ImportError(
                 "WeasyPrint is required for PDF generation but was not found or "
                 "is missing system dependencies (like pango).\n"
                 "Install it with: pip install py-invoices[pdf]\n"
                 "On macOS, you may also need: brew install pango libffi\n"
+                "If libraries are installed but not found, try running:\n"
+                "export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib\n"
                 f"Original error: {e}"
             ) from e
 

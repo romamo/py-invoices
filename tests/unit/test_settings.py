@@ -1,7 +1,5 @@
 """Tests for settings configuration."""
 
-
-
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
 

@@ -1,12 +1,14 @@
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from typing import Any
 
 import typer
 from pydantic_invoices.schemas import InvoiceCreate, InvoiceLineCreate, InvoiceStatus
 from rich.table import Table
 
 from py_invoices.cli.utils import get_console, get_factory
-from py_invoices.core import NumberingService, PDFService, AuditService
+from py_invoices.config import get_settings
+from py_invoices.core import AuditService, NumberingService, PDFService
 
 app = typer.Typer()
 console = get_console()
@@ -22,6 +24,7 @@ def generate_pdf(
     company_address: str = typer.Option(..., help="Company Address"),
     company_tax_id: str = typer.Option(None, help="Company Tax ID"),
     company_email: str = typer.Option(None, help="Company Email"),
+    template: str = typer.Option(None, help="Template name to use (e.g. invoice.html.j2)"),
 ) -> None:
     """Generate PDF for an invoice."""
     factory = get_factory(backend)
@@ -55,16 +58,41 @@ def generate_pdf(
     }
 
     try:
-        import py_invoices
-        package_dir = os.path.dirname(os.path.abspath(py_invoices.__file__))
-        template_dir = os.path.join(package_dir, "templates")
+        settings = get_settings()
+
+        # Use template_dir from settings if available, otherwise package default
+        template_dir = settings.template_dir
+        if not template_dir:
+            import py_invoices
+            package_dir = os.path.dirname(os.path.abspath(py_invoices.__file__))
+            template_dir = os.path.join(package_dir, "templates")
 
         service = PDFService(template_dir=template_dir, output_dir=output_dir)
         os.makedirs(output_dir, exist_ok=True)
 
+        template_to_use = template or getattr(invoice, "template_name", None)
+        if not template_to_use and hasattr(invoice, "client_id") and invoice.client_id:
+            client_repo = factory.create_client_repository()
+            client = client_repo.get_by_id(invoice.client_id)
+            if client and getattr(client, "preferred_template", None):
+                template_to_use = client.preferred_template
+
+        # Prepare context
+        context: dict[str, Any] = {}
+        if hasattr(invoice, "payment_note_ids") and invoice.payment_note_ids:
+            note_repo = factory.create_payment_note_repository()
+            payment_notes = []
+            for note_id in invoice.payment_note_ids:
+                note = note_repo.get_by_id(note_id)
+                if note:
+                    payment_notes.append(note)
+            context["payment_notes"] = payment_notes
+
         output_path = service.generate_pdf(
             invoice=invoice,
-            company=company_data
+            company=company_data,
+            template_name=template_to_use,
+            **context
         )
 
         console.print(f"[green]✓ Generated PDF for Invoice {invoice.number}[/green]")
@@ -75,9 +103,6 @@ def generate_pdf(
          console.print(f"{e}")
          console.print("[yellow]Tip: Install with `pip install 'py-invoices[pdf]'`[/yellow]")
          raise typer.Exit(code=1)
-    except Exception as e:
-        console.print(f"[red]Error generating PDF: {e}[/red]")
-        raise typer.Exit(code=1)
 
 
 @app.command("html")
@@ -90,6 +115,7 @@ def generate_html(
     company_address: str = typer.Option(..., help="Company Address"),
     company_tax_id: str = typer.Option(None, help="Company Tax ID"),
     company_email: str = typer.Option(None, help="Company Email"),
+    template: str = typer.Option(None, help="Template name to use (e.g. invoice.html.j2)"),
 ) -> None:
     """Generate HTML for an invoice."""
     from py_invoices.core import HTMLService
@@ -122,25 +148,46 @@ def generate_html(
         "tax_id": company_tax_id,
     }
 
-    try:
+    settings = get_settings()
+
+    # Use template_dir from settings if available, otherwise package default
+    template_dir = settings.template_dir
+    if not template_dir:
         import py_invoices
         package_dir = os.path.dirname(os.path.abspath(py_invoices.__file__))
         template_dir = os.path.join(package_dir, "templates")
 
-        service = HTMLService(template_dir=template_dir, output_dir=output_dir)
-        os.makedirs(output_dir, exist_ok=True)
+    service = HTMLService(template_dir=template_dir, output_dir=output_dir)
+    os.makedirs(output_dir, exist_ok=True)
 
-        output_path = service.save_html(
-            invoice=invoice,
-            company=company_data
-        )
+    template_to_use = template or getattr(invoice, "template_name", None)
+    if not template_to_use and hasattr(invoice, "client_id") and invoice.client_id:
+        client_repo = factory.create_client_repository()
+        client = client_repo.get_by_id(invoice.client_id)
+        if client and getattr(client, "preferred_template", None):
+            template_to_use = client.preferred_template
 
-        console.print(f"[green]✓ Generated HTML for Invoice {invoice.number}[/green]")
-        console.print(f"  Path: {output_path}")
+    # Prepare context
+    context: dict[str, Any] = {}
+    if hasattr(invoice, "payment_note_ids") and invoice.payment_note_ids:
+        note_repo = factory.create_payment_note_repository()
+        payment_notes = []
+        for note_id in invoice.payment_note_ids:
+            note = note_repo.get_by_id(note_id)
+            if note:
+                payment_notes.append(note)
+        context["payment_notes"] = payment_notes
 
-    except Exception as e:
-        console.print(f"[red]Error generating HTML: {e}[/red]")
-        raise typer.Exit(code=1)
+    output_path = service.save_html(
+        invoice=invoice,
+        company=company_data,
+        template_name=template_to_use,
+        **context
+    )
+
+    console.print(f"[green]✓ Generated HTML for Invoice {invoice.number}[/green]")
+    console.print(f"  Path: {output_path}")
+
 
 
 @app.command("list")
@@ -210,13 +257,13 @@ def get_invoice_details(
     console.print(f"Status: {invoice.status}")
     console.print(f"Client: {invoice.client_name_snapshot}")
     console.print(f"Type: {invoice.type}")
-    
+
     table = Table(title="Line Items")
     table.add_column("Description")
     table.add_column("Qty", justify="right")
     table.add_column("Price", justify="right")
     table.add_column("Total", justify="right")
-    
+
     for line in invoice.lines:
         table.add_row(
             line.description,
@@ -224,7 +271,7 @@ def get_invoice_details(
             f"${line.unit_price:.2f}",
             f"${line.total:.2f}"
         )
-    
+
     console.print(table)
     console.print(f"[bold]Total: ${invoice.total_amount:.2f}[/bold]")
 
@@ -306,6 +353,7 @@ def create_invoice(
     company_address: str = typer.Option(None, help="Company Address (required for formats)"),
     company_tax_id: str = typer.Option(None, help="Company Tax ID"),
     company_email: str = typer.Option(None, help="Company Email"),
+    template: str = typer.Option(None, help="Template name to use"),
 ) -> None:
     """
     Create a new invoice.
@@ -341,7 +389,8 @@ def create_invoice(
                  address=client_address, # Optional in schema
                  tax_id=client_tax_id,
                  email=client_email,
-                 phone=client_phone
+                 phone=client_phone,
+                 preferred_template=None
              ))
              console.print(f"[green]✓ Created Client {client.name} (ID: {client.id})[/green]")
     else:
@@ -367,6 +416,12 @@ def create_invoice(
         client_address_snapshot=client.address,
         client_tax_id_snapshot=client.tax_id,
         company_id=1,
+        template_name=(
+            template if isinstance(template, str)
+            else getattr(client, "preferred_template", None)
+            if isinstance(getattr(client, "preferred_template", None), str)
+            else None
+        ),
         lines=[
             InvoiceLineCreate(
                 description=description,
@@ -409,58 +464,52 @@ def create_invoice(
         if bank_account:
             payment_notes_context.append({"title": "Bank Account", "content": bank_account})
 
-        try:
-            import py_invoices
-            package_dir = os.path.dirname(os.path.abspath(py_invoices.__file__))
-            template_dir = os.path.join(package_dir, "templates")
-            os.makedirs(output_dir, exist_ok=True)
+        import py_invoices
+        package_dir = os.path.dirname(os.path.abspath(py_invoices.__file__))
+        template_dir = os.path.join(package_dir, "templates")
+        os.makedirs(output_dir, exist_ok=True)
 
-            from py_invoices.core import HTMLService, PDFService, UBLService
+        from py_invoices.core import HTMLService, PDFService, UBLService
 
-            for fmt in formats:
-                fmt = fmt.lower()
-                try:
-                    if fmt == "pdf":
-                        pdf_service = PDFService(template_dir=template_dir, output_dir=output_dir)
-                        path = pdf_service.generate_pdf(
-                            invoice=invoice,
-                            company=company_data,
-                            payment_notes=payment_notes_context
-                        )
-                        console.print(f"[blue]  -> Generated PDF: {path}[/blue]")
+        for fmt in formats:
+            fmt = fmt.lower()
+            try:
+                if fmt == "pdf":
+                    pdf_service = PDFService(template_dir=template_dir, output_dir=output_dir)
+                    path = pdf_service.generate_pdf(
+                        invoice=invoice,
+                        company=company_data,
+                        payment_notes=payment_notes_context
+                    )
+                    console.print(f"[blue]  -> Generated PDF: {path}[/blue]")
 
-                    elif fmt == "html":
-                        html_service = HTMLService(template_dir=template_dir, output_dir=output_dir)
-                        path = html_service.save_html(
-                            invoice=invoice,
-                            company=company_data,
-                            payment_notes=payment_notes_context
-                        )
-                        console.print(f"[blue]  -> Generated HTML: {path}[/blue]")
+                elif fmt == "html":
+                    html_service = HTMLService(template_dir=template_dir, output_dir=output_dir)
+                    path = html_service.save_html(
+                        invoice=invoice,
+                        company=company_data,
+                        payment_notes=payment_notes_context
+                    )
+                    console.print(f"[blue]  -> Generated HTML: {path}[/blue]")
 
-                    elif fmt == "ubl":
-                        ubl_service = UBLService(template_dir=template_dir, output_dir=output_dir)
-                        path = ubl_service.save_ubl(invoice=invoice, company=company_data)
-                        console.print(f"[blue]  -> Generated UBL XML: {path}[/blue]")
+                elif fmt == "ubl":
+                    ubl_service = UBLService(template_dir=template_dir, output_dir=output_dir)
+                    path = ubl_service.save_ubl(invoice=invoice, company=company_data)
+                    console.print(f"[blue]  -> Generated UBL XML: {path}[/blue]")
 
-                    elif fmt == "json":
-                        path = os.path.join(output_dir, f"{invoice.number}.json")
-                        with open(path, "w") as f:
-                            f.write(invoice.model_dump_json(indent=2))
-                        console.print(f"[blue]  -> Generated JSON: {path}[/blue]")
+                elif fmt == "json":
+                    path = os.path.join(output_dir, f"{invoice.number}.json")
+                    with open(path, "w") as f:
+                        f.write(invoice.model_dump_json(indent=2))
+                    console.print(f"[blue]  -> Generated JSON: {path}[/blue]")
 
-                    else:
-                        console.print(f"[yellow]  Warning: Unknown format '{fmt}'[/yellow]")
+                else:
+                    console.print(f"[yellow]  Warning: Unknown format '{fmt}'[/yellow]")
 
-                except ImportError:
-                     console.print(
-                         f"[red]  Failed to generate {fmt.upper()}: Missing dependencies.[/red]"
-                     )
-                except Exception as e:
-                     console.print(f"[red]  Failed to generate {fmt.upper()}: {e}[/red]")
-
-        except Exception as e:
-             console.print(f"[red]Error initializing generation services: {e}[/red]")
+            except ImportError:
+                 console.print(
+                     f"[red]  Failed to generate {fmt.upper()}: Missing dependencies.[/red]"
+                 )
 
 
 @app.command("stats")
@@ -535,18 +584,30 @@ def clone_invoice(
         for line in original.lines
     ]
 
+    # Resolve template from original or client preference
+    template_name = getattr(original, "template_name", None)
+    if not template_name:
+        client_repo = factory.create_client_repository()
+        client = client_repo.get_by_id(original.client_id)
+        if client:
+            template_name = getattr(client, "preferred_template", None)
+
     new_invoice_data = InvoiceCreate(
         number=new_number,
         issue_date=datetime.now(),
         status=InvoiceStatus.UNPAID,
-        due_date=original.due_date, # Preserving original term, though might be past
+        due_date=date.today() + timedelta(days=30),  # Set to Net 30
         payment_terms=original.payment_terms,
         client_id=original.client_id,
         client_name_snapshot=original.client_name_snapshot,
         client_address_snapshot=original.client_address_snapshot,
         client_tax_id_snapshot=original.client_tax_id_snapshot,
         company_id=original.company_id,
-        lines=lines
+        payment_note_ids=original.payment_note_ids,  # FIXED: was missing
+        template_name=template_name,
+        lines=lines,
+        original_invoice_id=None,
+        reason=None,
     )
 
     # 4. Save
@@ -588,59 +649,55 @@ def clone_invoice(
 
         payment_notes_context = []
         if new_invoice.payment_terms:
-             payment_notes_context.append({"title": "Payment Terms", "content": new_invoice.payment_terms})
+             payment_notes_context.append(
+                 {"title": "Payment Terms", "content": new_invoice.payment_terms}
+             )
 
-        try:
-            import py_invoices
-            package_dir = os.path.dirname(os.path.abspath(py_invoices.__file__))
-            template_dir = os.path.join(package_dir, "templates")
-            os.makedirs(output_dir, exist_ok=True)
+        import py_invoices
+        package_dir = os.path.dirname(os.path.abspath(py_invoices.__file__))
+        template_dir = os.path.join(package_dir, "templates")
+        os.makedirs(output_dir, exist_ok=True)
 
-            from py_invoices.core import HTMLService, PDFService, UBLService
+        from py_invoices.core import HTMLService, PDFService, UBLService
 
-            for fmt in formats:
-                fmt = fmt.lower()
-                try:
-                    if fmt == "pdf":
-                        pdf_service = PDFService(template_dir=template_dir, output_dir=output_dir)
-                        path = pdf_service.generate_pdf(
-                            invoice=new_invoice,
-                            company=company_data,
-                            payment_notes=payment_notes_context
-                        )
-                        console.print(f"[blue]  -> Generated PDF: {path}[/blue]")
+        for fmt in formats:
+            fmt = fmt.lower()
+            try:
+                if fmt == "pdf":
+                    pdf_service = PDFService(template_dir=template_dir, output_dir=output_dir)
+                    path = pdf_service.generate_pdf(
+                        invoice=new_invoice,
+                        company=company_data,
+                        payment_notes=payment_notes_context
+                    )
+                    console.print(f"[blue]  -> Generated PDF: {path}[/blue]")
 
-                    elif fmt == "html":
-                        html_service = HTMLService(template_dir=template_dir, output_dir=output_dir)
-                        path = html_service.save_html(
-                            invoice=new_invoice,
-                            company=company_data,
-                            payment_notes=payment_notes_context
-                        )
-                        console.print(f"[blue]  -> Generated HTML: {path}[/blue]")
+                elif fmt == "html":
+                    html_service = HTMLService(template_dir=template_dir, output_dir=output_dir)
+                    path = html_service.save_html(
+                        invoice=new_invoice,
+                        company=company_data,
+                        payment_notes=payment_notes_context
+                    )
+                    console.print(f"[blue]  -> Generated HTML: {path}[/blue]")
 
-                    elif fmt == "ubl":
-                        ubl_service = UBLService(template_dir=template_dir, output_dir=output_dir)
-                        path = ubl_service.save_ubl(invoice=new_invoice, company=company_data)
-                        console.print(f"[blue]  -> Generated UBL XML: {path}[/blue]")
+                elif fmt == "ubl":
+                    ubl_service = UBLService(template_dir=template_dir, output_dir=output_dir)
+                    path = ubl_service.save_ubl(invoice=new_invoice, company=company_data)
+                    console.print(f"[blue]  -> Generated UBL XML: {path}[/blue]")
 
-                    elif fmt == "json":
-                        path = os.path.join(output_dir, f"{new_invoice.number}.json")
-                        with open(path, "w") as f:
-                            f.write(new_invoice.model_dump_json(indent=2))
-                        console.print(f"[blue]  -> Generated JSON: {path}[/blue]")
+                elif fmt == "json":
+                    path = os.path.join(output_dir, f"{new_invoice.number}.json")
+                    with open(path, "w") as f:
+                        f.write(new_invoice.model_dump_json(indent=2))
+                    console.print(f"[blue]  -> Generated JSON: {path}[/blue]")
 
-                    else:
-                        console.print(f"[yellow]  Warning: Unknown format '{fmt}'[/yellow]")
+                else:
+                    console.print(f"[yellow]  Warning: Unknown format '{fmt}'[/yellow]")
 
-                except ImportError:
-                     console.print(
-                         f"[red]  Failed to generate {fmt.upper()}: Missing dependencies.[/red]"
-                     )
-                except Exception as e:
-                     console.print(f"[red]  Failed to generate {fmt.upper()}: {e}[/red]")
-
-        except Exception as e:
-             console.print(f"[red]Error initializing generation services: {e}[/red]")
+            except ImportError:
+                 console.print(
+                     f"[red]  Failed to generate {fmt.upper()}: Missing dependencies.[/red]"
+                 )
 
 

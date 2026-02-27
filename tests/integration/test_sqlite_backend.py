@@ -1,4 +1,5 @@
 """Integration tests for SQLite storage backend."""
+
 from collections.abc import Generator
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -83,18 +84,19 @@ def test_client_crud_operations(client_repo: SQLModelClientRepository) -> None:
 
 
 def test_invoice_creation_with_lines(
-    client_repo: SQLModelClientRepository,
-    invoice_repo: SQLModelInvoiceRepository
+    client_repo: SQLModelClientRepository, invoice_repo: SQLModelInvoiceRepository
 ) -> None:
     """Test creating an invoice with lines."""
     # Setup client
-    client = client_repo.create(ClientCreate(
-        name="Invoice Client",
-        address="456 Client Rd",
-        tax_id="TAX-999",
-        email=None,
-        phone=None,
-    ))
+    client = client_repo.create(
+        ClientCreate(
+            name="Invoice Client",
+            address="456 Client Rd",
+            tax_id="TAX-999",
+            email=None,
+            phone=None,
+        )
+    )
 
     # Create invoice
     invoice_data = InvoiceCreate(
@@ -109,17 +111,9 @@ def test_invoice_creation_with_lines(
         client_address_snapshot=client.address,
         client_tax_id_snapshot=client.tax_id,
         lines=[
-            InvoiceLineCreate(
-                description="Consulting",
-                quantity=10,
-                unit_price=100.0
-            ),
-            InvoiceLineCreate(
-                description="Travel",
-                quantity=1,
-                unit_price=50.0
-            )
-        ]
+            InvoiceLineCreate(description="Consulting", quantity=10, unit_price=100.0),
+            InvoiceLineCreate(description="Travel", quantity=1, unit_price=50.0),
+        ],
     )
 
     invoice = invoice_repo.create(invoice_data)
@@ -135,12 +129,12 @@ def test_invoice_creation_with_lines(
 
 
 def test_invoice_queries(
-    client_repo: SQLModelClientRepository,
-    invoice_repo: SQLModelInvoiceRepository
+    client_repo: SQLModelClientRepository, invoice_repo: SQLModelInvoiceRepository
 ) -> None:
     """Test various invoice query methods."""
     client = client_repo.create(
-        ClientCreate(name="Q Client",
+        ClientCreate(
+            name="Q Client",
             address="...",
             tax_id="...",
             email=None,
@@ -150,19 +144,21 @@ def test_invoice_queries(
 
     # Create several invoices
     for i in range(5):
-        invoice_repo.create(InvoiceCreate(
-            number=f"QUERY-{i}",
-            issue_date=datetime.now(),
-            status=InvoiceStatus.UNPAID if i < 3 else InvoiceStatus.PAID,
-            original_invoice_id=None,
-            reason=None,
-            due_date=None,
-            client_id=client.id,
-            client_name_snapshot=client.name,
-            client_address_snapshot=client.address,
-            client_tax_id_snapshot=client.tax_id,
-            lines=[]
-        ))
+        invoice_repo.create(
+            InvoiceCreate(
+                number=f"QUERY-{i}",
+                issue_date=datetime.now(),
+                status=InvoiceStatus.UNPAID if i < 3 else InvoiceStatus.PAID,
+                original_invoice_id=None,
+                reason=None,
+                due_date=None,
+                client_id=client.id,
+                client_name_snapshot=client.name,
+                client_address_snapshot=client.address,
+                client_tax_id_snapshot=client.tax_id,
+                lines=[],
+            )
+        )
 
     # Get all
     all_invoices = invoice_repo.get_all()
@@ -185,7 +181,7 @@ def test_invoice_queries(
 def test_payment_operations(
     client_repo: SQLModelClientRepository,
     invoice_repo: SQLModelInvoiceRepository,
-    payment_repo: SQLModelPaymentRepository
+    payment_repo: SQLModelPaymentRepository,
 ) -> None:
     """Test adding and querying payments."""
     client = client_repo.create(
@@ -197,19 +193,21 @@ def test_payment_operations(
             phone=None,
         )
     )
-    invoice = invoice_repo.create(InvoiceCreate(
-        number="PAY-001",
-        issue_date=datetime.now(),
-        status=InvoiceStatus.UNPAID,
-        original_invoice_id=None,
-        reason=None,
-        due_date=None,
-        client_id=client.id,
-        client_name_snapshot=client.name,
-        client_address_snapshot=client.address,
-        client_tax_id_snapshot=client.tax_id,
-        lines=[InvoiceLineCreate(description="Work", quantity=1, unit_price=1000)]
-    ))
+    invoice = invoice_repo.create(
+        InvoiceCreate(
+            number="PAY-001",
+            issue_date=datetime.now(),
+            status=InvoiceStatus.UNPAID,
+            original_invoice_id=None,
+            reason=None,
+            due_date=None,
+            client_id=client.id,
+            client_name_snapshot=client.name,
+            client_address_snapshot=client.address,
+            client_tax_id_snapshot=client.tax_id,
+            lines=[InvoiceLineCreate(description="Work", quantity=1, unit_price=1000)],
+        )
+    )
 
     # Add payment
     payment_data = PaymentCreate(

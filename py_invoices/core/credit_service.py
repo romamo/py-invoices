@@ -129,6 +129,7 @@ class CreditService:
             client_name_snapshot=original_invoice.client_name_snapshot,
             client_address_snapshot=original_invoice.client_address_snapshot,
             client_tax_id_snapshot=original_invoice.client_tax_id_snapshot,
+            template_name=original_invoice.template_name,
         )
 
         return self.invoice_repo.create(cn_data)
