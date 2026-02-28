@@ -62,7 +62,7 @@ class NumberingService:
         if sequence is None:
             if self.invoice_repo:
                 summary = self.invoice_repo.get_summary()
-                sequence = summary.get("total_count", 0) + 1
+                sequence = summary.total_count + 1
             else:
                 raise ValueError("sequence must be provided if invoice_repo is not set")
 

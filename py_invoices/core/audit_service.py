@@ -6,10 +6,12 @@ integrate with your storage backend's audit log repository.
 """
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any, cast
 
 from pydantic import BaseModel, Field
 from pydantic_invoices.schemas import Invoice, Payment
+from pydantic_invoices.vo import Money
 
 
 class AuditLogEntry(BaseModel):
@@ -60,12 +62,16 @@ class AuditService:
             invoice_id = invoice
             invoice_number = kwargs.get("invoice_number", "unknown")
             total_amount = kwargs.get("total_amount", 0.0)
+            if isinstance(total_amount, Money):
+                total_amount = total_amount.amount
             client_name = kwargs.get("client_name", "unknown")
             user = user_id or kwargs.get("user")
         else:
             invoice_id = invoice.id
             invoice_number = invoice.number
             total_amount = invoice.total_amount
+            if isinstance(total_amount, Money):
+                total_amount = total_amount.amount
             client_name = invoice.client_name_snapshot or "unknown"
             user = user_id
 
@@ -117,7 +123,7 @@ class AuditService:
     def log_payment_added(
         self,
         invoice: "Invoice | int",
-        payment: "Payment | float | None" = None,
+        payment: "Payment | Money | float | None" = None,
         user_id: str | None = None,
         **kwargs: Any,
     ) -> AuditLogEntry:
@@ -125,9 +131,11 @@ class AuditService:
         if isinstance(invoice, int):
             invoice_id = invoice
             invoice_number = kwargs.get("invoice_number", "unknown")
-            payment_amount = payment if isinstance(payment, (int, float)) else 0.0
-            old_balance = kwargs.get("old_balance", 0.0)
-            new_balance = kwargs.get("new_balance", 0.0)
+            payment_amount: Money | Decimal | float = (
+                payment if isinstance(payment, (int, float)) else 0.0
+            )
+            old_balance: Money | Decimal | float = kwargs.get("old_balance", 0.0)
+            new_balance: Money | Decimal | float = kwargs.get("new_balance", 0.0)
             payment_method = kwargs.get("payment_method")
             user = user_id or kwargs.get("user")
         else:
@@ -138,15 +146,30 @@ class AuditService:
             user = user_id
 
             if isinstance(payment, Payment):
-                payment_amount = payment.amount
+                pmnt_amt: Money | Decimal | float = payment.amount
+                if isinstance(pmnt_amt, Money):
+                    pmnt_amt = pmnt_amt.amount
+                payment_amount = pmnt_amt
                 payment_method = payment.payment_method
                 old_balance = invoice.balance_due + payment_amount
                 new_balance = invoice.balance_due
             else:
-                payment_amount = payment if isinstance(payment, (int, float)) else 0.0
+                pmnt_amt_raw: Money | Decimal | float = (
+                    payment if isinstance(payment, (int, float, Money)) else 0.0
+                )
+                if isinstance(pmnt_amt_raw, Money):
+                    pmnt_amt_raw = pmnt_amt_raw.amount
+                payment_amount = pmnt_amt_raw
                 old_balance = invoice.balance_due + payment_amount
                 new_balance = invoice.balance_due
                 payment_method = kwargs.get("payment_method")
+
+        if isinstance(old_balance, Money):
+            old_balance = old_balance.amount
+        if isinstance(new_balance, Money):
+            new_balance = new_balance.amount
+        if isinstance(payment_amount, Money):
+            payment_amount = payment_amount.amount
 
         entry = AuditLogEntry(
             invoice_id=invoice_id,
@@ -167,7 +190,7 @@ class AuditService:
         invoice_id: int,
         invoice_number: str,
         original_number: str,
-        total_amount: float,
+        total_amount: float | Money,
         user: str | None = None,
     ) -> AuditLogEntry:
         """Log invoice cloning.
@@ -182,12 +205,13 @@ class AuditService:
         Returns:
             Created audit log entry
         """
+        amt = total_amount.amount if isinstance(total_amount, Money) else total_amount
         entry = AuditLogEntry(
             invoice_id=invoice_id,
             invoice_number=invoice_number,
             action="CLONED",
             new_value=f"Cloned from {original_number}",
-            notes=f"Total: ${total_amount:.2f}",
+            notes=f"Total: ${amt:.2f}",
             user=user,
         )
         self._logs.append(entry)

@@ -123,11 +123,19 @@ def test_invoices_create_with_formats_mock(monkeypatch: pytest.MonkeyPatch) -> N
 
     # Mock Invoice Repo and Invoice Object
     mock_invoice_repo = MagicMock()
-    # CRITICAL: Mock get_summary to return dict for NumberingService
-    mock_invoice_repo.get_summary.return_value = {"total_count": 0}
-
     # Use Real Pydantic Object to guarantee behavior
-    from pydantic_invoices.schemas import Invoice, InvoiceStatus
+    from pydantic_invoices.schemas import Invoice, InvoiceStatus, InvoiceSummary
+
+    # CRITICAL: Mock get_summary to return InvoiceSummary for NumberingService
+    mock_invoice_repo.get_summary.return_value = InvoiceSummary(
+        total_count=0,
+        paid_count=0,
+        unpaid_count=0,
+        overdue_count=0,
+        total_amount=0,
+        total_paid=0,
+        total_due=0,
+    )
 
     mock_invoice = Invoice.model_construct(
         id=1,

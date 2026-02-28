@@ -312,11 +312,13 @@ def show_summary(
     # Adjust based on actua repo implementation if needed, but dict is flexible.
 
     console.print("[bold]Invoice Summary[/bold]")
-    for key, value in summary.items():
-        if "amount" in key or "revenue" in key:
-            console.print(f"{key.replace('_', ' ').title()}: ${value:.2f}")
-        else:
-            console.print(f"{key.replace('_', ' ').title()}: {value}")
+    console.print(f"Total Count:    {summary.total_count}")
+    console.print(f"Paid Count:     {summary.paid_count}")
+    console.print(f"Unpaid Count:   {summary.unpaid_count}")
+    console.print(f"Overdue Count:  {summary.overdue_count}")
+    console.print(f"Total Amount:   ${summary.total_amount:.2f}")
+    console.print(f"Total Paid:     ${summary.total_paid:.2f}")
+    console.print(f"Total Due:      ${summary.total_due:.2f}")
 
 
 @app.command("create")
@@ -511,11 +513,11 @@ def stats(
 
     console.print("\n[bold cyan]INVOICE STATISTICS[/bold cyan]")
     # Handle keys gracefully
-    console.print(f"Total Invoices:  {summary.get('total_count', 0)}")
-    console.print(f"Total Amount:    ${summary.get('total_amount', 0):.2f}")
-    console.print(f"Total Paid:      ${summary.get('total_paid', 0):.2f}")
-    console.print(f"Total Due:       ${summary.get('total_due', 0):.2f}")
-    console.print(f"Overdue:         {summary.get('overdue_count', 0)}")
+    console.print(f"Total Invoices:  {summary.total_count}")
+    console.print(f"Total Amount:    ${summary.total_amount:.2f}")
+    console.print(f"Total Paid:      ${summary.total_paid:.2f}")
+    console.print(f"Total Due:       ${summary.total_due:.2f}")
+    console.print(f"Overdue:         {summary.overdue_count}")
 
 
 @app.command("clone")

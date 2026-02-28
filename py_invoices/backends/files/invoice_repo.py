@@ -1,10 +1,10 @@
 """File-based invoice repository."""
 
 from pathlib import Path
-from typing import Any
 
 from pydantic_invoices.interfaces import InvoiceRepository
-from pydantic_invoices.schemas import Invoice, InvoiceCreate, InvoiceStatus
+from pydantic_invoices.schemas import Invoice, InvoiceCreate, InvoiceStatus, InvoiceSummary
+from pydantic_invoices.vo import Money
 
 from .storage import FileStorage
 
@@ -67,7 +67,7 @@ class FileInvoiceRepository(InvoiceRepository):
         """Get all overdue invoices."""
         return [inv for inv in self.storage.load_all() if inv.is_overdue]
 
-    def get_summary(self) -> dict[str, Any]:
+    def get_summary(self) -> InvoiceSummary:
         """Get invoice statistics summary."""
         invoices = self.storage.load_all()
 
@@ -78,19 +78,22 @@ class FileInvoiceRepository(InvoiceRepository):
         # Calculate overdue count
         overdue_count = len([inv for inv in invoices if inv.is_overdue])
 
-        total_amount = sum(inv.total_amount for inv in invoices)
-        total_paid = sum(inv.total_paid for inv in invoices)
-        total_due = sum(inv.balance_due for inv in invoices if inv.status != InvoiceStatus.PAID)
+        total_amount = sum((inv.total_amount for inv in invoices), start=Money(0))
+        total_paid = sum((inv.total_paid for inv in invoices), start=Money(0))
+        total_due = sum(
+            (inv.balance_due for inv in invoices if inv.status != InvoiceStatus.PAID),
+            start=Money(0),
+        )
 
-        return {
-            "total_count": total_count,
-            "paid_count": paid_count,
-            "unpaid_count": unpaid_count,
-            "overdue_count": overdue_count,
-            "total_amount": total_amount,
-            "total_paid": total_paid,
-            "total_due": total_due,
-        }
+        return InvoiceSummary(
+            total_count=total_count,
+            paid_count=paid_count,
+            unpaid_count=unpaid_count,
+            overdue_count=overdue_count,
+            total_amount=total_amount,
+            total_paid=total_paid,
+            total_due=total_due,
+        )
 
     def update(self, invoice: Invoice) -> Invoice:
         """Update invoice."""

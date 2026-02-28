@@ -4,6 +4,7 @@ from datetime import datetime
 
 from pydantic_invoices.interfaces import PaymentRepository
 from pydantic_invoices.schemas import Payment, PaymentCreate
+from pydantic_invoices.vo import Money
 
 
 class MemoryPaymentRepository(PaymentRepository):
@@ -42,9 +43,12 @@ class MemoryPaymentRepository(PaymentRepository):
         payments = list(self._storage.values())
         return payments[skip : skip + limit]
 
-    def get_total_for_invoice(self, invoice_id: int) -> float:
+    def get_total_for_invoice(self, invoice_id: int) -> Money:
         """Get total amount paid for an invoice."""
-        return float(sum(p.amount for p in self._storage.values() if p.invoice_id == invoice_id))
+        return sum(
+            (p.amount for p in self._storage.values() if p.invoice_id == invoice_id),
+            start=Money(0),
+        )
 
     def update(self, payment: Payment) -> Payment:
         """Update payment."""

@@ -100,7 +100,7 @@ class TestRepositoryFactoryFromSettings:
         """Test from_settings with invalid backend."""
         # Pydantic validation should catch this before factory creation
         with pytest.raises(Exception):  # Pydantic ValidationError
-            InvoiceSettings(backend="invalid")  # type: ignore
+            InvoiceSettings(backend="invalid")
 
     def test_from_settings_environment_integration(self, monkeypatch: MonkeyPatch) -> None:
         """Test full integration with environment variables."""

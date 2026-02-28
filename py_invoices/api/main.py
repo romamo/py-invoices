@@ -16,10 +16,11 @@ from py_invoices.api.routers import (
     products,
     validation,
 )
+from py_invoices.constants import APP_NAME
 
 app = FastAPI(
-    title="py-invoices API",
-    description="API for managing invoices and clients using py-invoices.",
+    title=f"{APP_NAME} API",
+    description=f"API for managing invoices and clients using {APP_NAME}.",
     version="1.0.0",
 )
 

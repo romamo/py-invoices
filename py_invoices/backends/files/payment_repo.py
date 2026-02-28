@@ -5,6 +5,7 @@ from pathlib import Path
 
 from pydantic_invoices.interfaces import PaymentRepository
 from pydantic_invoices.schemas import Payment, PaymentCreate
+from pydantic_invoices.vo import Money
 
 from .storage import FileStorage
 
@@ -39,10 +40,10 @@ class FilePaymentRepository(PaymentRepository):
         payments = self.storage.load_all()
         return payments[skip : skip + limit]
 
-    def get_total_for_invoice(self, invoice_id: int) -> float:
+    def get_total_for_invoice(self, invoice_id: int) -> Money:
         """Get total amount paid for an invoice."""
         payments = self.get_by_invoice(invoice_id)
-        return float(sum(p.amount for p in payments))
+        return sum((p.amount for p in payments), start=Money(0))
 
     def get_by_date_range(self, start_date: datetime, end_date: datetime) -> list[Payment]:
         """Get payments within a date range."""

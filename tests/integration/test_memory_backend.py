@@ -151,10 +151,10 @@ def test_invoice_queries(client_repo: Any, invoice_repo: Any) -> None:
 
     # Test summary
     summary = invoice_repo.get_summary()
-    assert summary["total_count"] == 2
-    assert summary["paid_count"] == 0
-    assert summary["unpaid_count"] == 2
-    assert summary["overdue_count"] == 1
+    assert summary.total_count == 2
+    assert summary.paid_count == 0
+    assert summary.unpaid_count == 2
+    assert summary.overdue_count == 1
 
 
 def test_payment_operations(client_repo: Any, invoice_repo: Any, payment_repo: Any) -> None:

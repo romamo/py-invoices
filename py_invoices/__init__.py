@@ -9,11 +9,14 @@ This package provides:
 __version__ = "1.8.4"
 
 from .config import InvoiceSettings
+from .constants import APP_DISPLAY_NAME, APP_NAME
 from .core import AuditService, NumberingService, PDFService
 from .plugins.factory import RepositoryFactory
 from .plugins.registry import PluginRegistry
 
 __all__ = [
+    "APP_NAME",
+    "APP_DISPLAY_NAME",
     "RepositoryFactory",
     "PluginRegistry",
     "InvoiceSettings",

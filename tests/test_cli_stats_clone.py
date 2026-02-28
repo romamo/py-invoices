@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from pydantic_invoices.schemas import Invoice, InvoiceLine, InvoiceStatus
+from pydantic_invoices.vo import Money
 from typer.testing import CliRunner
 
 from py_invoices.cli.main import app
@@ -13,13 +14,17 @@ runner = CliRunner()
 def test_stats_command(monkeypatch: pytest.MonkeyPatch) -> None:
     # Mock Repo
     mock_repo = MagicMock()
-    mock_repo.get_summary.return_value = {
-        "total_count": 10,
-        "total_amount": 1000.50,
-        "total_paid": 500.00,
-        "total_due": 500.50,
-        "overdue_count": 2,
-    }
+    from pydantic_invoices.schemas import InvoiceSummary
+
+    mock_repo.get_summary.return_value = InvoiceSummary(
+        total_count=10,
+        total_amount=1000.50,
+        total_paid=500.00,
+        total_due=500.50,
+        overdue_count=2,
+        paid_count=0,
+        unpaid_count=0,
+    )
 
     mock_factory = MagicMock()
     mock_factory.create_invoice_repository.return_value = mock_repo
@@ -58,7 +63,12 @@ def test_clone_command(monkeypatch: pytest.MonkeyPatch) -> None:
         tax_amount=0.0,
         lines=[
             InvoiceLine.model_construct(
-                description="Item 1", quantity=1, unit_price=100.0, line_total=100.0
+                id=1,
+                invoice_id=1,
+                description="Item 1",
+                quantity=1,
+                unit_price=Money(100.0),
+                line_total=Money(100.0),
             )
         ],
         created_at=datetime.now(),
@@ -76,7 +86,17 @@ def test_clone_command(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_invoice_repo.get_by_number.return_value = original_invoice
     mock_invoice_repo.create.return_value = new_invoice
     # Mock summary for NumberingService: return 1 invoice exist, so next is 2
-    mock_invoice_repo.get_summary.return_value = {"total_count": 1}
+    from pydantic_invoices.schemas import InvoiceSummary
+
+    mock_invoice_repo.get_summary.return_value = InvoiceSummary(
+        total_count=1,
+        total_amount=100.0,
+        total_paid=100.0,
+        total_due=0.0,
+        paid_count=1,
+        unpaid_count=0,
+        overdue_count=0,
+    )
 
     mock_client = MagicMock()
     mock_client.preferred_template = "invoice.html.j2"

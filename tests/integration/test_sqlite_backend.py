@@ -174,8 +174,8 @@ def test_invoice_queries(
 
     # Get summary
     summary = invoice_repo.get_summary()
-    assert summary["total_count"] == 5
-    assert summary["unpaid_count"] == 3
+    assert summary.total_count == 5
+    assert summary.unpaid_count == 3
 
 
 def test_payment_operations(

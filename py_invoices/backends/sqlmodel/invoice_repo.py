@@ -1,14 +1,15 @@
 """SQLModel invoice repository implementation."""
 
 from datetime import date
-from typing import Any
 
 from pydantic_invoices.interfaces import InvoiceRepository
 from pydantic_invoices.schemas import (
     Invoice,
     InvoiceCreate,
     InvoiceStatus,
+    InvoiceSummary,
 )
+from pydantic_invoices.vo import Money
 from sqlalchemy import func
 from sqlmodel import Session, select
 
@@ -87,7 +88,7 @@ class SQLModelInvoiceRepository(InvoiceRepository):
         db_invoices = self.session.exec(stmt).all()
         return [inv.to_schema() for inv in db_invoices]
 
-    def get_summary(self) -> dict[str, Any]:
+    def get_summary(self) -> InvoiceSummary:
         """Get invoice statistics summary using SQL aggregation."""
         # Counts
         total_count = self.session.exec(select(func.count(InvoiceDB.id))).one()  # type: ignore[arg-type]
@@ -112,27 +113,21 @@ class SQLModelInvoiceRepository(InvoiceRepository):
             )
         ).one()
 
-        # Amounts
-        # Note: We join with lines and payments to avoid loading all invoices
+        # Amounts — SQL aggregation returns raw float/Decimal; wrap in Money
         stmt_amount = select(func.sum(InvoiceLineDB.quantity * InvoiceLineDB.unit_price))
-        total_amount = self.session.exec(stmt_amount).one() or 0.0
-        total_paid = self.session.exec(select(func.sum(PaymentDB.amount))).one() or 0.0
+        raw_amount = self.session.exec(stmt_amount).one() or 0
+        raw_paid = self.session.exec(select(func.sum(PaymentDB.amount))).one() or 0
+        raw_due = float(raw_amount) - float(raw_paid)
 
-        # Balance due is more complex to do purely in SQL without careful grouping
-        # if we want it to be efficient.
-        # For now, we can calculate it as sum(total_amount of non-paid) - sum(payments of non-paid)
-        # But even better: total_amount - total_paid (for all invoices)
-        total_due = total_amount - total_paid
-
-        return {
-            "total_count": total_count,
-            "paid_count": paid_count,
-            "unpaid_count": unpaid_count,
-            "overdue_count": overdue_count,
-            "total_amount": float(total_amount),
-            "total_paid": float(total_paid),
-            "total_due": float(total_due),
-        }
+        return InvoiceSummary(
+            total_count=total_count,
+            paid_count=paid_count,
+            unpaid_count=unpaid_count,
+            overdue_count=overdue_count,
+            total_amount=Money(raw_amount),
+            total_paid=Money(raw_paid),
+            total_due=Money(raw_due),
+        )
 
     def update(self, invoice: Invoice) -> Invoice:
         """Update invoice."""

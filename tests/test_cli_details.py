@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from pydantic_invoices.schemas import Invoice, InvoiceLine, InvoiceStatus, InvoiceType
+from pydantic_invoices.vo import Money
 from typer.testing import CliRunner
 
 from py_invoices.cli.main import app
@@ -17,7 +18,7 @@ def test_invoices_details_success(monkeypatch: pytest.MonkeyPatch) -> None:
         invoice_id=1,
         description="Test Product",
         quantity=1,
-        unit_price=100.0,
+        unit_price=Money(100.0),
     )
 
     # Using model_construct to bypass validation if needed, though Invoice is stable

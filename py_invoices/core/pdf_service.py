@@ -93,7 +93,7 @@ class PDFService(HTMLService):
             ImportError: If weasyprint is not installed or system dependencies are missing.
         """
         try:
-            from weasyprint import HTML, Attachment  # type: ignore[import-untyped]
+            from weasyprint import HTML, Attachment
 
             return HTML, Attachment
         except (ImportError, OSError) as e:

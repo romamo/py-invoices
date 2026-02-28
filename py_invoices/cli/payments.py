@@ -45,7 +45,10 @@ def list_payments(
             payment.reference or "-",
         )
 
-    total_paid = sum(p.amount for p in payments)
+    from pydantic_invoices.vo import Money
+
+    total_paid = sum((p.amount for p in payments), start=Money(0))
     console.print(table)
     console.print(f"[bold]Total Paid: ${total_paid:.2f}[/bold]")
-    console.print(f"Balance Due: ${max(0, invoice.total_amount - total_paid):.2f}")
+    balance = invoice.total_amount - total_paid
+    console.print(f"Balance Due: ${max(Money(0), balance):.2f}")

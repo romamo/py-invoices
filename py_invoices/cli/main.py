@@ -14,10 +14,11 @@ from py_invoices.cli.templates import app as templates_app
 from py_invoices.cli.utils import get_console, get_factory
 from py_invoices.cli.validate import app as validate_app
 from py_invoices.config import get_settings
+from py_invoices.constants import APP_NAME, CLI_NAME
 
 app = typer.Typer(
-    name="py-invoices",
-    help="CLI for py-invoices management.",
+    name=CLI_NAME,
+    help=f"CLI for {APP_NAME} management.",
     add_completion=False,
 )
 

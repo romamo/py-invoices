@@ -11,7 +11,7 @@ def test_config_show_command() -> None:
     result = runner.invoke(app, ["config", "show"])
 
     assert result.exit_code == 0
-    assert "py-invoices Configuration" in result.stdout
+    assert "Invoices Engine Configuration" in result.stdout
     assert "Backend" in result.stdout
     if get_settings().database_url:
         assert "Database URL" in result.stdout

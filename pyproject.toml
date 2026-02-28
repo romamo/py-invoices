@@ -7,11 +7,11 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 dependencies = [
-    "pydantic-invoices>=1.2.2",
+    "pydantic-invoices>=1.4.0",
     "pydantic>=2.0.0",
-    "pydantic-settings>=2.0.0",
+    "pydantic-settings>=2.13.1",
     "jinja2>=3.1.5",
-    "python-multipart>=0.0.21",
+    "python-multipart>=0.0.22",
     "defusedxml>=0.7.1",
 ]
 
@@ -31,12 +31,12 @@ yaml = ["pyyaml>=6.0"] # Optional YAML support
 
 # PDF generation
 pdf = [
-    "weasyprint>=63.1",
+    "weasyprint>=68.1",
     "pyyaml>=6.0",
 ]
 
 # Distribution layers
-cli = ["typer>=0.9.0", "rich>=14.2.0"]
+cli = ["typer>=0.24.1", "rich>=14.3.3"]
 api = ["fastapi>=0.100.0", "uvicorn>=0.20.0"]
 
 dotenv = ["python-dotenv>=1.0.0"]
@@ -50,6 +50,7 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 py-invoices = "py_invoices.cli.main:main"
+inv = "py_invoices.cli.main:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["py_invoices"]
@@ -94,6 +95,7 @@ strict = true
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+plugins = ["pydantic.mypy"]
 
 [tool.ruff]
 line-length = 100
@@ -113,4 +115,8 @@ dev = [
     "ruff>=0.2.0",
     "httpx>=0.27.0",
     "bandit>=1.9.4",
+    "types-PyYAML",
+    "types-psycopg2",
+    "types-PyMySQL",
+    "types-defusedxml",
 ]

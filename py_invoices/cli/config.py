@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.table import Table
 
 from py_invoices.config import get_settings
+from py_invoices.constants import APP_DISPLAY_NAME
 
 app = typer.Typer()
 console = Console()
@@ -15,7 +16,11 @@ def show_config() -> None:
     """Show current configuration details."""
     settings = get_settings()
 
-    table = Table(title="py-invoices Configuration", show_header=True, header_style="bold magenta")
+    table = Table(
+        title=f"{APP_DISPLAY_NAME} Configuration",
+        show_header=True,
+        header_style="bold magenta",
+    )
     table.add_column("Setting", style="dim")
     table.add_column("Value")
 

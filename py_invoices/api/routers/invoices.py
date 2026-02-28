@@ -1,7 +1,5 @@
-from typing import Any
-
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic_invoices.schemas import Invoice, InvoiceCreate
+from pydantic_invoices.schemas import Invoice, InvoiceCreate, InvoiceSummary
 
 from py_invoices import RepositoryFactory
 from py_invoices.api.deps import get_factory
@@ -16,10 +14,10 @@ def list_overdue_invoices(factory: RepositoryFactory = Depends(get_factory)) -> 
     return repo.get_overdue()
 
 
-@router.get("/summary")
+@router.get("/summary", response_model=InvoiceSummary)
 def get_invoices_summary(
     factory: RepositoryFactory = Depends(get_factory),
-) -> dict[str, Any]:
+) -> InvoiceSummary:
     repo = factory.create_invoice_repository()
     return repo.get_summary()
 
