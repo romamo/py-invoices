@@ -55,7 +55,7 @@ class NumberingService:
             >>> service.generate_number(42, year=2024)
             'INV-2024-0042'
         """
-        now = datetime.now()
+        now = datetime.now().date()
         target_year = year or now.year
 
         # Handle auto-sequencing

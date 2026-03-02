@@ -113,16 +113,9 @@ class RepositoryFactory:
         if cls._registered_backends:
             return
 
-        # Always available - memory backend has no dependencies
-        try:
-            from ..backends.memory.plugin import MemoryPlugin  # noqa: F401
-        except ImportError:
-            pass
-
-        try:
-            from ..backends.files.plugin import FilesPlugin  # noqa: F401
-        except ImportError:
-            pass
+        # Always available - memory and files backends have no optional dependencies
+        from ..backends.files.plugin import FilesPlugin  # noqa: F401
+        from ..backends.memory.plugin import MemoryPlugin  # noqa: F401
 
         cls._registered_backends = True
 

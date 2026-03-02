@@ -69,7 +69,7 @@ def get_credit_note(
         # We can still show it or exit. Let's show it but warn.
 
     console.print(f"[bold]Credit Note: {invoice.number}[/bold]")
-    console.print(f"Date: {invoice.issue_date.date()}")
+    console.print(f"Date: {invoice.issue_date}")
     console.print(f"Status: {invoice.status}")
     console.print(f"Client: {invoice.client_name_snapshot}")
     console.print(f"Reason: {invoice.reason}")

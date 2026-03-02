@@ -171,7 +171,7 @@ class TestPDFService:
         invoice = Invoice(
             id=1,
             number="INV-001",
-            issue_date=datetime.now(),
+            issue_date=datetime.now().date(),
             status=InvoiceStatus.UNPAID,
             client_id=1,
             company_id=1,
@@ -206,7 +206,7 @@ class TestPDFService:
         invoice = Invoice(
             id=1,
             number="INV-001",
-            issue_date=datetime.now(),
+            issue_date=datetime.now().date(),
             status=InvoiceStatus.UNPAID,
             client_id=1,
             company_id=1,

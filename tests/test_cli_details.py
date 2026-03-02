@@ -25,7 +25,7 @@ def test_invoices_details_success(monkeypatch: pytest.MonkeyPatch) -> None:
     mock_invoice = Invoice.model_construct(
         id=1,
         number="INV-2026-TEST",
-        issue_date=datetime.now(),
+        issue_date=datetime.now().date(),
         status=InvoiceStatus.UNPAID,
         type=InvoiceType.STANDARD,
         due_date=datetime.now().date(),

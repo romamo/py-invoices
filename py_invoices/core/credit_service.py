@@ -112,7 +112,7 @@ class CreditService:
 
         cn_data = InvoiceCreate(
             number=cn_number,
-            issue_date=datetime.now(),
+            issue_date=datetime.now().date(),
             status=InvoiceStatus.DRAFT,  # Start as draft
             type=InvoiceType.CREDIT_NOTE,
             original_invoice_id=original_invoice.id,

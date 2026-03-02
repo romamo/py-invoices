@@ -46,7 +46,7 @@ def main() -> None:
     # Create invoice
     invoice_in = InvoiceCreate(
         number="PERSIST-001",
-        issue_date=datetime.now(),
+        issue_date=datetime.now().date(),
         status=InvoiceStatus.DRAFT,
         client_id=client.id,
         company_id=1,
@@ -75,7 +75,7 @@ def main() -> None:
         PaymentCreate(
             invoice_id=invoice.id,
             amount=500.0,
-            payment_date=datetime.now(),
+            payment_date=datetime.now().date(),
             reference="REF-001",
             payment_method="Bank Transfer",
         )

@@ -46,7 +46,7 @@ def run_example(backend: str, **config: str) -> None:
             invoice = invoice_repo.create(
                 InvoiceCreate(
                     number=invoice_num,
-                    issue_date=datetime.now(),
+                    issue_date=datetime.now().date(),
                     original_invoice_id=None,
                     reason=None,
                     status=InvoiceStatus.UNPAID,

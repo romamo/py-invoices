@@ -47,7 +47,7 @@ def main() -> None:
         InvoiceCreate(
             client_id=client.id,
             number=invoice_number,
-            issue_date=datetime.now(),
+            issue_date=datetime.now().date(),
             original_invoice_id=None,
             reason=None,
             due_date=None,

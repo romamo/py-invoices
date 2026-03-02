@@ -56,7 +56,7 @@ def test_create_credit_note_api() -> None:
         json={
             "number": "INV-API-001",
             "issue_date": datetime.now().date().isoformat(),
-            "due_date": (datetime.now() + timedelta(days=30)).date().isoformat(),
+            "due_date": (datetime.now().date() + timedelta(days=30)).isoformat(),
             "status": InvoiceStatus.DRAFT,
             "client_id": client_id,
             "lines": [{"description": "Service A", "quantity": 1, "unit_price": 100.0}],
@@ -89,7 +89,7 @@ def test_create_credit_note_flow() -> None:
         json={
             "number": "INV-API-002",
             "issue_date": datetime.now().date().isoformat(),
-            "due_date": (datetime.now() + timedelta(days=30)).date().isoformat(),
+            "due_date": (datetime.now().date() + timedelta(days=30)).isoformat(),
             "status": InvoiceStatus.DRAFT,
             "client_id": client_id,
             "lines": [{"description": "Service A", "quantity": 1, "unit_price": 100.0}],

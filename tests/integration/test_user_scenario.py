@@ -81,10 +81,14 @@ class TestUserScenario:
             payment_note_id=payment_note.id,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
-            client_tax_id_snapshot=client.tax_id,
+            client_tax_id_snapshot=(
+                client.tax_id.value if hasattr(client.tax_id, "value") else client.tax_id
+            ),
             company_name_snapshot=company.name,
             company_address_snapshot=company.address,
-            company_tax_id_snapshot=company.tax_id,
+            company_tax_id_snapshot=(
+                company.tax_id.value if hasattr(company.tax_id, "value") else company.tax_id
+            ),
             payment_terms=payment_note.content,
         )
 

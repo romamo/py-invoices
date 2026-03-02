@@ -68,7 +68,7 @@ def example_explicit_settings() -> None:
     invoice = invoice_repo.create(
         InvoiceCreate(
             number="INV-2023-001",
-            issue_date=datetime.now(),
+            issue_date=datetime.now().date(),
             client_id=client.id,
             company_id=1,
             original_invoice_id=None,

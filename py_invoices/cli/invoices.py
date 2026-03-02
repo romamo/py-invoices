@@ -210,7 +210,7 @@ def list_invoices(
     for invoice in invoices:
         table.add_row(
             invoice.number,
-            str(invoice.issue_date.date()),
+            str(invoice.issue_date),
             invoice.client_name_snapshot,
             f"${invoice.total_amount:.2f}",
             invoice.status.value,
@@ -248,7 +248,7 @@ def get_invoice_details(
         raise typer.Exit(code=1)
 
     console.print(f"[bold]Invoice: {invoice.number}[/bold]")
-    console.print(f"Date: {invoice.issue_date.date()}")
+    console.print(f"Date: {invoice.issue_date}")
     console.print(f"Status: {invoice.status}")
     console.print(f"Client: {invoice.client_name_snapshot}")
     console.print(f"Type: {invoice.type}")
@@ -402,7 +402,7 @@ def create_invoice(
     invoice = invoice_repo.create(
         InvoiceCreate(
             number=invoice_number,
-            issue_date=datetime.now(),
+            issue_date=datetime.now().date(),
             status=InvoiceStatus.UNPAID,
             due_date=date.today(),
             payment_terms=payment_terms,
@@ -411,7 +411,7 @@ def create_invoice(
             client_id=client.id,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
-            client_tax_id_snapshot=client.tax_id,
+            client_tax_id_snapshot=str(client.tax_id) if client.tax_id else None,
             company_id=1,
             template_name=(
                 template
@@ -440,7 +440,7 @@ def create_invoice(
                     "[red]Error: --company-name and --company-address are required when "
                     "generating files.[/red]"
                 )
-                pass
+                raise typer.Exit(code=1)
 
         company_data = {
             "name": company_name or "Unknown Company",
@@ -581,7 +581,7 @@ def clone_invoice(
 
     new_invoice_data = InvoiceCreate(
         number=new_number,
-        issue_date=datetime.now(),
+        issue_date=datetime.now().date(),
         status=InvoiceStatus.UNPAID,
         due_date=date.today() + timedelta(days=30),  # Set to Net 30
         payment_terms=original.payment_terms,
@@ -621,11 +621,7 @@ def clone_invoice(
                     "[red]Error: --company-name and --company-address are required when "
                     "generating files.[/red]"
                 )
-                pass  # Don't exit, just skip or let it fail downstream gracefully?
-                # Actually, let's continue but it will probably fail or use defaults?
-                # Create command logic used 'pass', effectively ignoring the error and continuing?
-                # Ah, existing 'create' logic checks but 'pass' does nothing.
-                # It continues to define 'company_data' below.
+                raise typer.Exit(code=1)
 
         company_data = {
             "name": company_name or "Unknown Company",

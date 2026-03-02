@@ -7,6 +7,7 @@ from pydantic_invoices.schemas import (
     Payment,
     PaymentCreate,
 )
+from pydantic_invoices.vo import Money
 from sqlalchemy import func
 from sqlmodel import Session, select
 
@@ -39,11 +40,11 @@ class SQLModelPaymentRepository(PaymentRepository):
         db_payments = self.session.exec(stmt).all()
         return [p.to_schema() for p in db_payments]
 
-    def get_total_for_invoice(self, invoice_id: int) -> float:
+    def get_total_for_invoice(self, invoice_id: int) -> Money:
         """Get total amount paid for an invoice using SQL aggregation."""
         stmt = select(func.sum(PaymentDB.amount)).where(PaymentDB.invoice_id == invoice_id)
         result = self.session.exec(stmt).one()
-        return float(result or 0.0)
+        return Money(float(result or 0.0))
 
     def get_by_date_range(self, start_date: datetime, end_date: datetime) -> list[Payment]:
         """Get payments within a date range."""

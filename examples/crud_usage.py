@@ -41,7 +41,7 @@ def main() -> None:
     invoice = invoice_repo.create(
         InvoiceCreate(
             number="INV-STAR-001",
-            issue_date=datetime.now(),
+            issue_date=datetime.now().date(),
             status=InvoiceStatus.UNPAID,
             client_id=client.id,
             client_name_snapshot=client.name,

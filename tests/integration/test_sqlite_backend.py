@@ -101,7 +101,7 @@ def test_invoice_creation_with_lines(
     # Create invoice
     invoice_data = InvoiceCreate(
         number="INV-001",
-        issue_date=datetime.now(),
+        issue_date=datetime.now().date(),
         status=InvoiceStatus.UNPAID,
         original_invoice_id=None,
         reason=None,
@@ -109,7 +109,9 @@ def test_invoice_creation_with_lines(
         client_id=client.id,
         client_name_snapshot=client.name,
         client_address_snapshot=client.address,
-        client_tax_id_snapshot=client.tax_id,
+        client_tax_id_snapshot=(
+            client.tax_id.value if hasattr(client.tax_id, "value") else client.tax_id
+        ),
         lines=[
             InvoiceLineCreate(description="Consulting", quantity=10, unit_price=100.0),
             InvoiceLineCreate(description="Travel", quantity=1, unit_price=50.0),
@@ -147,7 +149,7 @@ def test_invoice_queries(
         invoice_repo.create(
             InvoiceCreate(
                 number=f"QUERY-{i}",
-                issue_date=datetime.now(),
+                issue_date=datetime.now().date(),
                 status=InvoiceStatus.UNPAID if i < 3 else InvoiceStatus.PAID,
                 original_invoice_id=None,
                 reason=None,
@@ -155,7 +157,9 @@ def test_invoice_queries(
                 client_id=client.id,
                 client_name_snapshot=client.name,
                 client_address_snapshot=client.address,
-                client_tax_id_snapshot=client.tax_id,
+                client_tax_id_snapshot=(
+                    client.tax_id.value if hasattr(client.tax_id, "value") else client.tax_id
+                ),
                 lines=[],
             )
         )
@@ -196,7 +200,7 @@ def test_payment_operations(
     invoice = invoice_repo.create(
         InvoiceCreate(
             number="PAY-001",
-            issue_date=datetime.now(),
+            issue_date=datetime.now().date(),
             status=InvoiceStatus.UNPAID,
             original_invoice_id=None,
             reason=None,
@@ -204,7 +208,9 @@ def test_payment_operations(
             client_id=client.id,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
-            client_tax_id_snapshot=client.tax_id,
+            client_tax_id_snapshot=(
+                client.tax_id.value if hasattr(client.tax_id, "value") else client.tax_id
+            ),
             lines=[InvoiceLineCreate(description="Work", quantity=1, unit_price=1000)],
         )
     )
@@ -213,7 +219,7 @@ def test_payment_operations(
     payment_data = PaymentCreate(
         invoice_id=invoice.id,
         amount=600.0,
-        payment_date=datetime.now(),
+        payment_date=datetime.now().date(),
         payment_method="Wire Transfer",
         reference=None,
     )
@@ -225,8 +231,8 @@ def test_payment_operations(
     assert total_paid == 600.0
 
     # Get by date range (roughly covering today)
-    start = datetime.now() - timedelta(hours=1)
-    end = datetime.now() + timedelta(hours=1)
+    start = datetime.now().date() - timedelta(days=1)
+    end = datetime.now().date() + timedelta(days=1)
     payments = payment_repo.get_by_date_range(start, end)
     assert len(payments) == 1
     assert payments[0].amount == 600.0

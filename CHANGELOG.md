@@ -1,7 +1,21 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
- 
+
+## [1.9.1] - 2026-03-02
+
+### Fixed
+- **Tax ID Handling**: Coerce `tax_id` to `str` in CLI display (`clients list`, `clients search`, `companies list`) and in memory client search to support `TaxID` value objects.
+- **Date/Datetime Compatibility**: Fixed `MemoryPaymentRepository.get_by_date_range` to handle mixed `date`/`datetime` comparisons without errors.
+- **Invoice Dates**: Use `date` (not `datetime`) when creating and cloning invoices to align with schema expectations.
+- **CLI Error Handling**: Replace silent `pass` with `raise typer.Exit(code=1)` when required company args are missing during invoice create/clone.
+- **CLI Detail Display**: Use `client.preferred_template` attribute directly instead of `getattr` fallback.
+- **Code Quality**: Remove swallowed `ImportError` in `RepositoryFactory` for always-available backends (memory, files); fail fast on import errors.
+- **Typing**: Add `type: ignore[import-untyped]` for `weasyprint` import in `PDFService` to fix strict Mypy runs.
+
+### Changed
+- **Dependencies**: Bumped minimum versions — `pydantic-invoices>=1.4.1`, `pydantic>=2.10.0`, `sqlmodel>=0.0.37`, `fastapi>=0.135.1`, `uvicorn>=0.41.0`, `ruff>=0.15.4`. Added `python-multipart` to the `api` extra.
+
 ## [1.8.4] - 2026-02-27
 
 ### Fixed

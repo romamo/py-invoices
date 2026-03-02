@@ -49,7 +49,7 @@ def test_clone_command(monkeypatch: pytest.MonkeyPatch) -> None:
         id=1,
         number="INV-001",
         status=InvoiceStatus.PAID,
-        issue_date=datetime.now(),
+        issue_date=datetime.now().date(),
         due_date=datetime.now().date(),
         payment_terms="Net 30",
         template_name=None,
@@ -71,8 +71,8 @@ def test_clone_command(monkeypatch: pytest.MonkeyPatch) -> None:
                 line_total=Money(100.0),
             )
         ],
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
+        created_at=datetime.now().date(),
+        updated_at=datetime.now().date(),
     )
 
     # 2. Mock New Invoice (Created)

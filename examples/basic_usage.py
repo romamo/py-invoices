@@ -54,7 +54,7 @@ def main() -> None:
     invoice = invoice_repo.create(
         InvoiceCreate(
             number=invoice_number,
-            issue_date=datetime.now(),
+            issue_date=datetime.now().date(),
             status=InvoiceStatus.UNPAID,
             due_date=date(2025, 1, 31),
             payment_terms="Net 30",

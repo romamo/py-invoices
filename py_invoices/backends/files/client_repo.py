@@ -57,7 +57,7 @@ class FileClientRepository(ClientRepository):
             client
             for client in self.storage.load_all()
             if query_lower in client.name.lower()
-            or (client.tax_id and query_lower in client.tax_id.lower())
+            or (client.tax_id and query_lower in str(client.tax_id).lower())
         ]
 
     def update(self, client: Client) -> Client:

@@ -196,8 +196,8 @@ class BusinessValidator:
             ValueError: If dates are invalid
         """
         if invoice.due_date and invoice.issue_date:
-            if invoice.due_date < invoice.issue_date.date():
+            if invoice.due_date < invoice.issue_date:
                 raise ValueError(
                     f"Invoice {invoice.number} has a due date ({invoice.due_date}) "
-                    f"earlier than its issue date ({invoice.issue_date.date()})."
+                    f"earlier than its issue date ({invoice.issue_date})."
                 )

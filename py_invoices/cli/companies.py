@@ -35,7 +35,12 @@ def list_companies(
 
     for company in companies:
         is_default = "*" if company.id == default_id else ""
-        table.add_row(company.name, company.tax_id or "-", company.email or "-", is_default)
+        table.add_row(
+            company.name,
+            str(company.tax_id) if company.tax_id else "-",
+            company.email or "-",
+            is_default,
+        )
 
     console.print(table)
 

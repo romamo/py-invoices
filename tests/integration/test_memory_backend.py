@@ -60,7 +60,7 @@ def test_invoice_creation_with_lines(client_repo: Any, invoice_repo: Any) -> Non
     invoice = invoice_repo.create(
         InvoiceCreate(
             number="INV-001",
-            issue_date=datetime.now(),
+            issue_date=datetime.now().date(),
             status=InvoiceStatus.UNPAID,
             original_invoice_id=None,
             reason=None,
@@ -68,7 +68,9 @@ def test_invoice_creation_with_lines(client_repo: Any, invoice_repo: Any) -> Non
             client_id=client.id,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
-            client_tax_id_snapshot=client.tax_id,
+            client_tax_id_snapshot=(
+                client.tax_id.value if hasattr(client.tax_id, "value") else client.tax_id
+            ),
             lines=[
                 InvoiceLineCreate(
                     description="Item 1",
@@ -107,14 +109,16 @@ def test_invoice_queries(client_repo: Any, invoice_repo: Any) -> None:
     invoice_repo.create(
         InvoiceCreate(
             number="INV-001",
-            issue_date=datetime.now(),
+            issue_date=datetime.now().date(),
             status=InvoiceStatus.UNPAID,
             original_invoice_id=None,
             reason=None,
             client_id=client.id,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
-            client_tax_id_snapshot=client.tax_id,
+            client_tax_id_snapshot=(
+                client.tax_id.value if hasattr(client.tax_id, "value") else client.tax_id
+            ),
             due_date=date.today() + timedelta(days=7),
             lines=[InvoiceLineCreate(description="Test 1", quantity=1, unit_price=100)],
         )
@@ -122,14 +126,16 @@ def test_invoice_queries(client_repo: Any, invoice_repo: Any) -> None:
     invoice_repo.create(
         InvoiceCreate(
             number="INV-002",
-            issue_date=datetime.now() - timedelta(days=10),
+            issue_date=datetime.now().date() - timedelta(days=10),
             status=InvoiceStatus.UNPAID,
             original_invoice_id=None,
             reason=None,
             client_id=client.id,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
-            client_tax_id_snapshot=client.tax_id,
+            client_tax_id_snapshot=(
+                client.tax_id.value if hasattr(client.tax_id, "value") else client.tax_id
+            ),
             due_date=date.today() - timedelta(days=1),
             lines=[InvoiceLineCreate(description="Test 2", quantity=1, unit_price=200)],
         )
@@ -173,7 +179,7 @@ def test_payment_operations(client_repo: Any, invoice_repo: Any, payment_repo: A
     invoice = invoice_repo.create(
         InvoiceCreate(
             number="INV-PAY",
-            issue_date=datetime.now(),
+            issue_date=datetime.now().date(),
             due_date=date.today() + timedelta(days=7),
             status=InvoiceStatus.UNPAID,
             original_invoice_id=None,
@@ -181,7 +187,9 @@ def test_payment_operations(client_repo: Any, invoice_repo: Any, payment_repo: A
             client_id=client.id,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
-            client_tax_id_snapshot=client.tax_id,
+            client_tax_id_snapshot=(
+                client.tax_id.value if hasattr(client.tax_id, "value") else client.tax_id
+            ),
             lines=[InvoiceLineCreate(description="Test", quantity=1, unit_price=500)],
         )
     )
@@ -191,7 +199,7 @@ def test_payment_operations(client_repo: Any, invoice_repo: Any, payment_repo: A
         PaymentCreate(
             invoice_id=invoice.id,
             amount=250.0,
-            payment_date=datetime.now(),
+            payment_date=datetime.now().date(),
             payment_method="Bank Transfer",
             reference=None,
         )
@@ -206,7 +214,7 @@ def test_payment_operations(client_repo: Any, invoice_repo: Any, payment_repo: A
     assert payments[0].amount == 250.0
 
     # Get by date range
-    start = datetime.now() - timedelta(hours=1)
-    end = datetime.now() + timedelta(hours=1)
+    start = datetime.now().date() - timedelta(days=1)
+    end = datetime.now().date() + timedelta(days=1)
     payments = payment_repo.get_by_date_range(start, end)
     assert len(payments) == 1

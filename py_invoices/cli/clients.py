@@ -30,7 +30,12 @@ def list_clients(
         return
 
     for client in clients:
-        table.add_row(str(client.id), client.name, client.tax_id or "-", client.email or "-")
+        table.add_row(
+            str(client.id),
+            client.name,
+            str(client.tax_id) if client.tax_id else "-",
+            client.email or "-",
+        )
 
     console.print(table)
 
@@ -63,7 +68,7 @@ def get_client_details(
     console.print(f"Tax ID: {client.tax_id or 'N/A'}")
     console.print(f"Email: {client.email or 'N/A'}")
     console.print(f"Phone: {client.phone or 'N/A'}")
-    console.print(f"Preferred Template: {getattr(client, 'preferred_template', 'N/A')}")
+    console.print(f"Preferred Template: {client.preferred_template or 'N/A'}")
 
 
 @app.command("search")
@@ -88,7 +93,12 @@ def search_clients(
         return
 
     for client in clients:
-        table.add_row(str(client.id), client.name, client.tax_id or "-", client.email or "-")
+        table.add_row(
+            str(client.id),
+            client.name,
+            str(client.tax_id) if client.tax_id else "-",
+            client.email or "-",
+        )
 
     console.print(table)
 

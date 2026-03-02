@@ -141,7 +141,7 @@ def test_invoices_create_with_formats_mock(monkeypatch: pytest.MonkeyPatch) -> N
         id=1,
         number="INV-2023-001",
         status=InvoiceStatus.UNPAID,
-        issue_date=datetime.now(),
+        issue_date=datetime.now().date(),
         due_date=datetime.now().date(),
         payment_terms="Net 30",
         client_id=1,
@@ -153,8 +153,8 @@ def test_invoices_create_with_formats_mock(monkeypatch: pytest.MonkeyPatch) -> N
         subtotal=500.0,
         tax_amount=0.0,
         lines=[],
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
+        created_at=datetime.now().date(),
+        updated_at=datetime.now().date(),
     )
 
     mock_invoice_repo.create.return_value = mock_invoice

@@ -1,6 +1,6 @@
 """In-memory payment repository implementation."""
 
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic_invoices.interfaces import PaymentRepository
 from pydantic_invoices.schemas import Payment, PaymentCreate
@@ -32,10 +32,17 @@ class MemoryPaymentRepository(PaymentRepository):
 
     def get_by_date_range(self, start_date: datetime, end_date: datetime) -> list[Payment]:
         """Get payments within a date range."""
+
+        # Handle potential mix of date and datetime
+        def to_date(d: datetime | date) -> date:
+            return d.date() if isinstance(d, datetime) else d
+
+        sd = to_date(start_date)
+        ed = to_date(end_date)
         return [
             payment
             for payment in self._storage.values()
-            if start_date <= payment.payment_date <= end_date
+            if sd <= to_date(payment.payment_date) <= ed
         ]
 
     def get_all(self, skip: int = 0, limit: int = 100) -> list[Payment]:
