@@ -82,12 +82,20 @@ class TestUserScenario:
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
             client_tax_id_snapshot=(
-                client.tax_id.value if hasattr(client.tax_id, "value") else client.tax_id
+                str(client.tax_id.value)
+                if (client.tax_id and hasattr(client.tax_id, "value"))
+                else str(client.tax_id)
+                if client.tax_id
+                else None
             ),
             company_name_snapshot=company.name,
             company_address_snapshot=company.address,
             company_tax_id_snapshot=(
-                company.tax_id.value if hasattr(company.tax_id, "value") else company.tax_id
+                str(company.tax_id.value)
+                if (company.tax_id and hasattr(company.tax_id, "value"))
+                else str(company.tax_id)
+                if company.tax_id
+                else None
             ),
             payment_terms=payment_note.content,
         )

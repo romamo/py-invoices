@@ -83,8 +83,8 @@ def main() -> None:
     # 5. SUMMARY
     print("\n[SUMMARY] Getting repository summary...")
     summary = invoice_repo.get_summary()
-    print(f"Total Invoices: {summary['total_count']}")
-    print(f"Total Amount:   ${summary['total_amount']:.2f}")
+    print(f"Total Invoices: {summary.total_count}")
+    print(f"Total Amount:   ${summary.total_amount:.2f}")
 
     # 6. DELETE
     print("\n[DELETE] Deleting invoice and client (cleaned up after demo)...")

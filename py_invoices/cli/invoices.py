@@ -6,7 +6,7 @@ import typer
 from pydantic_invoices.schemas import InvoiceCreate, InvoiceLineCreate, InvoiceStatus
 from rich.table import Table
 
-from py_invoices.cli.utils import get_console, get_factory
+from py_invoices.cli.utils import get_console, get_factory, resolve_company_details
 from py_invoices.config import get_settings
 from py_invoices.core import AuditService, NumberingService, PDFService
 
@@ -20,10 +20,10 @@ def generate_pdf(
     output_dir: str = typer.Option("output", help="Directory to save the PDF"),
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
     # Company Details
-    company_name: str = typer.Option(..., help="Company Name"),
-    company_address: str = typer.Option(..., help="Company Address"),
-    company_tax_id: str = typer.Option(None, help="Company Tax ID"),
-    company_email: str = typer.Option(None, help="Company Email"),
+    company_name: str | None = typer.Option(None, help="Company Name"),
+    company_address: str | None = typer.Option(None, help="Company Address"),
+    company_tax_id: str | None = typer.Option(None, help="Company Tax ID"),
+    company_email: str | None = typer.Option(None, help="Company Email"),
     template: str = typer.Option(None, help="Template name to use (e.g. invoice.html.j2)"),
 ) -> None:
     """Generate PDF for an invoice."""
@@ -50,12 +50,17 @@ def generate_pdf(
         console.print(f"[red]Error: Invoice '{invoice_identifier}' not found.[/red]")
         raise typer.Exit(code=1)
 
-    company_data = {
-        "name": company_name,
-        "address": company_address,
-        "email": company_email,
-        "tax_id": company_tax_id,
-    }
+    # Resolve Company Details
+    company_data = resolve_company_details(
+        factory=factory,
+        invoice=invoice,
+        company_name=company_name,
+        company_address=company_address,
+        company_tax_id=company_tax_id,
+        company_email=company_email,
+    )
+
+
 
     try:
         settings = get_settings()
@@ -109,10 +114,10 @@ def generate_html(
     output_dir: str = typer.Option("output", help="Directory to save the HTML"),
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
     # Company Details
-    company_name: str = typer.Option(..., help="Company Name"),
-    company_address: str = typer.Option(..., help="Company Address"),
-    company_tax_id: str = typer.Option(None, help="Company Tax ID"),
-    company_email: str = typer.Option(None, help="Company Email"),
+    company_name: str | None = typer.Option(None, help="Company Name"),
+    company_address: str | None = typer.Option(None, help="Company Address"),
+    company_tax_id: str | None = typer.Option(None, help="Company Tax ID"),
+    company_email: str | None = typer.Option(None, help="Company Email"),
     template: str = typer.Option(None, help="Template name to use (e.g. invoice.html.j2)"),
 ) -> None:
     """Generate HTML for an invoice."""
@@ -139,12 +144,15 @@ def generate_html(
         console.print(f"[red]Error: Invoice '{invoice_identifier}' not found.[/red]")
         raise typer.Exit(code=1)
 
-    company_data = {
-        "name": company_name,
-        "address": company_address,
-        "email": company_email,
-        "tax_id": company_tax_id,
-    }
+    # Resolve Company Details
+    company_data = resolve_company_details(
+        factory=factory,
+        invoice=invoice,
+        company_name=company_name,
+        company_address=company_address,
+        company_tax_id=company_tax_id,
+        company_email=company_email,
+    )
 
     settings = get_settings()
 
@@ -342,10 +350,10 @@ def create_invoice(
     ),
     output_dir: str = typer.Option("output", help="Directory for generated files"),
     # Company Details
-    company_name: str = typer.Option(None, help="Company Name (required for formats)"),
-    company_address: str = typer.Option(None, help="Company Address (required for formats)"),
-    company_tax_id: str = typer.Option(None, help="Company Tax ID"),
-    company_email: str = typer.Option(None, help="Company Email"),
+    company_name: str | None = typer.Option(None, help="Company Name (required for formats)"),
+    company_address: str | None = typer.Option(None, help="Company Address (required for formats)"),
+    company_tax_id: str | None = typer.Option(None, help="Company Tax ID"),
+    company_email: str | None = typer.Option(None, help="Company Email"),
     template: str = typer.Option(None, help="Template name to use"),
 ) -> None:
     """
@@ -413,6 +421,9 @@ def create_invoice(
             client_address_snapshot=client.address,
             client_tax_id_snapshot=str(client.tax_id) if client.tax_id else None,
             company_id=1,
+            company_name_snapshot=company_name,
+            company_address_snapshot=company_address,
+            company_tax_id_snapshot=company_tax_id,
             template_name=(
                 template
                 if isinstance(template, str)
@@ -433,21 +444,45 @@ def create_invoice(
 
     # 4. Handle Format Generation
     if formats:
-        # Validate Company Info if formats requested
+        # Validate/Resolve Company Info if formats requested
         if any(f.lower() in ["pdf", "html", "ubl"] for f in formats):
-            if not company_name or not company_address:
+            name = company_name
+            address = company_address
+            tax_id = company_tax_id
+            email = company_email
+
+            if not name or not address:
+                # Try to resolve from company_id
+                c_id = getattr(invoice, "company_id", 1)
+                comp_repo = factory.create_company_repository()
+                company_record = comp_repo.get_by_id(c_id)
+
+                if company_record:
+                    name = name or company_record.name
+                    address = address or company_record.address
+                    tax_id = tax_id or getattr(company_record, "tax_id", None)
+                    email = email or getattr(company_record, "email", None)
+
+            if not name or not address:
                 console.print(
                     "[red]Error: --company-name and --company-address are required when "
-                    "generating files.[/red]"
+                    "generating files and cannot be resolved automatically.[/red]"
                 )
                 raise typer.Exit(code=1)
 
-        company_data = {
-            "name": company_name or "Unknown Company",
-            "address": company_address or "Unknown Address",
-            "email": company_email,
-            "tax_id": company_tax_id,
-        }
+            company_data = {
+                "name": name,
+                "address": address,
+                "email": email,
+                "tax_id": tax_id,
+            }
+        else:
+            company_data = {
+                "name": company_name or "Unknown Company",
+                "address": company_address or "Unknown Address",
+                "email": company_email,
+                "tax_id": company_tax_id,
+            }
 
         # Construct Payment Notes for Template
         # The template expects a list of objects with title/content
@@ -529,10 +564,10 @@ def clone_invoice(
     ),
     output_dir: str = typer.Option("output", help="Directory for generated files"),
     # Company Details for generation
-    company_name: str = typer.Option(None, help="Company Name (required for formats)"),
-    company_address: str = typer.Option(None, help="Company Address (required for formats)"),
-    company_tax_id: str = typer.Option(None, help="Company Tax ID"),
-    company_email: str = typer.Option(None, help="Company Email"),
+    company_name: str | None = typer.Option(None, help="Company Name (required for formats)"),
+    company_address: str | None = typer.Option(None, help="Company Address (required for formats)"),
+    company_tax_id: str | None = typer.Option(None, help="Company Tax ID"),
+    company_email: str | None = typer.Option(None, help="Company Email"),
 ) -> None:
     """Clone an existing invoice with a new unique number."""
     factory = get_factory(backend)

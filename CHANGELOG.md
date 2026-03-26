@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.10.0] - 2026-03-26
+
+### Added
+- **CLI Company Resolution**: Enhanced `pdf`, `html`, and `create` commands to automatically resolve company details (name, address, tax ID, email) from CLI options, invoice snapshots, or live lookup via `company_id`.
+- **Company Snapshots**: Added `company_name_snapshot`, `company_address_snapshot`, and `company_tax_id_snapshot` to the `SQLModel` backend to ensure historical data integrity for company information.
+
+### Fixed
+- **CLI VAT Resolution**: Automatically fetch and resolve company tax ID from the repository if missing from CLI arguments or invoice snapshots.
+- **CLI Optional Arguments**: Changed `--company-name` and `--company-address` from required to optional in `pdf` and `html` commands when resolution is possible.
+
 ## [1.9.1] - 2026-03-02
 
 ### Fixed

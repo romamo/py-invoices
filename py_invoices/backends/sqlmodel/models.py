@@ -115,6 +115,12 @@ class InvoiceDB(SQLModel, table=True):
     client_name_snapshot: str | None = None
     client_address_snapshot: str | None = None
     client_tax_id_snapshot: str | None = None
+
+    # Company snapshots (immutable at invoice creation)
+    company_name_snapshot: str | None = None
+    company_address_snapshot: str | None = None
+    company_tax_id_snapshot: str | None = None
+
     template_name: str | None = Field(None, max_length=255)
 
     # Relationships
@@ -180,6 +186,9 @@ class InvoiceDB(SQLModel, table=True):
             client_name_snapshot=self.client_name_snapshot,
             client_address_snapshot=self.client_address_snapshot,
             client_tax_id_snapshot=self.client_tax_id_snapshot,
+            company_name_snapshot=self.company_name_snapshot,
+            company_address_snapshot=self.company_address_snapshot,
+            company_tax_id_snapshot=self.company_tax_id_snapshot,
             template_name=self.template_name,
             lines=[line.to_schema() for line in self.lines],
             payments=[payment.to_schema() for payment in self.payments],

@@ -14,7 +14,7 @@ if DATA_DIR.exists():
     shutil.rmtree(DATA_DIR)
 
 
-def verify_files_backend(fmt: str):
+def verify_files_backend(fmt: str) -> None:
     print(f"\nVerifying {fmt} format...")
 
     # Initialize factory with files backend
@@ -58,7 +58,7 @@ def verify_files_backend(fmt: str):
     # cleanup is handled by rm at start or manual
 
 
-def main():
+def main() -> None:
     # Verify all formats
     verify_files_backend("json")
     verify_files_backend("xml")

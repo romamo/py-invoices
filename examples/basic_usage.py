@@ -94,10 +94,10 @@ def main() -> None:
     # Get summary statistics
     print("5. Getting invoice summary...")
     summary = invoice_repo.get_summary()
-    print(f"   ✓ Total invoices: {summary['total_count']}")
-    print(f"     Unpaid: {summary['unpaid_count']}")
-    print(f"     Total amount: ${summary['total_amount']:.2f}")
-    print(f"     Total due: ${summary['total_due']:.2f}\n")
+    print(f"   ✓ Total invoices: {summary.total_count}")
+    print(f"     Unpaid: {summary.unpaid_count}")
+    print(f"     Total amount: ${summary.total_amount:.2f}")
+    print(f"     Total due: ${summary.total_due:.2f}\n")
 
     # List all clients
     print("6. Listing all clients...")

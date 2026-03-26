@@ -92,9 +92,9 @@ def main() -> None:
     # Get summary
     print("6. Getting invoice summary...")
     summary = invoice_repo.get_summary()
-    print(f"   ✓ Total invoices: {summary['total_count']}")
-    print(f"     Unpaid: {summary['unpaid_count']}")
-    print(f"     Total amount: ${summary['total_amount']:.2f}\n")
+    print(f"Total Invoices: {summary.total_count}")
+    print(f"Total Amount:   ${summary.total_amount:.2f}")
+    print(f"Total Due:      ${summary.total_due:.2f}")
 
     # Cleanup
     factory.cleanup()
