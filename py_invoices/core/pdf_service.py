@@ -46,7 +46,6 @@ class PDFService(HTMLService):
         output_filename: str | None = None,
         template_name: str | None = None,
         ubl_template_name: str = "ubl_invoice.xml.j2",
-        logo_path: str | None = None,
         **context: Any,
     ) -> str:
         """Generate Factur-X (PDF/A-3 + XML) invoice.
@@ -57,7 +56,6 @@ class PDFService(HTMLService):
             output_filename: Custom output filename (defaults to invoice number)
             template_name: HTML Template to use
             ubl_template_name: UBL Template to use
-            logo_path: Optional path to company logo
             **context: Additional template context variables
 
         Returns:
@@ -68,7 +66,6 @@ class PDFService(HTMLService):
             company=company,
             template_name=template_name,
             ubl_template_name=ubl_template_name,
-            logo_path=logo_path,
             **context,
         )
 
@@ -130,7 +127,6 @@ class PDFService(HTMLService):
         company: dict[str, Any],
         template_name: str | None = None,
         ubl_template_name: str = "ubl_invoice.xml.j2",
-        logo_path: str | None = None,
         **context: Any,
     ) -> bytes:
         """Generate Factur-X (PDF/A-3 + XML) invoice as bytes.
@@ -140,7 +136,6 @@ class PDFService(HTMLService):
             company: Company information dictionary
             template_name: HTML Template to use
             ubl_template_name: UBL Template to use
-            logo_path: Optional path to company logo
             **context: Additional template context variables
 
         Returns:
@@ -160,7 +155,6 @@ class PDFService(HTMLService):
             invoice=invoice,
             company=company,
             template_name=template_name,
-            logo_path=logo_path,
             **context,
         )
 
@@ -190,7 +184,6 @@ class PDFService(HTMLService):
         company: dict[str, Any],
         output_filename: str | None = None,
         template_name: str | None = None,
-        logo_path: str | None = None,
         **context: Any,
     ) -> str:
         """Generate PDF for an invoice and save to file.
@@ -200,7 +193,6 @@ class PDFService(HTMLService):
             company: Company information dictionary
             output_filename: Custom output filename (defaults to invoice number)
             template_name: Template to use (defaults to default_template)
-            logo_path: Optional path to company logo
             **context: Additional template context variables
 
         Returns:
@@ -214,7 +206,6 @@ class PDFService(HTMLService):
             invoice=invoice,
             company=company,
             template_name=template_name,
-            logo_path=logo_path,
             **context,
         )
 
@@ -235,7 +226,6 @@ class PDFService(HTMLService):
         invoice: "Invoice",
         company: dict[str, Any],
         template_name: str | None = None,
-        logo_path: str | None = None,
         **context: Any,
     ) -> bytes:
         """Generate PDF for an invoice and return as bytes.
@@ -244,7 +234,6 @@ class PDFService(HTMLService):
             invoice: Invoice schema instance
             company: Company information dictionary
             template_name: Template to use (defaults to default_template)
-            logo_path: Optional path to company logo
             **context: Additional template context variables
 
         Returns:
@@ -260,7 +249,6 @@ class PDFService(HTMLService):
             invoice=invoice,
             company=company,
             template_name=template_name,
-            logo_path=logo_path,
             **context,
         )
 

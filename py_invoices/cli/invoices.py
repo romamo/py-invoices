@@ -9,6 +9,7 @@ from rich.table import Table
 from py_invoices.cli.utils import get_console, get_factory, resolve_company_details
 from py_invoices.config import get_settings
 from py_invoices.core import AuditService, NumberingService, PDFService
+from py_invoices.utils.image import file_to_base64_data_uri
 
 app = typer.Typer()
 console = get_console()
@@ -24,6 +25,8 @@ def generate_pdf(
     company_address: str | None = typer.Option(None, help="Company Address"),
     company_tax_id: str | None = typer.Option(None, help="Company Tax ID"),
     company_email: str | None = typer.Option(None, help="Company Email"),
+    company_logo_path: str | None = typer.Option(None, help="Company Logo Path"),
+
     template: str = typer.Option(None, help="Template name to use (e.g. invoice.html.j2)"),
 ) -> None:
     """Generate PDF for an invoice."""
@@ -51,13 +54,14 @@ def generate_pdf(
         raise typer.Exit(code=1)
 
     # Resolve Company Details
-    company_data = resolve_company_details(
+    company_data, logo_base64 = resolve_company_details(
         factory=factory,
         invoice=invoice,
         company_name=company_name,
         company_address=company_address,
         company_tax_id=company_tax_id,
         company_email=company_email,
+        company_logo_path=company_logo_path,
     )
 
 
@@ -84,7 +88,7 @@ def generate_pdf(
                 template_to_use = client.preferred_template
 
         # Prepare context
-        context: dict[str, Any] = {}
+        context: dict[str, Any] = {"logo": logo_base64}
         if hasattr(invoice, "payment_note_ids") and invoice.payment_note_ids:
             note_repo = factory.create_payment_note_repository()
             payment_notes = []
@@ -95,7 +99,10 @@ def generate_pdf(
             context["payment_notes"] = payment_notes
 
         output_path = service.generate_pdf(
-            invoice=invoice, company=company_data, template_name=template_to_use, **context
+            invoice=invoice,
+            company=company_data,
+            template_name=template_to_use,
+            **context,
         )
 
         console.print(f"[green]✓ Generated PDF for Invoice {invoice.number}[/green]")
@@ -118,6 +125,8 @@ def generate_html(
     company_address: str | None = typer.Option(None, help="Company Address"),
     company_tax_id: str | None = typer.Option(None, help="Company Tax ID"),
     company_email: str | None = typer.Option(None, help="Company Email"),
+    company_logo_path: str | None = typer.Option(None, help="Company Logo Path"),
+
     template: str = typer.Option(None, help="Template name to use (e.g. invoice.html.j2)"),
 ) -> None:
     """Generate HTML for an invoice."""
@@ -145,13 +154,14 @@ def generate_html(
         raise typer.Exit(code=1)
 
     # Resolve Company Details
-    company_data = resolve_company_details(
+    company_data, logo_base64 = resolve_company_details(
         factory=factory,
         invoice=invoice,
         company_name=company_name,
         company_address=company_address,
         company_tax_id=company_tax_id,
         company_email=company_email,
+        company_logo_path=company_logo_path,
     )
 
     settings = get_settings()
@@ -175,7 +185,7 @@ def generate_html(
             template_to_use = client.preferred_template
 
     # Prepare context
-    context: dict[str, Any] = {}
+    context: dict[str, Any] = {"logo": logo_base64}
     if hasattr(invoice, "payment_note_ids") and invoice.payment_note_ids:
         note_repo = factory.create_payment_note_repository()
         payment_notes = []
@@ -186,7 +196,10 @@ def generate_html(
         context["payment_notes"] = payment_notes
 
     output_path = service.save_html(
-        invoice=invoice, company=company_data, template_name=template_to_use, **context
+        invoice=invoice,
+        company=company_data,
+        template_name=template_to_use,
+        **context,
     )
 
     console.print(f"[green]✓ Generated HTML for Invoice {invoice.number}[/green]")
@@ -354,6 +367,7 @@ def create_invoice(
     company_address: str | None = typer.Option(None, help="Company Address (required for formats)"),
     company_tax_id: str | None = typer.Option(None, help="Company Tax ID"),
     company_email: str | None = typer.Option(None, help="Company Email"),
+    company_logo_path: str | None = typer.Option(None, help="Company Logo Path"),
     template: str = typer.Option(None, help="Template name to use"),
 ) -> None:
     """
@@ -450,6 +464,7 @@ def create_invoice(
             address = company_address
             tax_id = company_tax_id
             email = company_email
+            logo_path = company_logo_path
 
             if not name or not address:
                 # Try to resolve from company_id
@@ -462,6 +477,7 @@ def create_invoice(
                     address = address or company_record.address
                     tax_id = tax_id or getattr(company_record, "tax_id", None)
                     email = email or getattr(company_record, "email", None)
+                    logo_path = logo_path or getattr(company_record, "logo_path", None)
 
             if not name or not address:
                 console.print(
@@ -475,6 +491,7 @@ def create_invoice(
                 "address": address,
                 "email": email,
                 "tax_id": tax_id,
+                "logo_path": logo_path,
             }
         else:
             company_data = {
@@ -482,6 +499,7 @@ def create_invoice(
                 "address": company_address or "Unknown Address",
                 "email": company_email,
                 "tax_id": company_tax_id,
+                "logo_path": company_logo_path,
             }
 
         # Construct Payment Notes for Template
@@ -506,14 +524,20 @@ def create_invoice(
                 if fmt == "pdf":
                     pdf_service = PDFService(template_dir=template_dir, output_dir=output_dir)
                     path = pdf_service.generate_pdf(
-                        invoice=invoice, company=company_data, payment_notes=payment_notes_context
+                        invoice=invoice,
+                        company=company_data,
+                        logo=file_to_base64_data_uri(company_data.get("logo_path")),
+                        payment_notes=payment_notes_context,
                     )
                     console.print(f"[blue]  -> Generated PDF: {path}[/blue]")
 
                 elif fmt == "html":
                     html_service = HTMLService(template_dir=template_dir, output_dir=output_dir)
                     path = html_service.save_html(
-                        invoice=invoice, company=company_data, payment_notes=payment_notes_context
+                        invoice=invoice,
+                        company=company_data,
+                        logo=file_to_base64_data_uri(company_data.get("logo_path")),
+                        payment_notes=payment_notes_context,
                     )
                     console.print(f"[blue]  -> Generated HTML: {path}[/blue]")
 
@@ -568,6 +592,7 @@ def clone_invoice(
     company_address: str | None = typer.Option(None, help="Company Address (required for formats)"),
     company_tax_id: str | None = typer.Option(None, help="Company Tax ID"),
     company_email: str | None = typer.Option(None, help="Company Email"),
+    company_logo_path: str | None = typer.Option(None, help="Company Logo Path"),
 ) -> None:
     """Clone an existing invoice with a new unique number."""
     factory = get_factory(backend)
@@ -663,6 +688,7 @@ def clone_invoice(
             "address": company_address or "Unknown Address",
             "email": company_email,
             "tax_id": company_tax_id,
+            "logo_path": company_logo_path,
         }
 
         payment_notes_context = []
@@ -687,6 +713,7 @@ def clone_invoice(
                     path = pdf_service.generate_pdf(
                         invoice=new_invoice,
                         company=company_data,
+                        logo=file_to_base64_data_uri(company_data.get("logo_path")),
                         payment_notes=payment_notes_context,
                     )
                     console.print(f"[blue]  -> Generated PDF: {path}[/blue]")
@@ -696,6 +723,7 @@ def clone_invoice(
                     path = html_service.save_html(
                         invoice=new_invoice,
                         company=company_data,
+                        logo=file_to_base64_data_uri(company_data.get("logo_path")),
                         payment_notes=payment_notes_context,
                     )
                     console.print(f"[blue]  -> Generated HTML: {path}[/blue]")

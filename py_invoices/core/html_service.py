@@ -72,7 +72,6 @@ class HTMLService:
         invoice: "Invoice",
         company: dict[str, Any],
         template_name: str | None = None,
-        logo_path: str | None = None,
         **context: Any,
     ) -> str:
         """Generate HTML from invoice data.
@@ -92,7 +91,6 @@ class HTMLService:
         return template.render(
             invoice=invoice,
             company=company,
-            logo_path=logo_path,
             **context,
         )
 
@@ -102,7 +100,6 @@ class HTMLService:
         company: dict[str, Any],
         output_filename: str | None = None,
         template_name: str | None = None,
-        logo_path: str | None = None,
         **context: Any,
     ) -> str:
         """Save invoice as HTML file.
@@ -123,7 +120,6 @@ class HTMLService:
             invoice=invoice,
             company=company,
             template_name=template_name,
-            logo_path=logo_path,
             **context,
         )
 

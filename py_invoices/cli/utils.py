@@ -5,6 +5,7 @@ from rich.console import Console
 
 from py_invoices import RepositoryFactory
 from py_invoices.config import get_settings
+from py_invoices.utils.image import file_to_base64_data_uri
 
 console = Console()
 
@@ -29,7 +30,8 @@ def resolve_company_details(
     company_address: str | None = None,
     company_tax_id: str | None = None,
     company_email: str | None = None,
-) -> dict[str, Any]:
+    company_logo_path: str | None = None,
+) -> tuple[dict[str, Any], str | None]:
     """
     Resolve company details from CLI options, snapshots, or live lookup.
     """
@@ -38,6 +40,7 @@ def resolve_company_details(
     address = company_address
     tax_id = company_tax_id
     email = company_email
+    logo_path = company_logo_path
 
     # 1. Fallback to snapshots
     if not name:
@@ -48,11 +51,13 @@ def resolve_company_details(
         tax_id = getattr(invoice, "company_tax_id_snapshot", None)
     if not email:
         email = getattr(invoice, "company_email_snapshot", None)
+    if not logo_path:
+        logo_path = getattr(invoice, "company_logo_path_snapshot", None)
 
     # 2. Fallback to live lookup via company_id
     # FIX: Perform lookup if any essential field (name, address, tax_id) is missing
     if (
-        (not name or not address or not tax_id)
+        (not name or not address or not tax_id or not logo_path)
         and hasattr(invoice, "company_id")
         and invoice.company_id
     ):
@@ -69,6 +74,8 @@ def resolve_company_details(
             tax_id = getattr(company_record, "tax_id", None)
         if not email:
             email = getattr(company_record, "email", None)
+        if not logo_path:
+            logo_path = getattr(company_record, "logo_path", None)
 
     # 3. Final validation
     if not name or not address:
@@ -79,9 +86,10 @@ def resolve_company_details(
         )
         raise typer.Exit(code=1)
 
-    return {
+    company_details = {
         "name": name,
         "address": address,
         "email": email,
         "tax_id": tax_id,
     }
+    return company_details, file_to_base64_data_uri(logo_path)
