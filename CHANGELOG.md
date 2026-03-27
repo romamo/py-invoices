@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.11.0] - 2026-03-27
+
+### Added
+- **Dynamic Invoice Logos**: Support for resolving and embedding company logos as Base64 Data URIs in HTML and PDF invoices. Logos can be provided via CLI options or resolved from company records and invoice snapshots.
+- **Image Utility**: New utility for converting image files to Base64 data URIs.
+
+### Changed
+- **Service Refactoring**: `HTMLService` and `PDFService` no longer take `logo_path` as a direct argument; logos are now passed via the rendering context.
+- **Default Template**: Updated `invoice.html.j2` to display the company logo if provided.
+
 ## [1.10.0] - 2026-03-26
 
 ### Added
