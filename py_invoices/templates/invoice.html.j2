@@ -22,9 +22,14 @@
 </head>
 <body>
     <div class="header">
-        <div class="company-info">
-            <h1>{{ company.name }}</h1>
-            <p>{{ company.address | replace('\\n', '<br>') | replace('\n', '<br>') | safe }}{% if company.tax_id %}<br>Tax ID: {{ company.tax_id }}{% endif %}</p>
+        <div class="company-info" style="display: flex; align-items: center; gap: 20px;">
+            {% if logo %}
+            <img src="{{ logo }}" alt="Logo" style="max-height: 80px; max-width: 200px;">
+            {% endif %}
+            <div>
+                <h1>{{ company.name }}</h1>
+                <p>{{ company.address | replace('\\n', '<br>') | replace('\n', '<br>') | safe }}{% if company.tax_id %}<br>Tax ID: {{ company.tax_id }}{% endif %}</p>
+            </div>
         </div>
         <div class="invoice-details">
             <h2>INVOICE</h2>
