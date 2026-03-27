@@ -26,7 +26,6 @@ def generate_pdf(
     company_tax_id: str | None = typer.Option(None, help="Company Tax ID"),
     company_email: str | None = typer.Option(None, help="Company Email"),
     company_logo_path: str | None = typer.Option(None, help="Company Logo Path"),
-
     template: str = typer.Option(None, help="Template name to use (e.g. invoice.html.j2)"),
 ) -> None:
     """Generate PDF for an invoice."""
@@ -63,8 +62,6 @@ def generate_pdf(
         company_email=company_email,
         company_logo_path=company_logo_path,
     )
-
-
 
     try:
         settings = get_settings()
@@ -126,7 +123,6 @@ def generate_html(
     company_tax_id: str | None = typer.Option(None, help="Company Tax ID"),
     company_email: str | None = typer.Option(None, help="Company Email"),
     company_logo_path: str | None = typer.Option(None, help="Company Logo Path"),
-
     template: str = typer.Option(None, help="Template name to use (e.g. invoice.html.j2)"),
 ) -> None:
     """Generate HTML for an invoice."""
