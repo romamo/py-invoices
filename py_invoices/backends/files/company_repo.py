@@ -20,7 +20,7 @@ class FileCompanyRepository(CompanyRepository):
     def create(self, data: CompanyCreate) -> Company:
         """Create a new company."""
         company_id = self.storage.get_next_id()
-        company = Company(id=company_id, **data.model_dump())
+        company = Company(id=company_id, **dict(data))
         self.storage.save(company, company_id)
         return company
 

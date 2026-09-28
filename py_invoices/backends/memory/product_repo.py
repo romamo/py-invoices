@@ -3,6 +3,8 @@
 from pydantic_invoices.interfaces import ProductRepository
 from pydantic_invoices.schemas.product import Product, ProductCreate
 
+from .ids import IdSequence
+
 
 class MemoryProductRepository(ProductRepository):
     """In-memory implementation for Product repository."""
@@ -10,13 +12,13 @@ class MemoryProductRepository(ProductRepository):
     def __init__(self) -> None:
         """Initialize with empty storage."""
         self._storage: dict[int, Product] = {}
-        self._next_id = 1
+        self._ids = IdSequence()
 
     def create(self, data: ProductCreate) -> Product:
         """Create product."""
-        product = Product(id=self._next_id, **data.model_dump())
-        self._storage[self._next_id] = product
-        self._next_id += 1
+        product_id = self._ids.next()
+        product = Product(id=product_id, **dict(data))
+        self._storage[product_id] = product
         return product
 
     def get_by_id(self, product_id: int) -> Product | None:

@@ -20,7 +20,7 @@ class FilePaymentNoteRepository(PaymentNoteRepository):
     def create(self, data: PaymentNoteCreate) -> PaymentNote:
         """Create a new payment note."""
         note_id = self.storage.get_next_id()
-        note = PaymentNote(id=note_id, **data.model_dump())
+        note = PaymentNote(id=note_id, **dict(data))
         self.storage.save(note, note_id)
         return note
 

@@ -2,6 +2,7 @@ import typer
 from rich.table import Table
 
 from py_invoices.cli.utils import cli_errors, get_console, get_factory
+from py_invoices.core.totals import format_money
 from py_invoices.operations import payments as ops
 
 app = typer.Typer()
@@ -31,10 +32,10 @@ def list_payments(
         table.add_row(
             str(payment.id),
             str(payment.payment_date),
-            f"${payment.amount:.2f}",
+            format_money(payment.amount),
             payment.payment_method or "-",
             payment.reference or "-",
         )
     console.print(table)
-    console.print(f"[bold]Total Paid: ${result.total_paid:.2f}[/bold]")
-    console.print(f"Balance Due: ${result.balance_due:.2f}")
+    console.print(f"[bold]Total Paid: {format_money(result.total_paid)}[/bold]")
+    console.print(f"Balance Due: {format_money(result.balance_due)}")

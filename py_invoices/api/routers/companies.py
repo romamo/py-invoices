@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic_invoices.schemas.company import Company
 
 from py_invoices import RepositoryFactory
@@ -10,14 +10,14 @@ router = APIRouter()
 @router.get("/", response_model=list[Company])
 def list_companies(
     active_only: bool = True,
-    limit: int = 100,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     factory: RepositoryFactory = Depends(get_factory),
 ) -> list[Company]:
     repo = factory.create_company_repository()
     if active_only:
-        companies = repo.get_active()
-        return companies[:limit]
-    return repo.get_all(limit=limit)
+        return repo.get_active()[offset : offset + limit]
+    return repo.get_all(skip=offset, limit=limit)
 
 
 @router.get("/default", response_model=Company)

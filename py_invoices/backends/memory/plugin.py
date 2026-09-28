@@ -11,7 +11,7 @@ from pydantic_invoices.interfaces import (
     ProductRepository,
 )
 
-from ...plugins.base import StoragePlugin
+from ...plugins.base import AuditRepository, StoragePlugin
 from ...plugins.registry import PluginRegistry
 from .audit_repo import MemoryAuditRepository
 from .client_repo import MemoryClientRepository
@@ -42,10 +42,7 @@ class MemoryPlugin(StoragePlugin):
         self._payment_note_repo: MemoryPaymentNoteRepository | None = None
         self._audit_repo: MemoryAuditRepository | None = None
 
-    @property
-    def name(self) -> str:
-        """Plugin name."""
-        return "memory"
+    name = "memory"
 
     def initialize(self, **config: Any) -> None:
         """Initialize in-memory storage.
@@ -53,9 +50,9 @@ class MemoryPlugin(StoragePlugin):
         No configuration needed for memory backend.
         """
         # Create repository instances
-        self._invoice_repo = MemoryInvoiceRepository()
-        self._client_repo = MemoryClientRepository()
         self._payment_repo = MemoryPaymentRepository()
+        self._invoice_repo = MemoryInvoiceRepository(payment_repo=self._payment_repo)
+        self._client_repo = MemoryClientRepository()
         self._company_repo = MemoryCompanyRepository()
         self._product_repo = MemoryProductRepository()
         self._payment_note_repo = MemoryPaymentNoteRepository()
@@ -97,7 +94,7 @@ class MemoryPlugin(StoragePlugin):
             raise RuntimeError("Plugin not initialized. Call initialize() first.")
         return self._payment_note_repo
 
-    def create_audit_repository(self, **config: Any) -> Any:
+    def create_audit_repository(self, **config: Any) -> AuditRepository:
         """Create audit repository."""
         if self._audit_repo is None:
             raise RuntimeError("Plugin not initialized. Call initialize() first.")

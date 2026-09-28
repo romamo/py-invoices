@@ -9,10 +9,11 @@ router = APIRouter()
 
 @router.get("/", response_model=list[Client])
 def list_clients(
-    limit: int = 10, offset: int = 0, factory: RepositoryFactory = Depends(get_factory)
+    limit: int = Query(10, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    factory: RepositoryFactory = Depends(get_factory),
 ) -> list[Client]:
-    repo = factory.create_client_repository()
-    return repo.get_all(limit=limit)
+    return factory.create_client_repository().get_all(skip=offset, limit=limit)
 
 
 @router.post("/", response_model=Client)

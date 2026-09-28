@@ -13,7 +13,7 @@ from py_invoices.cli.setup import interactive_setup
 from py_invoices.cli.templates import app as templates_app
 from py_invoices.cli.utils import get_console, get_factory
 from py_invoices.cli.validate import app as validate_app
-from py_invoices.config import get_settings
+from py_invoices.config import InvoiceSettings
 from py_invoices.constants import APP_NAME, CLI_NAME
 
 app = typer.Typer(
@@ -41,7 +41,7 @@ def init_db(backend: str = typer.Option(None, help="Storage backend to use")) ->
     """Initialize the database (No-op for memory backend)."""
     console = get_console()
     # Resolve backend
-    resolved_backend = backend if backend else get_settings().backend
+    resolved_backend = backend if backend else InvoiceSettings().backend
 
     if resolved_backend == "memory":
         console.print("[yellow]Memory backend selected. No initialization required.[/yellow]")

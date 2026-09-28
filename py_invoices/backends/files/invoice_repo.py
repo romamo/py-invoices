@@ -2,9 +2,10 @@
 
 from pathlib import Path
 
-from pydantic_invoices.interfaces import InvoiceRepository
+from pydantic_invoices.interfaces import InvoiceRepository, PaymentRepository
 from pydantic_invoices.schemas import Invoice, InvoiceCreate, InvoiceStatus, InvoiceSummary
-from pydantic_invoices.vo import Money
+
+from py_invoices.core.summary import summarize_invoices
 
 from .storage import FileStorage
 
@@ -12,8 +13,14 @@ from .storage import FileStorage
 class FileInvoiceRepository(InvoiceRepository):
     """File-based implementation of InvoiceRepository."""
 
-    def __init__(self, root_dir: str | Path, file_format: str = "json") -> None:
-        """Initialize file repository."""
+    def __init__(
+        self,
+        root_dir: str | Path,
+        file_format: str = "json",
+        payment_repo: PaymentRepository | None = None,
+    ) -> None:
+        """Initialize file repository; payments are read from payment_repo when given."""
+        self._payment_repo = payment_repo
         self.storage = FileStorage[Invoice](
             root_dir, "invoices", Invoice, default_format=file_format
         )
@@ -27,7 +34,7 @@ class FileInvoiceRepository(InvoiceRepository):
 
         # Create line items with IDs
         lines_with_ids = [
-            InvoiceLine(id=idx + 1, invoice_id=invoice_id, **line.model_dump())
+            InvoiceLine(id=idx + 1, invoice_id=invoice_id, **dict(line))
             for idx, line in enumerate(data.lines)
         ]
 
@@ -40,59 +47,48 @@ class FileInvoiceRepository(InvoiceRepository):
 
     def get_by_id(self, invoice_id: int) -> Invoice | None:
         """Get invoice by ID."""
-        return self.storage.load(invoice_id)
+        invoice = self.storage.load(invoice_id)
+        return self._with_payments(invoice) if invoice else None
 
     def get_by_number(self, number: str) -> Invoice | None:
         """Get invoice by number."""
         invoices = self.storage.load_all()
         for invoice in invoices:
             if invoice.number == number:
-                return invoice
+                return self._with_payments(invoice)
         return None
 
     def get_all(self, skip: int = 0, limit: int = 100) -> list[Invoice]:
         """Get all invoices with pagination."""
-        invoices = self.storage.load_all()
-        return invoices[skip : skip + limit]
+        invoices = self.storage.load_all()[skip : skip + limit]
+        return [self._with_payments(inv) for inv in invoices]
 
     def get_by_client(self, client_id: int) -> list[Invoice]:
         """Get all invoices for a client."""
-        return [inv for inv in self.storage.load_all() if inv.client_id == client_id]
+        return [
+            self._with_payments(inv)
+            for inv in self.storage.load_all()
+            if inv.client_id == client_id
+        ]
 
     def get_by_status(self, status: InvoiceStatus) -> list[Invoice]:
         """Get invoices by status."""
-        return [inv for inv in self.storage.load_all() if inv.status == status]
+        return [self._with_payments(inv) for inv in self.storage.load_all() if inv.status == status]
 
     def get_overdue(self) -> list[Invoice]:
         """Get all overdue invoices."""
-        return [inv for inv in self.storage.load_all() if inv.is_overdue]
+        return [self._with_payments(inv) for inv in self.storage.load_all() if inv.is_overdue]
 
     def get_summary(self) -> InvoiceSummary:
         """Get invoice statistics summary."""
-        invoices = self.storage.load_all()
+        return summarize_invoices(self._with_payments(inv) for inv in self.storage.load_all())
 
-        total_count = len(invoices)
-        paid_count = len([inv for inv in invoices if inv.status == InvoiceStatus.PAID])
-        unpaid_count = len([inv for inv in invoices if inv.status == InvoiceStatus.UNPAID])
-
-        # Calculate overdue count
-        overdue_count = len([inv for inv in invoices if inv.is_overdue])
-
-        total_amount = sum((inv.total_amount for inv in invoices), start=Money(0))
-        total_paid = sum((inv.total_paid for inv in invoices), start=Money(0))
-        total_due = sum(
-            (inv.balance_due for inv in invoices if inv.status != InvoiceStatus.PAID),
-            start=Money(0),
-        )
-
-        return InvoiceSummary(
-            total_count=total_count,
-            paid_count=paid_count,
-            unpaid_count=unpaid_count,
-            overdue_count=overdue_count,
-            total_amount=total_amount,
-            total_paid=total_paid,
-            total_due=total_due,
+    def _with_payments(self, invoice: Invoice) -> Invoice:
+        """Attach payments recorded in the payment repository, as the SQL backend does."""
+        if self._payment_repo is None:
+            return invoice
+        return invoice.model_copy(
+            update={"payments": self._payment_repo.get_by_invoice(invoice.id)}
         )
 
     def update(self, invoice: Invoice) -> Invoice:
@@ -101,8 +97,8 @@ class FileInvoiceRepository(InvoiceRepository):
         if not existing:
             raise ValueError(f"Invoice {invoice.id} not found")
 
-        self.storage.save(invoice, invoice.id)
-        return invoice
+        self.storage.save(invoice.model_copy(update={"payments": []}), invoice.id)
+        return self._with_payments(invoice)
 
     def delete(self, invoice_id: int) -> bool:
         """Delete invoice."""

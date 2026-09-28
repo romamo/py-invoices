@@ -1,10 +1,13 @@
 """File-based storage implementation."""
 
 import json
+import os
+import threading
 from pathlib import Path
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast, get_origin
 
 from pydantic import BaseModel
+from pydantic_invoices.vo import Money
 
 # Try to import pyyaml
 try:
@@ -13,6 +16,47 @@ except ImportError:
     yaml = None  # type: ignore
 
 T = TypeVar("T", bound=BaseModel)
+
+SUPPORTED_FORMATS = ("json", "yaml", "yml", "xml", "md")
+FRONTMATTER = "---\n"
+
+
+def _money_aware_dump(entity: BaseModel, data: Any) -> Any:
+    """Replace each Money in a JSON dump with {"amount", "currency"}; plain JSON drops currency."""
+    if not isinstance(entity, BaseModel) or not isinstance(data, dict):
+        return data
+    for name in type(entity).model_fields:
+        if name not in data:
+            continue
+        value = getattr(entity, name)
+        if isinstance(value, Money):
+            data[name] = {"amount": str(value.amount), "currency": value.currency}
+        elif isinstance(value, BaseModel):
+            data[name] = _money_aware_dump(value, data[name])
+        elif isinstance(value, list) and isinstance(data[name], list):
+            data[name] = [
+                _money_aware_dump(item, dumped)
+                for item, dumped in zip(value, data[name], strict=True)
+            ]
+    return data
+
+
+def _restore_money(data: Any) -> Any:
+    """Inverse of _money_aware_dump; plain amounts from older files stay as they are."""
+    if isinstance(data, dict):
+        if set(data) == {"amount", "currency"}:
+            return Money(data["amount"], data["currency"])
+        return {key: _restore_money(value) for key, value in data.items()}
+    if isinstance(data, list):
+        return [_restore_money(item) for item in data]
+    return data
+
+
+def _atomic_write(path: Path, content: str) -> None:
+    """Write via a temporary file and rename, so a crash never leaves a truncated file."""
+    tmp_path = path.with_name(f".{path.name}.tmp")
+    tmp_path.write_text(content, encoding="utf-8")
+    os.replace(tmp_path, path)
 
 
 class FileStorage(Generic[T]):
@@ -41,149 +85,124 @@ class FileStorage(Generic[T]):
         # Create directory if it doesn't exist
         self.entity_dir.mkdir(parents=True, exist_ok=True)
 
-        # Initialize or load metadata (for ID tracking)
         self._meta_file = self.entity_dir / "_meta.json"
-        self._next_id = 1
-        self._load_meta()
+        self._next_id = self._load_meta()
+        self._id_lock = threading.Lock()
 
-    def _load_meta(self) -> None:
-        """Load metadata from file."""
-        if self._meta_file.exists():
-            try:
-                with open(self._meta_file) as f:
-                    data = json.load(f)
-                    self._next_id = data.get("next_id", 1)
-            except json.JSONDecodeError:
-                pass
+    def _load_meta(self) -> int:
+        """Next ID from metadata; a corrupt metadata file is an error, never a reset."""
+        if not self._meta_file.exists():
+            return 1
+        try:
+            data = json.loads(self._meta_file.read_text())
+            next_id = data["next_id"]
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            raise ValueError(
+                f"Corrupt ID metadata in {self._meta_file}; fix or delete it "
+                "(IDs then continue after the highest stored entity)"
+            ) from e
+        if not isinstance(next_id, int) or next_id < 1:
+            raise ValueError(f"Invalid next_id {next_id!r} in {self._meta_file}")
+        return next_id
 
     def _save_meta(self) -> None:
-        """Save metadata to file."""
-        with open(self._meta_file, "w") as f:
-            json.dump({"next_id": self._next_id}, f, indent=2)
+        _atomic_write(self._meta_file, json.dumps({"next_id": self._next_id}, indent=2))
 
     def get_next_id(self) -> int:
-        """Get next available ID and increment."""
-        current_id = self._next_id
-        self._next_id += 1
-        self._save_meta()
-        return current_id
+        """Get next available ID and increment; never below an ID already on disk.
+
+        Safe across threads of one process; separate processes must not share a directory.
+        """
+        with self._id_lock:
+            highest = max(self._entity_files(), default=0)
+            current_id = max(self._next_id, highest + 1)
+            self._next_id = current_id + 1
+            self._save_meta()
+            return current_id
 
     def _get_file_path(self, entity_id: int, fmt: str | None = None) -> Path:
         """Get file path for an entity ID."""
         fmt = fmt or self.default_format
         return self.entity_dir / f"{entity_id}.{fmt}"
 
+    def _entity_files(self) -> dict[int, Path]:
+        """Map entity ID to its file ("1.json" or friendly "1.acme.md")."""
+        files: dict[int, Path] = {}
+        for path in self.entity_dir.iterdir():
+            if path.name.startswith(("_", ".")) or not path.is_file():
+                continue
+            prefix = path.name.split(".", 1)[0]
+            if not prefix.isdigit() or path.suffix.lstrip(".") not in SUPPORTED_FORMATS:
+                continue
+            entity_id = int(prefix)
+            if entity_id in files:
+                raise ValueError(
+                    f"Two files for ID {entity_id} in {self.entity_dir}: "
+                    f"{files[entity_id].name} and {path.name}"
+                )
+            files[entity_id] = path
+        return files
+
     def _find_entity_file(self, entity_id: int) -> Path | None:
-        """Find the file for an entity ID, checking for ID prefix."""
-        # 1. Look for exact ID match first (optimization)
-        for ext in ["json", "yaml", "yml", "xml", "md"]:
-            path = self.entity_dir / f"{entity_id}.{ext}"
-            if path.exists():
-                return path
-
-        # 2. Look for friendly names: "{id}.anything.{ext}"
-        prefix = f"{entity_id}."
-        for item in self.entity_dir.iterdir():
-            if item.is_file() and item.name.startswith(prefix):
-                # Verify it's not just a partial number like "10.json" when looking for "1"
-                # checking startswith "1." is sufficient because 10. starts with "10."
-                return item
-
-        return None
+        """Find the file for an entity ID, including friendly names."""
+        return self._entity_files().get(entity_id)
 
     def save(self, entity: T, entity_id: int, fmt: str | None = None) -> Path:
         """Save entity to file.
 
+        An existing file keeps its name and format unless `fmt` is given explicitly,
+        in which case it is rewritten in that format.
+
         Args:
             entity: The pydantic model instance
             entity_id: The ID of the entity
-            fmt: The format to save as ('json', 'xml', 'md', 'yaml'). Defaults to storage default.
+            fmt: The format to save as ('json', 'xml', 'md', 'yaml'). Defaults to the
+                existing file's format, then to the storage default.
         """
-        fmt = fmt or self.default_format
-
-        # Try to find existing file first (handles friendly names and format changes)
         existing_file = self._find_entity_file(entity_id)
-
-        if existing_file:
+        if existing_file and (fmt is None or existing_file.suffix.lstrip(".") == fmt):
             path = existing_file
-            # If format is explicitly requested and different, we might need to change extension
-            # But usually we want to preserve the existing file's format/name
-            if fmt:
-                # If explicit format requested differs from existing, we swap
-                if existing_file.suffix.lstrip(".") != fmt:
-                    existing_file.unlink()
-                    path = self._get_file_path(entity_id, fmt)
-            else:
-                # Infer format from existing file
-                fmt = existing_file.suffix.lstrip(".")
         else:
             path = self._get_file_path(entity_id, fmt)
-        # Exclude none for XML to avoid "None" strings
-        exclude_none = fmt == "xml"
-        data = entity.model_dump(mode="json", exclude_none=exclude_none)
+        fmt = path.suffix.lstrip(".")
+        if fmt not in SUPPORTED_FORMATS:
+            raise ValueError(f"Unsupported format: {fmt}")
 
+        # Exclude none for XML to avoid "None" strings
+        data = _money_aware_dump(entity, entity.model_dump(mode="json", exclude_none=fmt == "xml"))
         if fmt == "json":
-            with open(path, "w") as f:
-                json.dump(data, f, indent=2)
+            _atomic_write(path, json.dumps(data, indent=2))
         elif fmt == "md":
             self._save_markdown(path, data)
         elif fmt == "xml":
             self._save_xml(path, data)
-        elif fmt in ("yaml", "yml"):
-            self._save_yaml(path, data)
         else:
-            raise ValueError(f"Unsupported format: {fmt}")
+            self._save_yaml(path, data)
 
+        if existing_file and existing_file != path:
+            existing_file.unlink()
         return path
 
     def load(self, entity_id: int) -> T | None:
         """Load entity by ID."""
         path = self._find_entity_file(entity_id)
-        if not path:
-            return None
+        return self._load_path(path) if path else None
 
+    def _load_path(self, path: Path) -> T:
         fmt = path.suffix.lstrip(".")
         if fmt == "json":
-            with open(path) as f:
-                data = json.load(f)
+            data = json.loads(path.read_text())
         elif fmt == "md":
             data = self._load_markdown(path)
         elif fmt == "xml":
             data = self._load_xml(path)
-        elif fmt in ("yaml", "yml"):
-            data = self._load_yaml(path)
         else:
-            return None
-
-        return self.model_class.model_validate(data)
+            data = self._load_yaml(path)
+        return self.model_class.model_validate(_restore_money(data))
 
     def load_all(self) -> list[T]:
-        """Load all entities."""
-        entities = []
-        for path in self.entity_dir.iterdir():
-            if path.name.startswith("_") or not path.is_file():
-                continue
-
-            # Parse ID from filename: "1.json" -> 1, "1.item.json" -> 1
-            entity_id = None
-
-            # Check for simple digit stem ("1")
-            if path.stem.isdigit():
-                entity_id = int(path.stem)
-            else:
-                # Check for friendly name pattern "1.something"
-                # Note: path.stem for "1.item.json" is "1.item"
-                parts = path.name.split(".", 1)
-                if len(parts) > 1 and parts[0].isdigit():
-                    entity_id = int(parts[0])
-
-            if entity_id is not None:
-                entity = self.load(entity_id)
-                if entity:
-                    entities.append(entity)
-
-        entities.sort(key=lambda x: getattr(x, "id", 0))
-        return entities
+        """Load all entities, ordered by ID."""
+        return [self._load_path(path) for _, path in sorted(self._entity_files().items())]
 
     def delete(self, entity_id: int) -> bool:
         """Delete entity by ID."""
@@ -193,6 +212,13 @@ class FileStorage(Generic[T]):
             return True
         return False
 
+    def delete_all(self) -> None:
+        """Delete every entity file and restart IDs at 1."""
+        for path in self._entity_files().values():
+            path.unlink()
+        self._next_id = 1
+        self._save_meta()
+
     def _save_yaml(self, path: Path, data: dict[str, Any]) -> None:
         """Save as YAML."""
         if yaml is None:
@@ -201,8 +227,7 @@ class FileStorage(Generic[T]):
                 "Install it with: pip install py-invoices[files,yaml]"
             )
 
-        with open(path, "w") as f:
-            yaml.safe_dump(data, f, sort_keys=False)
+        _atomic_write(path, yaml.safe_dump(data, sort_keys=False))
 
     def _load_yaml(self, path: Path) -> dict[str, Any]:
         """Load from YAML."""
@@ -213,49 +238,29 @@ class FileStorage(Generic[T]):
                 "Install it with: pip install py-invoices[files,yaml]"
             )
 
-        with open(path) as f:
-            from typing import cast
-
-            return cast(dict[str, Any], yaml.safe_load(f))
+        return cast(dict[str, Any], yaml.safe_load(path.read_text(encoding="utf-8")))
 
     def _save_markdown(self, path: Path, data: dict[str, Any]) -> None:
-        """Save as Markdown with frontmatter."""
-        content = "---\n"
-
-        if yaml:
-            content += yaml.safe_dump(data, sort_keys=False)
-        else:
-            # Fallback to JSON-in-YAML if pyyaml is missing
-            content += json.dumps(data, indent=2)
-
-        content += "\n---\n"
-
-        with open(path, "w") as f:
-            f.write(content)
+        """Save as Markdown with frontmatter (YAML, or JSON when PyYAML is missing)."""
+        body = yaml.safe_dump(data, sort_keys=False) if yaml else json.dumps(data, indent=2)
+        _atomic_write(path, f"{FRONTMATTER}{body.rstrip()}\n{FRONTMATTER}")
 
     def _load_markdown(self, path: Path) -> dict[str, Any]:
-        """Load from Markdown frontmatter."""
-        with open(path) as f:
-            content = f.read()
-
-        if content.startswith("---"):
-            parts = content.split("---", 2)
-            if len(parts) >= 3:
-                frontmatter = parts[1]
-                from typing import cast
-
-                if yaml:
-                    return cast(dict[str, Any], yaml.safe_load(frontmatter))
-                else:
-                    # Fallback: try JSON load
-                    return cast(dict[str, Any], json.loads(frontmatter))
-
-        raise ValueError(f"Invalid markdown format in {path}")
+        """Load from Markdown frontmatter; text after the closing marker is ignored."""
+        content = path.read_text(encoding="utf-8")
+        end = content.find(f"\n{FRONTMATTER}", len(FRONTMATTER) - 1)
+        if not content.startswith(FRONTMATTER) or end == -1:
+            raise ValueError(f"Invalid markdown format in {path}")
+        frontmatter = content[len(FRONTMATTER) : end + 1]
+        data = yaml.safe_load(frontmatter) if yaml else json.loads(frontmatter)
+        if not isinstance(data, dict):
+            raise ValueError(f"Frontmatter in {path} is not a mapping")
+        return data
 
     def _save_xml(self, path: Path, data: dict[str, Any]) -> None:
         """Save as XML."""
-        from xml.dom import minidom  # nosec B408
-        from xml.etree.ElementTree import Element, SubElement, tostring  # nosec B405
+        # Only builds XML from our own data; parsing goes through defusedxml
+        from xml.etree.ElementTree import Element, SubElement, indent, tostring  # nosec B405
 
         def dict_to_xml(parent: Element, d: dict[str, Any]) -> None:
             for key, value in d.items():
@@ -276,11 +281,10 @@ class FileStorage(Generic[T]):
         root = Element(self.model_class.__name__)
         dict_to_xml(root, data)
 
-        # It is safe because we generate 'root' from a controlled dictionary in memory
-        xml_str = minidom.parseString(tostring(root)).toprettyxml(indent="  ")  # nosec B318
+        indent(root, space="  ")
+        xml_str = tostring(root, encoding="unicode", xml_declaration=True) + "\n"
 
-        with open(path, "w") as f:
-            f.write(xml_str)
+        _atomic_write(path, xml_str)
 
     def _load_xml(self, path: Path) -> dict[str, Any]:
         """Load from XML."""
@@ -288,8 +292,6 @@ class FileStorage(Generic[T]):
 
         tree = ET.parse(path)
         root = tree.getroot()
-
-        from typing import Any
 
         def xml_to_dict(element: Any) -> Any:
             result: dict[str, Any] = {}
@@ -303,15 +305,11 @@ class FileStorage(Generic[T]):
                     result[child.tag] = val
             return result
 
-        from typing import cast
-
         data = cast(dict[str, Any], xml_to_dict(root))
 
         # Post-process to ensure list fields are lists
         for field_name, field_info in self.model_class.model_fields.items():
             if field_name in data:
-                from typing import get_origin
-
                 origin = get_origin(field_info.annotation)
                 if origin is list and not isinstance(data[field_name], list):
                     data[field_name] = [data[field_name]]

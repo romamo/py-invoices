@@ -2,7 +2,7 @@ import typer
 from rich.table import Table
 
 from py_invoices.cli.utils import get_console
-from py_invoices.config import get_settings
+from py_invoices.config import InvoiceSettings
 from py_invoices.operations.config import template_catalog
 
 app = typer.Typer()
@@ -12,7 +12,7 @@ console = get_console()
 @app.command("list")
 def list_templates() -> None:
     """List available templates and their resolve paths."""
-    catalog = template_catalog(get_settings())
+    catalog = template_catalog(InvoiceSettings())
     if not catalog.templates:
         console.print("[yellow]No templates found.[/yellow]")
         return

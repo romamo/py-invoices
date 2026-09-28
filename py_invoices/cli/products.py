@@ -3,6 +3,7 @@ from pydantic_invoices.schemas.product import Product, ProductCreate
 from rich.table import Table
 
 from py_invoices.cli.utils import cli_errors, get_console, get_factory
+from py_invoices.core.totals import format_money
 from py_invoices.operations import products as ops
 
 app = typer.Typer()
@@ -17,7 +18,10 @@ def products_table(title: str, products: list[Product]) -> Table:
     table.add_column("Price", justify="right")
     for product in products:
         table.add_row(
-            product.code, product.name, product.category or "-", f"${product.unit_price:.2f}"
+            product.code,
+            product.name,
+            product.category or "-",
+            format_money(product.unit_price),
         )
     return table
 
@@ -47,7 +51,7 @@ def get_product(
     console.print(f"[bold]Product: {product.name}[/bold]")
     console.print(f"Code: {product.code}")
     console.print(f"Category: {product.category}")
-    console.print(f"Price: ${product.unit_price:.2f}")
+    console.print(f"Price: {format_money(product.unit_price)}")
     console.print(f"Description: {product.description}")
 
 
@@ -89,7 +93,7 @@ def create_product(
 
     console.print(f"[green]✓ Created Product {product.name}[/green]")
     console.print(f"  Code: {product.code}")
-    console.print(f"  Price: ${product.unit_price:.2f}")
+    console.print(f"  Price: {format_money(product.unit_price)}")
 
     if backend == "memory":
         console.print(

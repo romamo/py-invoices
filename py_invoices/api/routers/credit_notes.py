@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
-from pydantic_invoices.schemas import Invoice, InvoiceLineCreate
+from pydantic_invoices.schemas import Invoice, InvoiceLineCreate, InvoiceType
 
 from py_invoices import RepositoryFactory
 from py_invoices.api.deps import get_factory
-from py_invoices.core.credit_service import CreditService
-from py_invoices.core.numbering_service import NumberingService
+from py_invoices.operations import credit_notes as ops
+from py_invoices.operations.errors import CreditNoteRejectedError
 
 router = APIRouter()
 
@@ -27,7 +27,6 @@ def create_credit_note(
     """Create a credit note for an existing invoice."""
     invoice_repo = factory.create_invoice_repository()
 
-    # 1. Fetch original invoice
     original_invoice = invoice_repo.get_by_id(request.original_invoice_id)
     if not original_invoice:
         raise HTTPException(
@@ -35,21 +34,16 @@ def create_credit_note(
             detail=f"Invoice {request.original_invoice_id} not found",
         )
 
-    # 2. Setup services
-    numbering_service = NumberingService(invoice_repo=invoice_repo)
-    credit_service = CreditService(invoice_repo, numbering_service)
-
-    # 3. Create Credit Note
     try:
-        credit_note = credit_service.create_credit_note(
-            original_invoice=original_invoice,
-            reason=request.reason,
+        return ops.credit_invoice(
+            factory,
+            original_invoice,
+            request.reason,
             lines=request.lines,
-            refund_lines_indices=request.refund_lines_indices,
+            line_indices=request.refund_lines_indices,
         )
-        return credit_note
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except CreditNoteRejectedError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.get("/{credit_note_number}", response_model=Invoice)
@@ -60,12 +54,6 @@ def get_credit_note(
     """Get a credit note by its number (e.g. CN-2023-001)."""
     invoice_repo = factory.create_invoice_repository()
     invoice = invoice_repo.get_by_number(credit_note_number)
-    if not invoice:
+    if not invoice or invoice.type is not InvoiceType.CREDIT_NOTE:
         raise HTTPException(status_code=404, detail="Credit Note not found")
-
-    # Verify it is actually a credit note?
-    # The requirement didn't strictly say we must hide normal invoices here,
-    # but strictly speaking `get_by_number` returns any invoice.
-    # We could check invoice.type if it exists or status to differentiate.
-
     return invoice

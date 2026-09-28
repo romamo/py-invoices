@@ -1,7 +1,6 @@
 """Base SQLModel storage plugin."""
 
-from abc import abstractmethod
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic_invoices.interfaces import (
     ClientRepository,
@@ -11,7 +10,10 @@ from pydantic_invoices.interfaces import (
     PaymentRepository,
     ProductRepository,
 )
+from sqlalchemy import Date, DateTime, Float, Numeric, inspect
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.types import TypeEngine
 from sqlmodel import Session, SQLModel, create_engine, text
 
 from ...plugins.base import StoragePlugin
@@ -32,20 +34,11 @@ class SQLModelBasePlugin(StoragePlugin):
 
     def __init__(self) -> None:
         """Initialize SQLModel plugin."""
-        self.engine: Any | None = None
+        self.engine: Engine | None = None
         self.session: Session | None = None
 
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Plugin name must be implemented by subclasses."""
-        pass
-
-    @property
-    @abstractmethod
-    def default_url(self) -> str:
-        """Default database URL must be implemented by subclasses."""
-        pass
+    default_url: ClassVar[str]
+    """Database URL used when the settings do not give one."""
 
     def initialize(self, **config: Any) -> None:
         """Initialize database connection.
@@ -57,14 +50,24 @@ class SQLModelBasePlugin(StoragePlugin):
         database_url = config.get("database_url", self.default_url)
         echo = config.get("echo", False)
 
-        # Create engine
         self.engine = create_engine(database_url, echo=echo)
-
-        # Create tables
         SQLModel.metadata.create_all(self.engine)
-
-        # Create session
+        check_schema(self.engine)
         self.session = Session(self.engine)
+
+    def open_scope(self) -> "SQLModelBasePlugin":
+        """A plugin sharing this engine with its own session, closed by close_scope()."""
+        if self.engine is None:
+            raise RuntimeError("Plugin not initialized. Call initialize() first.")
+        scoped = type(self)()
+        scoped.engine = self.engine
+        scoped.session = Session(self.engine)
+        return scoped
+
+    def close_scope(self) -> None:
+        if self.session:
+            self.session.close()
+            self.session = None
 
     def create_invoice_repository(self, **config: Any) -> InvoiceRepository:
         """Create invoice repository."""
@@ -120,7 +123,46 @@ class SQLModelBasePlugin(StoragePlugin):
             return False
 
     def cleanup(self) -> None:
-        """Clean up database connection."""
-        if self.session:
-            self.session.close()
-            self.session = None
+        """Close the session and release the engine's connections."""
+        self.close_scope()
+        if self.engine is not None:
+            self.engine.dispose()
+            self.engine = None
+
+
+def check_schema(engine: Engine) -> None:
+    """Fail fast when existing tables predate the current models.
+
+    create_all() only creates missing tables; it never adds or changes columns. Column
+    types are compared only where the database enforces them (not SQLite).
+    """
+    inspector = inspect(engine)
+    problems = []
+    for table in SQLModel.metadata.sorted_tables:
+        if not inspector.has_table(table.name):
+            continue
+        existing = {c["name"]: c["type"] for c in inspector.get_columns(table.name)}
+        for column in table.columns:
+            if column.name not in existing:
+                problems.append(f"missing {table.name}.{column.name}")
+            elif engine.dialect.name != "sqlite" and _outdated_type(
+                column.type, existing[column.name]
+            ):
+                problems.append(
+                    f"{table.name}.{column.name} is {existing[column.name]}, "
+                    f"expected {column.type.compile(engine.dialect)}"
+                )
+    if problems:
+        raise RuntimeError(
+            f"Database schema at {engine.url!r} is out of date: {'; '.join(problems)}. "
+            "Migrate the database (see CHANGELOG) or recreate it."
+        )
+
+
+def _outdated_type(expected: TypeEngine[Any], actual: TypeEngine[Any]) -> bool:
+    """Types written by earlier versions: float money and datetime dates."""
+    if isinstance(expected, Numeric) and not isinstance(expected, Float):
+        return isinstance(actual, Float)
+    if isinstance(expected, Date) and not isinstance(expected, DateTime):
+        return isinstance(actual, DateTime)
+    return False

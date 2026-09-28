@@ -2,7 +2,8 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Invoice {{ invoice.number }}</title>
+    {% set doc_title = 'CREDIT NOTE' if invoice.type.value == 'CREDIT_NOTE' else 'INVOICE' %}
+    <title>{{ doc_title|title }} {{ invoice.number }}</title>
     <style>
         body { font-family: 'Inter', sans-serif; color: #333; line-height: 1.6; padding: 40px; }
         .header { display: flex; justify-content: space-between; margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
@@ -28,11 +29,11 @@
             {% endif %}
             <div>
                 <h1>{{ company.name }}</h1>
-                <p>{{ company.address | replace('\\n', '<br>') | replace('\n', '<br>') | safe }}{% if company.tax_id %}<br>Tax ID: {{ company.tax_id }}{% endif %}</p>
+                <p>{{ company.address | nl2br }}{% if company.tax_id %}<br>Tax ID: {{ company.tax_id }}{% endif %}</p>
             </div>
         </div>
         <div class="invoice-details">
-            <h2>INVOICE</h2>
+            <h2>{{ doc_title }}</h2>
             <p><strong>#{{ invoice.number }}</strong><br>
             Date: {{ invoice.issue_date.strftime('%Y-%m-%d') }}<br>
             Due: {{ invoice.due_date.strftime('%Y-%m-%d') if invoice.due_date else 'N/A' }}</p>
@@ -43,7 +44,7 @@
         <div class="bill-to">
             <div class="section-title">Bill To:</div>
             <strong>{{ invoice.client_name_snapshot }}</strong><br>
-            {{ invoice.client_address_snapshot | replace('\\n', '<br>') | replace('\n', '<br>') | safe }}<br>
+            {{ invoice.client_address_snapshot | nl2br }}<br>
             {% if invoice.client_tax_id_snapshot %}Tax ID: {{ invoice.client_tax_id_snapshot }}{% endif %}
         </div>
     </div>
@@ -62,8 +63,8 @@
             <tr>
                 <td>{{ line.description }}</td>
                 <td style="text-align: center;">{{ line.quantity }}</td>
-                <td style="text-align: right;">${{ "%.2f"|format(line.unit_price) }}</td>
-                <td style="text-align: right;">${{ "%.2f"|format(line.quantity * line.unit_price) }}</td>
+                <td style="text-align: right;">{{ line.unit_price|money }}</td>
+                <td style="text-align: right;">{{ line_net(line)|money }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -72,11 +73,17 @@
     <div class="totals">
         <div class="total-row">
             <span>Subtotal:</span>
-            <span>${{ "%.2f"|format(invoice.total_amount) }}</span>
+            <span>{{ totals.net|money }}</span>
         </div>
+        {% for subtotal in totals.tax_subtotals if subtotal.rate %}
+        <div class="total-row">
+            <span>Tax {{ subtotal.rate|float }}%:</span>
+            <span>{{ subtotal.tax|money }}</span>
+        </div>
+        {% endfor %}
         <div class="total-row grand-total">
             <span>Total Amount:</span>
-            <span>${{ "%.2f"|format(invoice.total_amount) }}</span>
+            <span>{{ totals.gross|money }}</span>
         </div>
     </div>
 
@@ -87,7 +94,7 @@
         <div class="section-title">Payment Notes:</div>
         {% for note in payment_notes %}
         <div style="margin-bottom: 10px;">
-            <strong>{{ note.title if note.title else 'Note' }}:</strong> {{ note.content | replace('\\n', '<br>') | replace('\n', '<br>') | safe }}
+            <strong>{{ note.title if note.title else 'Note' }}:</strong> {{ note.content | nl2br }}
         </div>
         {% endfor %}
     </div>

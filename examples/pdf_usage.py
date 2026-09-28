@@ -63,7 +63,7 @@ def main() -> None:
             client_id=client.id,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
-            client_tax_id_snapshot=client.tax_id,
+            client_tax_id_snapshot=str(client.tax_id) if client.tax_id else None,
             company_id=company_schema.id,
             payment_terms="Net 30",
             original_invoice_id=None,

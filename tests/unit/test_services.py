@@ -1,14 +1,17 @@
 """Tests for core services."""
 
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 
 from pydantic_invoices.schemas import (
     Invoice,
+    InvoiceLine,
     InvoiceStatus,
+    InvoiceType,
 )
 
 from py_invoices.core import AuditService, NumberingService, PDFService, UBLService
+from py_invoices.core.validator import UBLValidator
 
 
 class TestNumberingService:
@@ -144,7 +147,7 @@ class TestPDFService:
 
         assert service.template_dir == "custom_templates"
         assert service.output_dir == str(output_dir)
-        assert output_dir.exists()
+        assert not output_dir.exists()  # created on first save, not at construction
 
     def test_default_template_resolution(self, tmp_path: Path) -> None:
         """Test default template directory resolution."""
@@ -234,11 +237,7 @@ class TestPDFService:
 
         service = PDFService(output_dir=str(tmp_path))
 
-        # Mock invoice
-        invoice = MagicMock()
-        invoice.number = "FX-BYTES-001"
-        invoice.lines = []
-        invoice.client_name_snapshot = "Test Client"  # For template compatibility
+        invoice = _invoice("FX-BYTES-001")
 
         company = {"name": "Test Co"}
 
@@ -269,18 +268,7 @@ class TestUBLService:
         """Test generating UBL XML as bytes."""
         service = UBLService(output_dir=str(tmp_path))
 
-        from unittest.mock import MagicMock
-
-        invoice = MagicMock()
-        invoice.number = "UBL-BYTES-001"
-        invoice.issue_date = date.today()
-        invoice.due_date = None
-        invoice.total_tax = 0.0
-        invoice.total_untaxed = 100.0
-        invoice.total_amount = 100.0
-        invoice.lines = []
-        invoice.client_name_snapshot = "Test Client"
-        invoice.client_address_snapshot = "123 St"
+        invoice = _invoice("UBL-BYTES-001")
 
         company = {"name": "Test Co", "tax_id": "FR123"}
 
@@ -290,3 +278,66 @@ class TestUBLService:
         assert b"<Invoice" in xml_bytes
         assert b"UBL-BYTES-001" in xml_bytes
         assert b"Test Client" in xml_bytes
+
+
+def _invoice(number: str, invoice_type: InvoiceType = InvoiceType.STANDARD) -> Invoice:
+    return Invoice(
+        id=1,
+        number=number,
+        type=invoice_type,
+        client_id=1,
+        client_name_snapshot="Test Client",
+        client_address_snapshot="123 St",
+        lines=[
+            InvoiceLine(
+                id=1, invoice_id=1, description="Work", quantity=2, unit_price="50", tax_rate=20
+            )
+        ],
+    )
+
+
+class TestRendering:
+    """Escaping and totals in the bundled templates."""
+
+    def test_html_escapes_user_data(self, tmp_path: Path) -> None:
+        invoice = _invoice("INV-X").model_copy(
+            update={
+                "client_name_snapshot": "<script>alert(1)</script>",
+                "client_address_snapshot": "A & B\nC",
+            }
+        )
+        html = UBLService(output_dir=str(tmp_path)).generate_html(
+            invoice, {"name": "Me <b>", "address": "Road 1\nTown"}, template_name="invoice.html.j2"
+        )
+        assert "<script>" not in html
+        assert "&lt;script&gt;" in html
+        assert "A &amp; B<br>C" in html
+        assert "Me &lt;b&gt;" in html
+
+    def test_html_shows_tax_and_gross_total(self, tmp_path: Path) -> None:
+        html = UBLService(output_dir=str(tmp_path)).generate_html(
+            _invoice("INV-T"), {"name": "Co", "address": "Road"}, template_name="invoice.html.j2"
+        )
+        assert "$100.00" in html
+        assert "$20.00" in html
+        assert "$120.00" in html
+
+    def test_ubl_escapes_and_totals(self, tmp_path: Path) -> None:
+        xml = UBLService(output_dir=str(tmp_path)).generate_ubl_bytes(
+            _invoice("INV-U"), {"name": "Smith & Co", "address": "Road"}
+        )
+        assert UBLValidator.validate_bytes(xml, source="test").success
+        assert b"Smith &amp; Co" in xml
+        assert b'<cbc:PayableAmount currencyID="USD">120.00</cbc:PayableAmount>' in xml
+
+    def test_credit_note_uses_ubl_credit_note_document(self, tmp_path: Path) -> None:
+        xml = UBLService(output_dir=str(tmp_path)).generate_ubl_bytes(
+            _invoice("CN-1", InvoiceType.CREDIT_NOTE),
+            {"name": "Co", "address": "Road"},
+            original_invoice_number="INV-1",
+        )
+        result = UBLValidator.validate_bytes(xml, source="test")
+        assert result.success, result.messages
+        assert b"<CreditNote" in xml
+        assert b"<cbc:CreditNoteTypeCode>381</cbc:CreditNoteTypeCode>" in xml
+        assert b"<cbc:ID>INV-1</cbc:ID>" in xml

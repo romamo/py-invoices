@@ -1,5 +1,8 @@
 """Factory for creating repository instances from plugins."""
 
+import importlib
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
 from pydantic_invoices.interfaces import (
@@ -11,11 +14,32 @@ from pydantic_invoices.interfaces import (
     ProductRepository,
 )
 
-from .base import StoragePlugin
+from .base import AuditRepository, StoragePlugin
 from .registry import PluginRegistry
 
 if TYPE_CHECKING:
     from ..config.settings import InvoiceSettings
+
+# Built-in backends: name -> (module that registers the plugin, pip extra it needs)
+BUILTIN_BACKENDS: dict[str, tuple[str, str | None]] = {
+    "memory": ("py_invoices.backends.memory.plugin", None),
+    "files": ("py_invoices.backends.files.plugin", None),
+    "sqlite": ("py_invoices.backends.sqlite.plugin", "sqlite"),
+    "postgres": ("py_invoices.backends.postgres.plugin", "postgres"),
+    "mysql": ("py_invoices.backends.mysql.plugin", "mysql"),
+}
+
+
+def _missing_extra(backend: str, error: ModuleNotFoundError) -> ModuleNotFoundError | None:
+    """An install hint when a third-party module of a built-in backend is missing."""
+    extra = BUILTIN_BACKENDS.get(backend, ("", None))[1]
+    if extra is None or not error.name or error.name.startswith("py_invoices"):
+        return None
+    return ModuleNotFoundError(
+        f"The '{backend}' backend needs the '{error.name}' package. "
+        f"Install it with: pip install 'py-invoices[{extra}]'",
+        name=error.name,
+    )
 
 
 class RepositoryFactory:
@@ -43,22 +67,16 @@ class RepositoryFactory:
         Raises:
             ValueError: If the backend plugin is not registered
         """
-        # Ensure backends are registered before looking up
-        self._ensure_backends_registered()
-
-        plugin_class = PluginRegistry.get(backend)
-        if not plugin_class:
-            available = PluginRegistry.list_plugins()
-            raise ValueError(
-                f"Unknown backend '{backend}'. "
-                f"Available backends: {', '.join(available) if available else 'none'}"
-            )
-
+        plugin_class = self._plugin_class(backend)
         self.plugin: StoragePlugin = plugin_class()
         self.config = config
-
-        # Initialize backend
-        self.plugin.initialize(**config)
+        try:
+            self.plugin.initialize(**config)
+        except ModuleNotFoundError as e:
+            hint = _missing_extra(backend, e)
+            if hint is None:
+                raise
+            raise hint from e
 
     @classmethod
     def from_settings(cls, settings: "InvoiceSettings | None" = None) -> "RepositoryFactory":
@@ -100,40 +118,26 @@ class RepositoryFactory:
 
         return cls(backend=settings.backend, **config)
 
-    _registered_backends = False
+    @staticmethod
+    def _plugin_class(backend: str) -> type[StoragePlugin]:
+        """Import only the requested built-in backend, so optional extras stay optional."""
+        if backend in BUILTIN_BACKENDS and PluginRegistry.get(backend) is None:
+            module_name = BUILTIN_BACKENDS[backend][0]
+            try:
+                importlib.import_module(module_name)
+            except ModuleNotFoundError as e:
+                hint = _missing_extra(backend, e)
+                if hint is None:
+                    raise
+                raise hint from e
 
-    @classmethod
-    def _ensure_backends_registered(cls) -> None:
-        """Lazy-load and register available backends.
-
-        This method is called automatically when creating a factory.
-        It imports and registers backends only when needed, allowing
-        optional dependencies to work correctly.
-        """
-        if cls._registered_backends:
-            return
-
-        # Always available - memory and files backends have no optional dependencies
-        from ..backends.files.plugin import FilesPlugin  # noqa: F401
-        from ..backends.memory.plugin import MemoryPlugin  # noqa: F401
-
-        cls._registered_backends = True
-
-        # Optional backends - only register if dependencies are available
-        try:
-            from ..backends.sqlite.plugin import SQLitePlugin  # noqa: F401
-        except ImportError:
-            pass
-
-        try:
-            from ..backends.postgres.plugin import PostgresPlugin  # noqa: F401
-        except ImportError:
-            pass
-
-        try:
-            from ..backends.mysql.plugin import MySQLPlugin  # noqa: F401
-        except ImportError:
-            pass
+        plugin_class = PluginRegistry.get(backend)
+        if plugin_class is None:
+            available = sorted(set(BUILTIN_BACKENDS) | set(PluginRegistry.list_plugins()))
+            raise ValueError(
+                f"Unknown backend '{backend}'. Available backends: {', '.join(available)}"
+            )
+        return plugin_class
 
     def create_invoice_repository(self) -> InvoiceRepository:
         """Create an invoice repository instance.
@@ -171,9 +175,24 @@ class RepositoryFactory:
         """Create a payment note repository instance."""
         return self.plugin.create_payment_note_repository(**self.config)
 
-    def create_audit_repository(self) -> Any:
+    def create_audit_repository(self) -> AuditRepository:
         """Create an audit repository instance."""
         return self.plugin.create_audit_repository(**self.config)
+
+    @contextmanager
+    def scope(self) -> Iterator["RepositoryFactory"]:
+        """A factory for one unit of work, sharing this backend.
+
+        SQL backends get a dedicated session that is closed on exit, which makes it safe
+        to use one long-lived factory from concurrent API requests.
+        """
+        scoped = object.__new__(RepositoryFactory)
+        scoped.plugin = self.plugin.open_scope()
+        scoped.config = self.config
+        try:
+            yield scoped
+        finally:
+            scoped.plugin.close_scope()
 
     def health_check(self) -> bool:
         """Check if the backend is healthy and accessible.

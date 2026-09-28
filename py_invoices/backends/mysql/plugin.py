@@ -10,15 +10,8 @@ class MySQLPlugin(SQLModelBasePlugin):
     Provides persistent storage using MySQL database via SQLModel.
     """
 
-    @property
-    def name(self) -> str:
-        """Plugin name."""
-        return "mysql"
-
-    @property
-    def default_url(self) -> str:
-        """Default database URL."""
-        return "mysql+pymysql://root:root@localhost:3306/invoices"
+    name = "mysql"
+    default_url = "mysql+pymysql://root:root@localhost:3306/invoices"
 
 
 # Auto-register the MySQL plugin

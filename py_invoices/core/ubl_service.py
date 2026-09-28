@@ -1,76 +1,69 @@
-"""UBL Invoice generation service.
+"""UBL generation service.
 
-Provides UBL (Universal Business Language) XML generation using Jinja2.
+Renders UBL 2.1 XML (Invoice, or CreditNote for credit notes) using Jinja2.
 """
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
+
+from pydantic_invoices.schemas import Invoice, InvoiceType
 
 from py_invoices.core.html_service import HTMLService
 
-if TYPE_CHECKING:
-    pass
+UBL_INVOICE_TEMPLATE = "ubl_invoice.xml.j2"
+UBL_CREDIT_NOTE_TEMPLATE = "ubl_credit_note.xml.j2"
 
 
 class UBLService(HTMLService):
-    """Service for generating UBL XML invoices.
-
-    Inherits from HTMLService to reuse Jinja2 logic.
-    """
+    """Service for generating UBL XML documents. Reuses the Jinja2 setup of HTMLService."""
 
     def __init__(
         self,
         template_dir: str | None = None,
         output_dir: str = "output",
-        default_template: str = "ubl_invoice.xml.j2",
+        default_template: str = UBL_INVOICE_TEMPLATE,
     ):
-        """Initialize UBL service.
-
-        Args:
-            template_dir: Directory containing Jinja2 templates (optional)
-            output_dir: Directory for generated files
-            default_template: Default UBL template filename
-        """
         super().__init__(template_dir, output_dir, default_template)
 
-    def generate_ubl(self, *args: Any, **kwargs: Any) -> str:
-        """Alias for generate_html but for UBL content."""
-        return self.generate_html(*args, **kwargs)
+    def _template_for(self, invoice: Invoice, template_name: str | None) -> str:
+        if template_name:
+            return template_name
+        if invoice.type is InvoiceType.CREDIT_NOTE:
+            return UBL_CREDIT_NOTE_TEMPLATE
+        return self.default_template
 
-    def generate_ubl_bytes(self, *args: Any, **kwargs: Any) -> bytes:
-        """Generate UBL XML as bytes."""
-        return self.generate_ubl(*args, **kwargs).encode("utf-8")
-
-    def save_ubl(self, *args: Any, **kwargs: Any) -> str:
-        """Alias for save_html but for UBL files."""
-        # Ensure correct extension if auto-generating filename
-        kwargs = kwargs.copy()
-        if not kwargs.get("output_filename"):
-            # We rely on super() to handle rendering, but we want to intercept filename generation.
-            # actually simpler to just let user provide filename or default to inheritance behavior
-            pass
-
-        # For simplicity, we just use save_html, but users should provide output_filename
-        # or we might get .html extension by default from the base class if we don't override.
-
-        return self.save_html(*args, **kwargs)
-
-    def save_html(
+    def generate_ubl(
         self,
-        invoice: Any,
+        invoice: Invoice,
+        company: dict[str, Any],
+        template_name: str | None = None,
+        **context: Any,
+    ) -> str:
+        """Render UBL XML; credit notes default to the UBL CreditNote document."""
+        return self.generate_html(
+            invoice=invoice,
+            company=company,
+            template_name=self._template_for(invoice, template_name),
+            **context,
+        )
+
+    def generate_ubl_bytes(
+        self,
+        invoice: Invoice,
+        company: dict[str, Any],
+        template_name: str | None = None,
+        **context: Any,
+    ) -> bytes:
+        """Generate UBL XML as UTF-8 bytes."""
+        return self.generate_ubl(invoice, company, template_name, **context).encode("utf-8")
+
+    def save_ubl(
+        self,
+        invoice: Invoice,
         company: dict[str, Any],
         output_filename: str | None = None,
         template_name: str | None = None,
-        logo_path: str | None = None,
         **context: Any,
     ) -> str:
-        """Override to default to .xml extension."""
-        if not output_filename:
-            output_filename = f"{invoice.number}.xml"
-        return super().save_html(
-            invoice,
-            company,
-            output_filename=output_filename,
-            template_name=template_name,
-            logo_path=logo_path,
-            **context,
-        )
+        """Save UBL XML and return its path (defaults to "<number>.xml")."""
+        xml_content = self.generate_ubl(invoice, company, template_name, **context)
+        return self._write(output_filename or f"{invoice.number}.xml", xml_content)

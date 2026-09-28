@@ -1,6 +1,6 @@
 """Basic usage example for py-invoices with memory backend."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from pydantic_invoices.schemas import (
     ClientCreate,
@@ -56,16 +56,16 @@ def main() -> None:
             number=invoice_number,
             issue_date=datetime.now().date(),
             status=InvoiceStatus.UNPAID,
-            due_date=date(2025, 1, 31),
+            due_date=date.today() + timedelta(days=30),
             payment_terms="Net 30",
             client_id=client.id,
             company_id=1,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
-            client_tax_id_snapshot=client.tax_id,
+            client_tax_id_snapshot=str(client.tax_id) if client.tax_id else None,
             lines=[
                 InvoiceLineCreate(
-                    description="Professional Services - January 2025",
+                    description="Professional Services",
                     quantity=40,
                     unit_price=150.0,
                 ),

@@ -1,16 +1,25 @@
-from typing import TYPE_CHECKING
+from dataclasses import dataclass, field
+from enum import Enum
+from pathlib import Path
+from typing import TYPE_CHECKING, ClassVar
 
 import defusedxml.ElementTree as ET  # noqa: N817
+from defusedxml import DefusedXmlException
 
 if TYPE_CHECKING:
     from pydantic_invoices.schemas import Invoice
 
-from dataclasses import dataclass, field
+
+class MessageLevel(str, Enum):
+    INFO = "info"
+    SUCCESS = "success"
+    WARNING = "warning"
+    ERROR = "error"
 
 
 @dataclass
 class ValidationMessage:
-    level: str  # 'info', 'success', 'warning', 'error'
+    level: MessageLevel
     text: str
 
 
@@ -19,99 +28,93 @@ class ValidationResult:
     success: bool
     messages: list[ValidationMessage] = field(default_factory=list)
 
-    def add_message(self, level: str, text: str) -> None:
+    def add_message(self, level: MessageLevel, text: str) -> None:
         self.messages.append(ValidationMessage(level, text))
+
+    def fail(self, text: str) -> None:
+        self.add_message(MessageLevel.ERROR, text)
+        self.success = False
+
+
+@dataclass(frozen=True, slots=True)
+class _DocumentRules:
+    label: str
+    type_code_path: str
+    line_path: str
+
+
+_CBC = "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2"
+_CAC = "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+_INVOICE_NS = "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+_CREDIT_NOTE_NS = "urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2"
+
+_RULES_BY_ROOT = {
+    f"{{{_INVOICE_NS}}}Invoice": _DocumentRules(
+        "Invoice", "cbc:InvoiceTypeCode", "cac:InvoiceLine"
+    ),
+    f"{{{_CREDIT_NOTE_NS}}}CreditNote": _DocumentRules(
+        "CreditNote", "cbc:CreditNoteTypeCode", "cac:CreditNoteLine"
+    ),
+}
 
 
 class UBLValidator:
-    """Validates UBL 2.1 XML invoices."""
+    """Checks the structure of UBL 2.1 Invoice and CreditNote documents."""
 
-    NAMESPACES = {
-        "ubl": "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2",
-        "cbc": "urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2",
-        "cac": "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
-    }
+    NAMESPACES: ClassVar[dict[str, str]] = {"cbc": _CBC, "cac": _CAC}
 
     @staticmethod
     def validate_file(xml_path: str) -> ValidationResult:
-        """
-        Validate a UBL XML file against basic UBL 2.1 structural requirements.
+        """Validate a UBL XML file; a missing file is reported as a failed result."""
+        path = Path(xml_path)
+        if not path.is_file():
+            result = ValidationResult(success=True)
+            result.fail(f"Fatal: File not found - {xml_path}")
+            return result
+        return UBLValidator.validate_bytes(path.read_bytes(), source=xml_path)
 
-        Args:
-            xml_path: Path to the XML file to validate.
-
-        Returns:
-            ValidationResult: Result object containing success status and messages.
-        """
+    @staticmethod
+    def validate_bytes(content: bytes, source: str) -> ValidationResult:
+        """Validate UBL XML content against basic UBL 2.1 structural requirements."""
         result = ValidationResult(success=True)
-        result.add_message("info", f"Validating {xml_path}...")
+        result.add_message(MessageLevel.INFO, f"Validating {source}...")
 
         try:
-            tree = ET.parse(xml_path)  # nosec
-            root = tree.getroot()
+            root = ET.fromstring(content)
+        except (ET.ParseError, DefusedXmlException) as e:
+            result.fail(f"Fatal: XML Parse Error - {e}")
+            return result
 
-            if root is None:
-                result.add_message("error", "XML root is missing")
-                result.success = False
-                return result
+        rules = _RULES_BY_ROOT.get(root.tag)
+        if rules is None:
+            expected = " or ".join(_RULES_BY_ROOT)
+            result.fail(f"Root element mismatch. Found: {root.tag}, Expected: {expected}")
+            return result
+        result.add_message(MessageLevel.SUCCESS, f"Root element is UBL {rules.label}-2")
 
-            # 1. Validate Root Element
-            expected_tag = f"{{{UBLValidator.NAMESPACES['ubl']}}}Invoice"
-            if root.tag == expected_tag:
-                result.add_message("success", "Root element is UBL Invoice-2")
+        fields_to_check = [
+            ("cbc:ID", "Document ID"),
+            ("cbc:IssueDate", "Issue Date"),
+            (rules.type_code_path, "Type Code"),
+            ("cac:AccountingSupplierParty/cac:Party/cac:PartyName/cbc:Name", "Supplier Name"),
+            ("cac:AccountingCustomerParty/cac:Party/cac:PartyName/cbc:Name", "Customer Name"),
+            ("cac:TaxTotal/cbc:TaxAmount", "Tax Amount"),
+            ("cac:LegalMonetaryTotal/cbc:PayableAmount", "Payable Amount"),
+        ]
+        for path, name in fields_to_check:
+            elem = root.find(path, UBLValidator.NAMESPACES)
+            if elem is not None and elem.text:
+                result.add_message(MessageLevel.SUCCESS, f"Found {name}: {elem.text}")
             else:
-                msg = f"Root element mismatch. Found: {root.tag}, Expected: {expected_tag}"
-                result.add_message("error", msg)
-                result.success = False
+                result.fail(f"Missing Mandatory Field: {name} ({path})")
 
-            # 2. Validate Key Fields
-            def check_field(path: str, name: str) -> bool:
-                elem = root.find(path, UBLValidator.NAMESPACES)
-                if elem is not None and elem.text:
-                    result.add_message("success", f"Found {name}: {elem.text}")
-                    return True
-                else:
-                    result.add_message("error", f"Missing Mandatory Field: {name} ({path})")
-                    return False
-
-            fields_to_check = [
-                ("cbc:ID", "Invoice ID"),
-                ("cbc:IssueDate", "Issue Date"),
-                ("cbc:InvoiceTypeCode", "Invoice Type Code"),
-                ("cac:AccountingSupplierParty/cac:Party/cac:PartyName/cbc:Name", "Supplier Name"),
-                ("cac:AccountingCustomerParty/cac:Party/cac:PartyName/cbc:Name", "Customer Name"),
-                ("cac:TaxTotal/cbc:TaxAmount", "Tax Amount"),
-                ("cac:LegalMonetaryTotal/cbc:PayableAmount", "Payable Amount"),
-            ]
-
-            for path, name in fields_to_check:
-                if not check_field(path, name):
-                    result.success = False
-
-            # 3. Check Line Items
-            lines = root.findall("cac:InvoiceLine", UBLValidator.NAMESPACES)
-            result.add_message("info", f"Found {len(lines)} Invoice Lines")
-            if len(lines) > 0:
-                result.add_message("success", "Contains line items")
-            else:
-                result.add_message(
-                    "warning", "No line items found (technical UBL requires at least one)"
-                )
-
-            return result
-
-        except ET.ParseError as e:
-            result.add_message("error", f"Fatal: XML Parse Error - {e}")
-            result.success = False
-            return result
-        except FileNotFoundError:
-            result.add_message("error", f"Fatal: File not found - {xml_path}")
-            result.success = False
-            return result
-        except (ValueError, TypeError) as e:
-            result.add_message("error", f"Fatal: Data Error - {e}")
-            result.success = False
-            return result
+        lines = root.findall(rules.line_path, UBLValidator.NAMESPACES)
+        result.add_message(MessageLevel.INFO, f"Found {len(lines)} {rules.label} Lines")
+        if lines:
+            result.add_message(MessageLevel.SUCCESS, "Contains line items")
+        else:
+            result.fail("No line items found (UBL requires at least one)")
+        return result
 
 
 class BusinessValidator:
@@ -144,9 +147,11 @@ class BusinessValidator:
         if old_status in (InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED, InvoiceStatus.CREDITED):
             raise ValueError(f"Cannot change status from final state {old_status}")
 
-        if old_status == InvoiceStatus.PAID:
-            if new_status not in (InvoiceStatus.REFUNDED, InvoiceStatus.CREDITED):
-                raise ValueError(f"Cannot change status from PAID to {new_status}")
+        if old_status == InvoiceStatus.PAID and new_status not in (
+            InvoiceStatus.REFUNDED,
+            InvoiceStatus.CREDITED,
+        ):
+            raise ValueError(f"Cannot change status from PAID to {new_status}")
 
         if old_status == InvoiceStatus.SENT:
             allowed = (
@@ -195,9 +200,8 @@ class BusinessValidator:
         Raises:
             ValueError: If dates are invalid
         """
-        if invoice.due_date and invoice.issue_date:
-            if invoice.due_date < invoice.issue_date:
-                raise ValueError(
-                    f"Invoice {invoice.number} has a due date ({invoice.due_date}) "
-                    f"earlier than its issue date ({invoice.issue_date})."
-                )
+        if invoice.due_date and invoice.issue_date and invoice.due_date < invoice.issue_date:
+            raise ValueError(
+                f"Invoice {invoice.number} has a due date ({invoice.due_date}) "
+                f"earlier than its issue date ({invoice.issue_date})."
+            )

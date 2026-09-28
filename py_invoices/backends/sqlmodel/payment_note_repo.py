@@ -5,7 +5,7 @@ from pydantic_invoices.schemas.payment_note import (
     PaymentNote,
     PaymentNoteCreate,
 )
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from .models import PaymentNoteDB
 
@@ -32,7 +32,7 @@ class SQLModelPaymentNoteRepository(PaymentNoteRepository):
 
     def get_all(self, skip: int = 0, limit: int = 100) -> list[PaymentNote]:
         """Get all payment notes with pagination."""
-        stmt = select(PaymentNoteDB).offset(skip).limit(limit)
+        stmt = select(PaymentNoteDB).order_by(col(PaymentNoteDB.id)).offset(skip).limit(limit)
         db_notes = self.session.exec(stmt).all()
         return [n.to_schema() for n in db_notes]
 

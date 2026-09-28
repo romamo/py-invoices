@@ -9,8 +9,8 @@ from .ubl_service import UBLService
 __all__ = [
     "AuditLogEntry",
     "AuditService",
+    "HTMLService",
     "NumberingService",
     "PDFService",
-    "HTMLService",
     "UBLService",
 ]

@@ -5,12 +5,12 @@ from pydantic_invoices.schemas import Invoice
 from rich.table import Table
 
 from py_invoices.cli.utils import cli_errors, get_console, get_factory
+from py_invoices.core.totals import format_money
 from py_invoices.operations import invoices as ops
 from py_invoices.operations.invoices import (
     CompanyOverrides,
     DocumentKind,
     ExportOutcome,
-    ExportStatus,
     NewInvoice,
 )
 
@@ -22,17 +22,18 @@ EXPORT_LABELS = {"pdf": "PDF", "html": "HTML", "ubl": "UBL XML", "json": "JSON"}
 
 def print_export_outcomes(outcomes: list[ExportOutcome]) -> None:
     for outcome in outcomes:
-        match outcome.status:
-            case ExportStatus.GENERATED:
-                label = EXPORT_LABELS[outcome.format]
-                console.print(f"[blue]  -> Generated {label}: {outcome.path}[/blue]")
-            case ExportStatus.UNKNOWN_FORMAT:
-                console.print(f"[yellow]  Warning: Unknown format '{outcome.format}'[/yellow]")
-            case ExportStatus.MISSING_DEPENDENCIES:
-                console.print(
-                    f"[red]  Failed to generate {outcome.format.upper()}: "
-                    "Missing dependencies.[/red]"
-                )
+        label = EXPORT_LABELS[outcome.format]
+        console.print(f"[blue]  -> Generated {label}: {outcome.path}[/blue]")
+
+
+def parse_date(value: str | None, option: str) -> date | None:
+    if not value:
+        return None
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except ValueError:
+        console.print(f"[red]Error: Invalid {option} format. Use YYYY-MM-DD.[/red]")
+        raise typer.Exit(code=1) from None
 
 
 def render_document(
@@ -96,7 +97,7 @@ def generate_html(
 @app.command("list")
 def list_invoices(
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
-    limit: int = typer.Option(10, help="Number of invoice to show"),
+    limit: int = typer.Option(10, help="Number of invoices to show"),
 ) -> None:
     """List recent invoices."""
     invoices = ops.list_invoices(get_factory(backend), limit)
@@ -115,7 +116,7 @@ def list_invoices(
             invoice.number,
             str(invoice.issue_date),
             invoice.client_name_snapshot,
-            f"${invoice.total_amount:.2f}",
+            format_money(invoice.total_amount),
             invoice.status.value,
         )
     console.print(table)
@@ -143,10 +144,13 @@ def get_invoice_details(
     table.add_column("Total", justify="right")
     for line in invoice.lines:
         table.add_row(
-            line.description, str(line.quantity), f"${line.unit_price:.2f}", f"${line.total:.2f}"
+            line.description,
+            str(line.quantity),
+            format_money(line.unit_price),
+            format_money(line.total),
         )
     console.print(table)
-    console.print(f"[bold]Total: ${invoice.total_amount:.2f}[/bold]")
+    console.print(f"[bold]Total: {format_money(invoice.total_amount)}[/bold]")
 
 
 @app.command("overdue")
@@ -169,7 +173,7 @@ def list_overdue(
             invoice.number,
             str(invoice.due_date),
             invoice.client_name_snapshot,
-            f"${invoice.total_amount:.2f}",
+            format_money(invoice.total_amount),
         )
     console.print(table)
 
@@ -179,20 +183,22 @@ def show_summary(
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
 ) -> None:
     """Show invoice statistics."""
-    summary = ops.invoice_summary(get_factory(backend))
+    with cli_errors():
+        summary = ops.invoice_summary(get_factory(backend))
     console.print("[bold]Invoice Summary[/bold]")
     console.print(f"Total Count:    {summary.total_count}")
     console.print(f"Paid Count:     {summary.paid_count}")
     console.print(f"Unpaid Count:   {summary.unpaid_count}")
     console.print(f"Overdue Count:  {summary.overdue_count}")
-    console.print(f"Total Amount:   ${summary.total_amount:.2f}")
-    console.print(f"Total Paid:     ${summary.total_paid:.2f}")
-    console.print(f"Total Due:      ${summary.total_due:.2f}")
+    console.print(f"Total Amount:   {format_money(summary.total_amount)}")
+    console.print(f"Total Paid:     {format_money(summary.total_paid)}")
+    console.print(f"Total Due:      {format_money(summary.total_due)}")
 
 
 @app.command("create")
 def create_invoice(
-    amount: float = typer.Option(..., help="Invoice amount"),
+    amount: str = typer.Option(..., help="Invoice amount (exact decimal, e.g. 1234.50)"),
+    currency: str = typer.Option("USD", help="ISO currency code of the amount"),
     client_name: str = typer.Option(None, help="Client name to search for"),
     client_id: int = typer.Option(None, help="Client ID to link directly"),
     client_address: str = typer.Option(None, help="Client address (if creating new)"),
@@ -203,7 +209,12 @@ def create_invoice(
     invoice_number: str = typer.Option(
         None, help="Custom invoice number (overrides auto-generation)"
     ),
-    payment_terms: str = typer.Option("Due on Receipt", help="Payment terms (e.g. Net 30)"),
+    payment_terms: str = typer.Option(
+        "Due on Receipt", help="Payment terms; 'Net <days>' also sets the due date"
+    ),
+    due_date_str: str | None = typer.Option(
+        None, "--due-date", help="Due date (YYYY-MM-DD); overrides the one from payment terms"
+    ),
     bank_account: str = typer.Option(None, help="Bank account details to display"),
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
     formats: list[str] = typer.Option(
@@ -229,8 +240,11 @@ def create_invoice(
     company = CompanyOverrides(
         company_name, company_address, company_tax_id, company_email, company_logo_path
     )
+    with cli_errors():
+        formats = ops.check_new_invoice_export(factory, formats, company)
+        money = ops.parse_amount(amount, currency)
     request = NewInvoice(
-        amount=amount,
+        amount=money,
         description=description,
         client_id=client_id,
         client_name=client_name,
@@ -240,6 +254,7 @@ def create_invoice(
         client_phone=client_phone,
         invoice_number=invoice_number,
         payment_terms=payment_terms,
+        due_date=parse_date(due_date_str, "--due-date"),
         company=company,
         template=template,
     )
@@ -251,24 +266,22 @@ def create_invoice(
         console.print(f"[yellow]Client '{client_name}' not found. Creating new client...[/yellow]")
         console.print(f"[green]✓ Created Client {client.name} (ID: {client.id})[/green]")
     print_invoice_created(created.invoice)
-    if backend == "memory":
+    if factory.plugin.name == "memory":
         console.print("\n[yellow]Note: Invoice stored in memory.[/yellow]")
 
     if formats:
-        with cli_errors():
-            company_data = ops.resolve_export_company(
-                factory, created.invoice, company, formats, lookup=True
-            )
         notes = ops.export_payment_notes(payment_terms, bank_account)
-        print_export_outcomes(
-            ops.export_invoice(created.invoice, formats, output_dir, company_data, notes)
-        )
+        with cli_errors():
+            outcomes = ops.export_invoice(
+                factory, created.invoice, formats, output_dir, company, notes
+            )
+        print_export_outcomes(outcomes)
 
 
 def print_invoice_created(invoice: Invoice) -> None:
     console.print(f"[green]✓ Created Invoice {invoice.number}[/green]")
     console.print(f"  Client: {invoice.client_name_snapshot}")
-    console.print(f"  Total:  ${invoice.total_amount:.2f}")
+    console.print(f"  Total:  {format_money(invoice.total_amount)}")
 
 
 @app.command("stats")
@@ -276,23 +289,14 @@ def stats(
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
 ) -> None:
     """Display invoice statistics."""
-    summary = ops.invoice_summary(get_factory(backend))
+    with cli_errors():
+        summary = ops.invoice_summary(get_factory(backend))
     console.print("\n[bold cyan]INVOICE STATISTICS[/bold cyan]")
     console.print(f"Total Invoices:  {summary.total_count}")
-    console.print(f"Total Amount:    ${summary.total_amount:.2f}")
-    console.print(f"Total Paid:      ${summary.total_paid:.2f}")
-    console.print(f"Total Due:       ${summary.total_due:.2f}")
+    console.print(f"Total Amount:    {format_money(summary.total_amount)}")
+    console.print(f"Total Paid:      {format_money(summary.total_paid)}")
+    console.print(f"Total Due:       {format_money(summary.total_due)}")
     console.print(f"Overdue:         {summary.overdue_count}")
-
-
-def parse_issue_date(date_str: str | None) -> date:
-    if not date_str:
-        return datetime.now().date()
-    try:
-        return datetime.strptime(date_str, "%Y-%m-%d").date()
-    except ValueError:
-        console.print("[red]Error: Invalid date format. Use YYYY-MM-DD.[/red]")
-        raise typer.Exit(code=1)
 
 
 @app.command("clone")
@@ -318,21 +322,21 @@ def clone_invoice(
     company = CompanyOverrides(
         company_name, company_address, company_tax_id, company_email, company_logo_path
     )
-    issue_date = parse_issue_date(date_str)
+    issue_date = parse_date(date_str, "--date") or date.today()
     with cli_errors():
+        original = ops.find_invoice(factory, invoice_identifier)
+        formats = ops.check_invoice_export(factory, original, formats, company)
         cloned = ops.clone_invoice(factory, invoice_identifier, issue_date)
 
     console.print(
         f"[green]✓ Cloned Invoice {cloned.original.number} -> {cloned.invoice.number}[/green]"
     )
-    console.print(f"  Total:  ${cloned.invoice.total_amount:.2f}")
+    console.print(f"  Total:  {format_money(cloned.invoice.total_amount)}")
 
     if formats:
-        with cli_errors():
-            company_data = ops.resolve_export_company(
-                factory, cloned.invoice, company, formats, lookup=False
-            )
         notes = ops.export_payment_notes(cloned.invoice.payment_terms, None)
-        print_export_outcomes(
-            ops.export_invoice(cloned.invoice, formats, output_dir, company_data, notes)
-        )
+        with cli_errors():
+            outcomes = ops.export_invoice(
+                factory, cloned.invoice, formats, output_dir, company, notes
+            )
+        print_export_outcomes(outcomes)

@@ -7,11 +7,18 @@ integrate with your storage backend's audit log repository.
 
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, Field
 from pydantic_invoices.schemas import Invoice, Payment
 from pydantic_invoices.vo import Money
+
+from py_invoices.core.totals import format_money
+
+if TYPE_CHECKING:
+    from py_invoices.plugins.base import AuditRepository
+
+_PAGE_SIZE = 500
 
 
 class AuditLogEntry(BaseModel):
@@ -35,7 +42,7 @@ class AuditService:
     Provides high-level methods for logging invoice lifecycle events.
     """
 
-    def __init__(self, audit_repo: Any | None = None) -> None:
+    def __init__(self, audit_repo: "AuditRepository | None" = None) -> None:
         """Initialize audit service.
 
         Args:
@@ -83,10 +90,7 @@ class AuditService:
             notes=f"Total: ${total_amount:.2f}",
             user=user,
         )
-        self._logs.append(entry)
-        if self.audit_repo:
-            self.audit_repo.add(entry)
-        return entry
+        return self._record(entry)
 
     def log_status_changed(
         self,
@@ -115,10 +119,7 @@ class AuditService:
             new_value=new_status,
             user=user,
         )
-        self._logs.append(entry)
-        if self.audit_repo:
-            self.audit_repo.add(entry)
-        return entry
+        return self._record(entry)
 
     def log_payment_added(
         self,
@@ -180,10 +181,7 @@ class AuditService:
             notes=f"Method: {payment_method}" if payment_method else None,
             user=user,
         )
-        self._logs.append(entry)
-        if self.audit_repo:
-            self.audit_repo.add(entry)
-        return entry
+        return self._record(entry)
 
     def log_invoice_cloned(
         self,
@@ -214,10 +212,40 @@ class AuditService:
             notes=f"Total: ${amt:.2f}",
             user=user,
         )
+        return self._record(entry)
+
+    def log_credit_note_created(
+        self,
+        credit_note: Invoice,
+        original: Invoice,
+        user: str | None = None,
+    ) -> AuditLogEntry:
+        """Log a credit note issued against an invoice."""
+        entry = AuditLogEntry(
+            invoice_id=credit_note.id,
+            invoice_number=credit_note.number,
+            action="CREDIT_NOTE_CREATED",
+            new_value=f"Credits {original.number}",
+            notes=f"Total: {format_money(credit_note.total_amount)}",
+            user=user,
+        )
+        return self._record(entry)
+
+    def _record(self, entry: AuditLogEntry) -> AuditLogEntry:
         self._logs.append(entry)
         if self.audit_repo:
             self.audit_repo.add(entry)
         return entry
+
+    def _all_entries(self) -> list[AuditLogEntry]:
+        if self.audit_repo is None:
+            return list(self._logs)
+        entries: list[AuditLogEntry] = []
+        while True:
+            page = self.audit_repo.get_all(skip=len(entries), limit=_PAGE_SIZE)
+            entries.extend(page)
+            if len(page) < _PAGE_SIZE:
+                return entries
 
     def get_logs(
         self,
@@ -235,18 +263,7 @@ class AuditService:
         Returns:
             List of matching audit log entries
         """
-        if self.audit_repo:
-            # If we have a repo, we might want to fetch from it instead of just in-memory
-            # For now, we'll merge or just return memory if they are sync
-            # To be more robust, we should probably query the repo
-            db_logs = (
-                self.audit_repo.get_by_invoice(invoice_id)
-                if invoice_id
-                else self.audit_repo.get_all()
-            )
-            return cast(list[AuditLogEntry], db_logs)
-
-        logs = self._logs
+        logs = self._all_entries()
 
         if invoice_id is not None:
             logs = [log for log in logs if log.invoice_id == invoice_id]
@@ -260,16 +277,17 @@ class AuditService:
         return logs
 
     def get_summary(self) -> dict[str, Any]:
-        """Get a summary of audit logs."""
+        """Get a summary of audit logs (from the repository when one is set)."""
+        entries = self._all_entries()
         summary: dict[str, Any] = {
-            "total_entries": len(self._logs),
+            "total_entries": len(entries),
             "actions_count": {},
             "invoices_affected": set(),
         }
         actions_count: dict[str, int] = summary["actions_count"]
         invoices_affected: set[int] = summary["invoices_affected"]
 
-        for entry in self._logs:
+        for entry in entries:
             actions_count[entry.action] = actions_count.get(entry.action, 0) + 1
             if entry.invoice_id:
                 invoices_affected.add(entry.invoice_id)

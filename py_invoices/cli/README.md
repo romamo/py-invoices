@@ -150,28 +150,27 @@ py-invoices companies create --name "My Configured Company" --address "123 HQ Bl
 
 Manage credit notes.
 
-**List Credit Notes:**
+**Create Credit Note** (whole invoice, or only chosen lines with `--line`, 0-based):
 ```bash
-py-invoices credit-notes list
+py-invoices credit-notes create "INV-2024-0001" --reason "Refund"
+py-invoices credit-notes create "INV-2024-0001" --reason "Partial refund" --line 0
 ```
 
-**Create Credit Note:**
+Credit notes are numbered in their own `CN-<year>-<nnnn>` series. The total credited can never
+exceed the invoice total, and a fully credited invoice becomes `CREDITED`.
+
+**Show Credit Note:**
 ```bash
-py-invoices credit-notes create --invoice-number "INV-2024-001" --reason "Refund"
+py-invoices credit-notes get "CN-2024-0001"
 ```
 
 ## Payments Management
 
 Manage payments.
 
-**List Payments:**
+**List Payments for an invoice:**
 ```bash
-py-invoices payments list
-```
-
-**Create Payment:**
-```bash
-py-invoices payments create --invoice-number "INV-2024-001" --amount 1500.00 --reference "Wire Transfer"
+py-invoices payments list "INV-2024-0001"
 ```
 
 ## Validation

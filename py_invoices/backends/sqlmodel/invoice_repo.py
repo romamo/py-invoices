@@ -1,6 +1,7 @@
 """SQLModel invoice repository implementation."""
 
 from datetime import date
+from decimal import Decimal
 
 from pydantic_invoices.interfaces import InvoiceRepository
 from pydantic_invoices.schemas import (
@@ -9,11 +10,17 @@ from pydantic_invoices.schemas import (
     InvoiceStatus,
     InvoiceSummary,
 )
-from pydantic_invoices.vo import Money
-from sqlalchemy import func
-from sqlmodel import Session, select
+from sqlalchemy.orm import selectinload
+from sqlmodel import Session, col, select
 
-from .models import InvoiceDB, InvoiceLineDB, PaymentDB
+from py_invoices.core.summary import summarize_invoices
+
+from .models import InvoiceDB, InvoiceLineDB, money_columns
+
+_WITH_CHILDREN = (
+    selectinload(InvoiceDB.lines),  # type: ignore[arg-type]
+    selectinload(InvoiceDB.payments),  # type: ignore[arg-type]
+)
 
 
 class SQLModelInvoiceRepository(InvoiceRepository):
@@ -33,9 +40,16 @@ class SQLModelInvoiceRepository(InvoiceRepository):
         self.session.add(db_invoice)
         self.session.flush()  # Get ID without committing
 
-        # Create line items
         for line_data in data.lines:
-            db_line = InvoiceLineDB(invoice_id=db_invoice.id, **line_data.model_dump())
+            unit_price, currency = money_columns(line_data.unit_price)
+            db_line = InvoiceLineDB(
+                invoice_id=db_invoice.id,
+                description=line_data.description,
+                quantity=line_data.quantity,
+                unit_price=unit_price,
+                currency=currency,
+                tax_rate=Decimal(str(line_data.tax_rate or 0)),
+            )
             self.session.add(db_line)
 
         self.session.commit()
@@ -55,7 +69,7 @@ class SQLModelInvoiceRepository(InvoiceRepository):
 
     def get_all(self, skip: int = 0, limit: int = 100) -> list[Invoice]:
         """Get all invoices with pagination."""
-        stmt = select(InvoiceDB).offset(skip).limit(limit)
+        stmt = select(InvoiceDB).order_by(col(InvoiceDB.id)).offset(skip).limit(limit)
         db_invoices = self.session.exec(stmt).all()
         return [inv.to_schema() for inv in db_invoices]
 
@@ -89,45 +103,9 @@ class SQLModelInvoiceRepository(InvoiceRepository):
         return [inv.to_schema() for inv in db_invoices]
 
     def get_summary(self) -> InvoiceSummary:
-        """Get invoice statistics summary using SQL aggregation."""
-        # Counts
-        total_count = self.session.exec(select(func.count(InvoiceDB.id))).one()  # type: ignore[arg-type]
-        paid_count = self.session.exec(
-            select(func.count(InvoiceDB.id)).where(InvoiceDB.status == InvoiceStatus.PAID)  # type: ignore[arg-type]
-        ).one()
-        unpaid_count = self.session.exec(
-            select(func.count(InvoiceDB.id)).where(InvoiceDB.status == InvoiceStatus.UNPAID)  # type: ignore[arg-type]
-        ).one()
-
-        today = date.today()
-        closed_statuses = (
-            InvoiceStatus.PAID,
-            InvoiceStatus.CANCELLED,
-            InvoiceStatus.REFUNDED,
-            InvoiceStatus.CREDITED,
-        )
-        overdue_count = self.session.exec(
-            select(func.count(InvoiceDB.id)).where(  # type: ignore[arg-type]
-                InvoiceDB.status.notin_(closed_statuses),  # type: ignore[attr-defined]
-                InvoiceDB.due_date.is_not(None) & (InvoiceDB.due_date < today),  # type: ignore[union-attr, operator]
-            )
-        ).one()
-
-        # Amounts — SQL aggregation returns raw float/Decimal; wrap in Money
-        stmt_amount = select(func.sum(InvoiceLineDB.quantity * InvoiceLineDB.unit_price))
-        raw_amount = self.session.exec(stmt_amount).one() or 0
-        raw_paid = self.session.exec(select(func.sum(PaymentDB.amount))).one() or 0
-        raw_due = float(raw_amount) - float(raw_paid)
-
-        return InvoiceSummary(
-            total_count=total_count,
-            paid_count=paid_count,
-            unpaid_count=unpaid_count,
-            overdue_count=overdue_count,
-            total_amount=Money(raw_amount),
-            total_paid=Money(raw_paid),
-            total_due=Money(raw_due),
-        )
+        """Get invoice statistics summary (same rules as every other backend)."""
+        stmt = select(InvoiceDB).options(*_WITH_CHILDREN)
+        return summarize_invoices(inv.to_schema() for inv in self.session.exec(stmt).all())
 
     def update(self, invoice: Invoice) -> Invoice:
         """Update invoice."""
@@ -136,8 +114,8 @@ class SQLModelInvoiceRepository(InvoiceRepository):
             raise ValueError(f"Invoice {invoice.id} not found")
 
         # Update fields (excluding relationships and non-DB fields)
-        exclude_fields = {"id", "lines", "payments", "audit_logs", "payment_note_ids"}
-        update_data = invoice.model_dump(exclude=exclude_fields)
+        exclude_fields = {"id", "lines", "payments", "audit_logs"}
+        update_data = invoice.model_dump(mode="python", exclude=exclude_fields)
 
         # Only update fields that exist in the DB model
         db_fields = set(InvoiceDB.model_fields.keys())

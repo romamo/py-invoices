@@ -3,6 +3,8 @@
 from pydantic_invoices.interfaces import ClientRepository
 from pydantic_invoices.schemas import Client, ClientCreate
 
+from .ids import IdSequence
+
 
 class MemoryClientRepository(ClientRepository):
     """In-memory implementation of ClientRepository for testing."""
@@ -10,13 +12,13 @@ class MemoryClientRepository(ClientRepository):
     def __init__(self) -> None:
         """Initialize in-memory storage."""
         self._storage: dict[int, Client] = {}
-        self._next_id = 1
+        self._ids = IdSequence()
 
     def create(self, data: ClientCreate) -> Client:
         """Create a new client."""
-        client = Client(id=self._next_id, **data.model_dump())
-        self._storage[self._next_id] = client
-        self._next_id += 1
+        client_id = self._ids.next()
+        client = Client(id=client_id, **dict(data))
+        self._storage[client_id] = client
         return client
 
     def get_by_id(self, client_id: int) -> Client | None:

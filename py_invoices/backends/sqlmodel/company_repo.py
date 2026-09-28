@@ -5,7 +5,7 @@ from pydantic_invoices.schemas.company import (
     Company,
     CompanyCreate,
 )
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from .models import CompanyDB
 
@@ -32,7 +32,7 @@ class SQLModelCompanyRepository(CompanyRepository):
 
     def get_all(self, skip: int = 0, limit: int = 100) -> list[Company]:
         """Get all companies with pagination."""
-        stmt = select(CompanyDB).offset(skip).limit(limit)
+        stmt = select(CompanyDB).order_by(col(CompanyDB.id)).offset(skip).limit(limit)
         db_companies = self.session.exec(stmt).all()
         return [c.to_schema() for c in db_companies]
 

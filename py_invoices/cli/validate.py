@@ -1,7 +1,8 @@
 import typer
 from rich.console import Console
+from rich.markup import escape
 
-from py_invoices.core.validator import UBLValidator
+from py_invoices.core.validator import MessageLevel, UBLValidator
 
 app = typer.Typer()
 console = Console()
@@ -12,23 +13,20 @@ def validate_invoice(
     file_path: str = typer.Argument(..., help="Path to UBL XML invoice file to validate"),
 ) -> None:
     """
-    Validate a UBL 2.1 invoice XML file.
+    Validate a UBL 2.1 invoice or credit note XML file.
 
     Checks for mandatory fields and structure compliance.
     """
     result = UBLValidator.validate_file(file_path)
 
+    styles = {
+        MessageLevel.ERROR: "[red]✗",
+        MessageLevel.WARNING: "[yellow]⚠",
+        MessageLevel.SUCCESS: "[green]✓",
+        MessageLevel.INFO: "[blue]ℹ",  # noqa: RUF001 (information symbol, not a letter)
+    }
     for msg in result.messages:
-        if msg.level == "error":
-            console.print(f"[red]✗ {msg.text}[/red]")
-        elif msg.level == "warning":
-            console.print(f"[yellow]⚠ {msg.text}[/yellow]")
-        elif msg.level == "success":
-            console.print(f"[green]✓ {msg.text}[/green]")
-        elif msg.level == "info":
-            console.print(f"[blue]ℹ {msg.text}[/blue]")
-        else:
-            console.print(msg.text)
+        console.print(f"{styles[msg.level]} {escape(msg.text)}[/]")
 
     if not result.success:
         raise typer.Exit(code=1)

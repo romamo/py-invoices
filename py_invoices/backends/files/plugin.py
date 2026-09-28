@@ -12,7 +12,7 @@ from pydantic_invoices.interfaces import (
     ProductRepository,
 )
 
-from ...plugins.base import StoragePlugin
+from ...plugins.base import AuditRepository, StoragePlugin
 from ...plugins.registry import PluginRegistry
 from .audit_repo import FileAuditRepository
 from .client_repo import FileClientRepository
@@ -37,10 +37,7 @@ class FilesPlugin(StoragePlugin):
         self._payment_note_repo: FilePaymentNoteRepository | None = None
         self._audit_repo: FileAuditRepository | None = None
 
-    @property
-    def name(self) -> str:
-        """Plugin name."""
-        return "files"
+    name = "files"
 
     def initialize(self, **config: Any) -> None:
         """Initialize file storage."""
@@ -52,9 +49,11 @@ class FilesPlugin(StoragePlugin):
         self.root_dir.mkdir(parents=True, exist_ok=True)
 
         # Create repository instances
-        self._invoice_repo = FileInvoiceRepository(self.root_dir, file_format)
-        self._client_repo = FileClientRepository(self.root_dir, file_format)
         self._payment_repo = FilePaymentRepository(self.root_dir, file_format)
+        self._invoice_repo = FileInvoiceRepository(
+            self.root_dir, file_format, payment_repo=self._payment_repo
+        )
+        self._client_repo = FileClientRepository(self.root_dir, file_format)
         self._company_repo = FileCompanyRepository(self.root_dir, file_format)
         self._product_repo = FileProductRepository(self.root_dir, file_format)
         self._payment_note_repo = FilePaymentNoteRepository(self.root_dir, file_format)
@@ -96,7 +95,7 @@ class FilesPlugin(StoragePlugin):
             raise RuntimeError("Plugin not initialized. Call initialize() first.")
         return self._payment_note_repo
 
-    def create_audit_repository(self, **config: Any) -> Any:
+    def create_audit_repository(self, **config: Any) -> AuditRepository:
         """Create audit repository."""
         if self._audit_repo is None:
             raise RuntimeError("Plugin not initialized. Call initialize() first.")

@@ -1,10 +1,11 @@
 import os
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from py_invoices import __version__
 from py_invoices.api.routers import (
     audit,
     clients,
@@ -16,21 +17,24 @@ from py_invoices.api.routers import (
     products,
     validation,
 )
+from py_invoices.api.security import API_KEY_HEADER, require_api_key
+from py_invoices.config import get_settings
 from py_invoices.constants import APP_NAME
 
 app = FastAPI(
     title=f"{APP_NAME} API",
     description=f"API for managing invoices and clients using {APP_NAME}.",
-    version="1.0.0",
+    version=__version__,
 )
 
-# Allow CORS for the Web App
+# The bundled web app is same-origin; other browser origins must be listed explicitly.
+# Auth is a header, not a cookie, so credentials are never needed.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, this should be specific
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=get_settings().cors_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=[API_KEY_HEADER, "Content-Type"],
 )
 
 # Get absolute path to static directory
@@ -39,15 +43,20 @@ static_dir = os.path.join(os.path.dirname(__file__), "static")
 # Mount static directory
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-app.include_router(invoices.router, prefix="/invoices", tags=["invoices"])
-app.include_router(clients.router, prefix="/clients", tags=["clients"])
-app.include_router(credit_notes.router, prefix="/credit-notes", tags=["credit-notes"])
-app.include_router(products.router, prefix="/products", tags=["products"])
-app.include_router(companies.router, prefix="/companies", tags=["companies"])
-app.include_router(payments.router, prefix="/payments", tags=["payments"])
-app.include_router(payment_notes.router, prefix="/payment-notes", tags=["payment-notes"])
-app.include_router(audit.router, prefix="/audit", tags=["audit"])
-app.include_router(validation.router, prefix="/validation", tags=["validation"])
+protected = [Depends(require_api_key)]
+routers = [
+    (invoices.router, "/invoices", "invoices"),
+    (clients.router, "/clients", "clients"),
+    (credit_notes.router, "/credit-notes", "credit-notes"),
+    (products.router, "/products", "products"),
+    (companies.router, "/companies", "companies"),
+    (payments.router, "/payments", "payments"),
+    (payment_notes.router, "/payment-notes", "payment-notes"),
+    (audit.router, "/audit", "audit"),
+    (validation.router, "/validation", "validation"),
+]
+for router, prefix, tag in routers:
+    app.include_router(router, prefix=prefix, tags=[tag], dependencies=protected)
 
 
 @app.get("/")

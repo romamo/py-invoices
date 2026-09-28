@@ -1,7 +1,7 @@
 """Base plugin interface for storage backends."""
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic_invoices.interfaces import (
     ClientRepository,
@@ -12,6 +12,28 @@ from pydantic_invoices.interfaces import (
     ProductRepository,
 )
 
+from py_invoices.core.audit_service import AuditLogEntry
+
+
+class AuditRepository(ABC):
+    """Storage for audit log entries."""
+
+    @abstractmethod
+    def add(self, entry: AuditLogEntry) -> AuditLogEntry:
+        """Store an entry and return it as stored."""
+
+    @abstractmethod
+    def get_by_invoice(self, invoice_id: int) -> list[AuditLogEntry]:
+        """All entries for one invoice."""
+
+    @abstractmethod
+    def get_all(self, skip: int = 0, limit: int = 100) -> list[AuditLogEntry]:
+        """A page of entries."""
+
+    @abstractmethod
+    def clear(self) -> None:
+        """Delete every entry."""
+
 
 class StoragePlugin(ABC):
     """Base class for storage backend plugins.
@@ -20,11 +42,8 @@ class StoragePlugin(ABC):
     with the plugin system.
     """
 
-    @property
-    @abstractmethod
-    def name(self) -> str:
-        """Unique plugin identifier (e.g., 'sqlite', 'postgres', 'memory')."""
-        pass
+    name: ClassVar[str]
+    """Unique plugin identifier (e.g., 'sqlite', 'postgres', 'memory')."""
 
     @abstractmethod
     def create_invoice_repository(self, **config: Any) -> InvoiceRepository:
@@ -71,7 +90,7 @@ class StoragePlugin(ABC):
         pass
 
     @abstractmethod
-    def create_audit_repository(self, **config: Any) -> Any:
+    def create_audit_repository(self, **config: Any) -> AuditRepository:
         """Create and return an audit repository instance."""
         pass
 
@@ -98,7 +117,18 @@ class StoragePlugin(ABC):
         """
         pass
 
-    def cleanup(self) -> None:
+    def open_scope(self) -> "StoragePlugin":
+        """Return a plugin for one unit of work (e.g. one API request).
+
+        Backends with per-connection state return a copy with its own session; the
+        default shares this plugin, so in-memory data stays visible across scopes.
+        """
+        return self
+
+    def close_scope(self) -> None:  # noqa: B027 (optional hook)
+        """Release what open_scope() acquired. Never discards stored data."""
+
+    def cleanup(self) -> None:  # noqa: B027 (optional hook)
         """Optional cleanup method called when plugin is no longer needed.
 
         Override this method to implement cleanup logic like:

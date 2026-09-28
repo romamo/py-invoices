@@ -76,7 +76,7 @@ def example_explicit_settings() -> None:
             due_date=None,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
-            client_tax_id_snapshot=client.tax_id,
+            client_tax_id_snapshot=str(client.tax_id) if client.tax_id else None,
             lines=[
                 InvoiceLineCreate(description="Consulting Services", quantity=10, unit_price=150.0)
             ],

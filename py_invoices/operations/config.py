@@ -47,7 +47,12 @@ class TemplateCatalog:
 
 
 def _j2_files(directory: Path) -> list[Path]:
-    return [f for f in directory.iterdir() if f.is_file() and f.suffix == ".j2"]
+    """Selectable templates; names starting with "_" are partials used by other templates."""
+    return [
+        f
+        for f in directory.iterdir()
+        if f.is_file() and f.suffix == ".j2" and not f.name.startswith("_")
+    ]
 
 
 def template_catalog(settings: InvoiceSettings) -> TemplateCatalog:

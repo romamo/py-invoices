@@ -10,15 +10,8 @@ class SQLitePlugin(SQLModelBasePlugin):
     Provides persistent storage using SQLite database via SQLModel.
     """
 
-    @property
-    def name(self) -> str:
-        """Plugin name."""
-        return "sqlite"
-
-    @property
-    def default_url(self) -> str:
-        """Default database URL."""
-        return "sqlite:///invoices.db"
+    name = "sqlite"
+    default_url = "sqlite:///invoices.db"
 
 
 # Auto-register the SQLite plugin

@@ -5,7 +5,7 @@ from pydantic_invoices.schemas import (
     Client,
     ClientCreate,
 )
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from .models import ClientDB
 
@@ -38,7 +38,7 @@ class SQLModelClientRepository(ClientRepository):
 
     def get_all(self, skip: int = 0, limit: int = 100) -> list[Client]:
         """Get all clients with pagination."""
-        stmt = select(ClientDB).offset(skip).limit(limit)
+        stmt = select(ClientDB).order_by(col(ClientDB.id)).offset(skip).limit(limit)
         db_clients = self.session.exec(stmt).all()
         return [c.to_schema() for c in db_clients]
 
