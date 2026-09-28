@@ -1,11 +1,10 @@
-import os
-
 import typer
 from rich.console import Console
 from rich.table import Table
 
 from py_invoices.config import get_settings
 from py_invoices.constants import APP_DISPLAY_NAME
+from py_invoices.operations.config import settings_overview
 
 app = typer.Typer()
 console = Console()
@@ -14,7 +13,7 @@ console = Console()
 @app.command("show")
 def show_config() -> None:
     """Show current configuration details."""
-    settings = get_settings()
+    overview = settings_overview(get_settings())
 
     table = Table(
         title=f"{APP_DISPLAY_NAME} Configuration",
@@ -23,28 +22,12 @@ def show_config() -> None:
     )
     table.add_column("Setting", style="dim")
     table.add_column("Value")
-
-    # Backend settings
-    table.add_row("Backend", settings.backend)
-    if settings.database_url:
-        # Simple masking just in case, though usually env var
-        db_url = settings.database_url
-        if "://" in db_url:
-            scheme, rest = db_url.split("://", 1)
-            table.add_row("Database URL", f"{scheme}://***")
-        else:
-            table.add_row("Database URL", "***")
-
-    # Files backend settings
-    table.add_row("Default File Format", settings.file_format)
-
-    # Paths
-    table.add_row("Output Directory", os.path.abspath(settings.output_dir))
-    if settings.template_dir:
-        table.add_row("Template Directory", os.path.abspath(settings.template_dir))
-    else:
-        table.add_row("Template Directory", "[italic]Default[/italic]")
-
+    table.add_row("Backend", overview.backend)
+    if overview.masked_database_url:
+        table.add_row("Database URL", overview.masked_database_url)
+    table.add_row("Default File Format", overview.file_format)
+    table.add_row("Output Directory", overview.output_dir)
+    table.add_row("Template Directory", overview.template_dir or "[italic]Default[/italic]")
     console.print(table)
 
 

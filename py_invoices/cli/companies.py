@@ -1,8 +1,8 @@
 import typer
-from pydantic_invoices.schemas.company import CompanyCreate
 from rich.table import Table
 
 from py_invoices.cli.utils import get_console, get_factory
+from py_invoices.operations import companies as ops
 
 app = typer.Typer()
 console = get_console()
@@ -13,35 +13,23 @@ def list_companies(
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
 ) -> None:
     """List active companies."""
-    factory = get_factory(backend)
-    repo = factory.create_company_repository()
-
-    companies = repo.get_active()
+    listing = ops.list_companies(get_factory(backend))
+    if not listing.companies:
+        console.print("[yellow]No active companies found.[/yellow]")
+        return
 
     table = Table(title="Companies")
     table.add_column("Name", style="green")
     table.add_column("Tax ID")
     table.add_column("Email")
     table.add_column("Default")
-
-    if not companies:
-        console.print("[yellow]No active companies found.[/yellow]")
-        return
-
-    # Assuming 'is_default' or similar might exist, but repo interface doesn't show it explicitly
-    # on get_active items usually. Let's check if we can identify default.
-    default_company = repo.get_default()
-    default_id = default_company.id if default_company else -1
-
-    for company in companies:
-        is_default = "*" if company.id == default_id else ""
+    for company in listing.companies:
         table.add_row(
             company.name,
             str(company.tax_id) if company.tax_id else "-",
             company.email or "-",
-            is_default,
+            "*" if company.id == listing.default_id else "",
         )
-
     console.print(table)
 
 
@@ -50,11 +38,7 @@ def get_default_company(
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
 ) -> None:
     """Get the default company details."""
-    factory = get_factory(backend)
-    repo = factory.create_company_repository()
-
-    company = repo.get_default()
-
+    company = ops.default_company(get_factory(backend))
     if not company:
         console.print("[yellow]No default company configured.[/yellow]")
         return
@@ -76,25 +60,7 @@ def create_company(
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
 ) -> None:
     """Create a new company."""
-    factory = get_factory(backend)
-    repo = factory.create_company_repository()
-
-    company_data = CompanyCreate(
-        name=name,
-        tax_id=tax_id,
-        address=address,
-        email=email,
-        phone=phone,
-        legal_name=None,
-        registration_number=None,
-        city=None,
-        postal_code=None,
-        country=None,
-        website=None,
-        logo_path=None,
-    )
-
-    company = repo.create(company_data)
+    company = ops.create_company(get_factory(backend), name, tax_id, address, email, phone)
 
     console.print(f"[green]✓ Created Company {company.name}[/green]")
     console.print(f"  ID: {company.id}")

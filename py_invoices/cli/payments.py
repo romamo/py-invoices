@@ -1,7 +1,8 @@
 import typer
 from rich.table import Table
 
-from py_invoices.cli.utils import get_console, get_factory
+from py_invoices.cli.utils import cli_errors, get_console, get_factory
+from py_invoices.operations import payments as ops
 
 app = typer.Typer()
 console = get_console()
@@ -13,30 +14,20 @@ def list_payments(
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
 ) -> None:
     """List payments for a specific invoice."""
-    factory = get_factory(backend)
-    invoice_repo = factory.create_invoice_repository()
-    payment_repo = factory.create_payment_repository()
+    with cli_errors():
+        result = ops.invoice_payments(get_factory(backend), invoice_number)
 
-    # Resolve invoice ID from number
-    invoice = invoice_repo.get_by_number(invoice_number)
-    if not invoice:
-        console.print(f"[red]Error: Invoice '{invoice_number}' not found.[/red]")
-        raise typer.Exit(code=1)
+    if not result.payments:
+        console.print(f"[yellow]No payments recorded for {result.invoice.number}.[/yellow]")
+        return
 
-    payments = payment_repo.get_by_invoice(invoice.id)
-
-    table = Table(title=f"Payments for {invoice.number}")
+    table = Table(title=f"Payments for {result.invoice.number}")
     table.add_column("ID", style="cyan")
     table.add_column("Date", style="magenta")
     table.add_column("Amount", justify="right")
     table.add_column("Method")
     table.add_column("Reference")
-
-    if not payments:
-        console.print(f"[yellow]No payments recorded for {invoice.number}.[/yellow]")
-        return
-
-    for payment in payments:
+    for payment in result.payments:
         table.add_row(
             str(payment.id),
             str(payment.payment_date),
@@ -44,11 +35,6 @@ def list_payments(
             payment.payment_method or "-",
             payment.reference or "-",
         )
-
-    from pydantic_invoices.vo import Money
-
-    total_paid = sum((p.amount for p in payments), start=Money(0))
     console.print(table)
-    console.print(f"[bold]Total Paid: ${total_paid:.2f}[/bold]")
-    balance = invoice.total_amount - total_paid
-    console.print(f"Balance Due: ${max(Money(0), balance):.2f}")
+    console.print(f"[bold]Total Paid: ${result.total_paid:.2f}[/bold]")
+    console.print(f"Balance Due: ${result.balance_due:.2f}")
