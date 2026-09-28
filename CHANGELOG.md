@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.0.1] - 2026-09-28
 
 ### Fixed
 - **PDF system libraries**: when WeasyPrint is installed but cannot load Pango or GObject, the CLI and API (501) now name the missing library and give fix steps for the platform instead of suggesting `pip install`. On macOS, Homebrew libraries that are installed but not on the loader path are detected and the matching `export DYLD_FALLBACK_LIBRARY_PATH=...` is shown; Linux gets the apt packages to install

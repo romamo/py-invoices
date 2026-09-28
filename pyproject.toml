@@ -1,6 +1,6 @@
 [project]
 name = "py-invoices"
-version = "2.0.0"
+version = "2.0.1"
 description = "Framework-agnostic invoice management with pluggable storage backends"
 authors = [{name = "Roman Medvedev", email = "pypi@romavm.dev"}]
 readme = "README.md"
