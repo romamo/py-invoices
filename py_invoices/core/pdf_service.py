@@ -4,12 +4,83 @@ Provides invoice PDF generation using Jinja2 templates and WeasyPrint.
 """
 
 import os
+import re
+import sys
+from collections.abc import Sequence
+from pathlib import Path
 from typing import Any, cast
 
 from pydantic_invoices.schemas import Invoice
 
 from py_invoices.core.html_service import HTMLService, output_path
 from py_invoices.core.ubl_service import UBLService
+
+WEASYPRINT_INSTALL_DOCS = (
+    "https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation"
+)
+HOMEBREW_LIB_DIRS = (Path("/opt/homebrew/lib"), Path("/usr/local/lib"))
+
+_LIBRARY_RE = re.compile(r"cannot load library '([^']+)'")
+
+
+class WeasyPrintMissingError(ImportError):
+    """The WeasyPrint package (the ``pdf`` extra) is not installed."""
+
+
+class PdfSystemLibrariesError(ImportError):
+    """WeasyPrint is installed but cannot load its system libraries (Pango, GObject).
+
+    ``steps`` are shell commands for this platform; ``found_in`` is set when the
+    libraries exist on disk but are not on the dynamic loader path.
+    """
+
+    def __init__(
+        self, library: str | None, steps: list[str], found_in: Path | None, cause: str
+    ) -> None:
+        summary = (
+            f"WeasyPrint cannot load system library '{library}'"
+            if library
+            else "WeasyPrint cannot load its system libraries"
+        )
+        lines = [summary]
+        if found_in:
+            lines.append(f"The libraries are in {found_in} but not on the loader path")
+        lines += [f"Run: {step}" for step in steps]
+        lines.append(f"See {WEASYPRINT_INSTALL_DOCS}")
+        super().__init__("\n".join(lines))
+        self.library = library
+        self.steps = steps
+        self.found_in = found_in
+        self.cause = cause
+
+
+def diagnose_missing_libraries(
+    error: OSError,
+    platform: str = sys.platform,
+    homebrew_lib_dirs: Sequence[Path] = HOMEBREW_LIB_DIRS,
+) -> PdfSystemLibrariesError:
+    """Turn WeasyPrint's library load failure into platform-specific fix steps."""
+    match = _LIBRARY_RE.search(str(error))
+    library = match.group(1) if match else None
+
+    if platform == "darwin":
+        found_in = next(
+            (d for d in homebrew_lib_dirs if any(d.glob("libgobject-2.0*.dylib"))), None
+        )
+        if found_in:
+            steps = [f"export DYLD_FALLBACK_LIBRARY_PATH={found_in}"]
+        else:
+            steps = [
+                "brew install pango",
+                'export DYLD_FALLBACK_LIBRARY_PATH="$(brew --prefix)/lib"',
+            ]
+        return PdfSystemLibrariesError(library, steps, found_in, str(error))
+
+    if platform.startswith("linux"):
+        steps = ["sudo apt-get install libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b"]
+        return PdfSystemLibrariesError(library, steps, None, str(error))
+
+    return PdfSystemLibrariesError(library, [], None, str(error))
 
 
 class PDFService(HTMLService):
@@ -24,19 +95,16 @@ class PDFService(HTMLService):
         """Import WeasyPrint's (HTML, Attachment) classes.
 
         Raises:
-            ImportError: If WeasyPrint or its system libraries (pango) are missing
+            WeasyPrintMissingError: If the WeasyPrint package is not installed
+            PdfSystemLibrariesError: If its system libraries (Pango, GObject) cannot load
         """
         try:
             from weasyprint import HTML, Attachment  # type: ignore[import-untyped]
-        except (ImportError, OSError) as e:
-            raise ImportError(
-                "WeasyPrint is required for PDF generation but was not found or "
-                "is missing system dependencies (like pango).\n"
-                "Install it with: pip install py-invoices[pdf]\n"
-                "On macOS, you may also need: brew install pango libffi\n"
-                "If libraries are installed but not found, try running:\n"
-                "export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib\n"
-                f"Original error: {e}"
+        except OSError as e:
+            raise diagnose_missing_libraries(e) from e
+        except ImportError as e:
+            raise WeasyPrintMissingError(
+                f"WeasyPrint is required for PDF generation but could not be imported: {e}"
             ) from e
         return HTML, Attachment
 

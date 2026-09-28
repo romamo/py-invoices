@@ -23,6 +23,7 @@ from py_invoices.config import get_settings
 from py_invoices.core import AuditService, HTMLService, NumberingService, PDFService, UBLService
 from py_invoices.core.html_service import PACKAGE_TEMPLATES_DIR, is_safe_file_name, output_path
 from py_invoices.core.paging import iter_all
+from py_invoices.core.pdf_service import PdfSystemLibrariesError
 from py_invoices.core.summary import MixedCurrencyError
 from py_invoices.operations.errors import (
     ClientNotFoundError,
@@ -34,6 +35,8 @@ from py_invoices.operations.errors import (
     InvoiceNotFoundError,
     LogoNotFoundError,
     MissingDependencyError,
+    MissingSystemLibrariesError,
+    OperationError,
     PaymentNoteNotFoundError,
     PaymentTermsError,
     SummaryUnavailableError,
@@ -267,7 +270,7 @@ def render_invoice_pdf(factory: RepositoryFactory, invoice: Invoice) -> bytes:
             **context,
         )
     except ImportError as e:
-        raise MissingDependencyError("pdf", str(e)) from e
+        raise _pdf_unavailable(e) from e
 
 
 def render_invoice_document(
@@ -294,7 +297,7 @@ def render_invoice_document(
             invoice=invoice, company=details, template_name=template_name, **context
         )
     except ImportError as e:
-        raise MissingDependencyError("pdf", str(e)) from e
+        raise _pdf_unavailable(e) from e
     return RenderedDocument(invoice=invoice, path=path)
 
 
@@ -444,12 +447,21 @@ def validate_export_formats(formats: list[str]) -> list[str]:
     return normalized
 
 
+def _pdf_unavailable(error: ImportError) -> OperationError:
+    """Map a WeasyPrint import failure to a missing package or missing system libraries."""
+    if isinstance(error, PdfSystemLibrariesError):
+        return MissingSystemLibrariesError(
+            "pdf", error.library, error.steps, error.found_in, str(error)
+        )
+    return MissingDependencyError("pdf", str(error))
+
+
 def _require_pdf_support(formats: list[str]) -> None:
     if "pdf" in formats:
         try:
             PDFService._get_weasyprint_modules()
         except ImportError as e:
-            raise MissingDependencyError("pdf", str(e)) from e
+            raise _pdf_unavailable(e) from e
 
 
 def check_new_invoice_export(
@@ -539,7 +551,7 @@ def export_invoice(
                     payment_notes=payment_notes,
                 )
             except ImportError as e:
-                raise MissingDependencyError("pdf", str(e)) from e
+                raise _pdf_unavailable(e) from e
         elif fmt == "html":
             path = HTMLService(template_dir=template_dir(), output_dir=output_dir).save_html(
                 invoice=invoice,

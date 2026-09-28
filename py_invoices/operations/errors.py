@@ -1,5 +1,7 @@
 """Domain errors raised by operations. Presentation layers map them to messages and exit codes."""
 
+from pathlib import Path
+
 
 class OperationError(Exception):
     """Base class for expected, user-facing operation failures."""
@@ -44,6 +46,19 @@ class MissingDependencyError(OperationError):
     def __init__(self, extra: str, detail: str) -> None:
         super().__init__(detail)
         self.extra = extra
+
+
+class MissingSystemLibrariesError(OperationError):
+    """An installed extra cannot load the system libraries it needs."""
+
+    def __init__(
+        self, extra: str, library: str | None, steps: list[str], found_in: Path | None, detail: str
+    ) -> None:
+        super().__init__(detail)
+        self.extra = extra
+        self.library = library
+        self.steps = steps
+        self.found_in = found_in
 
 
 class ProductNotFoundError(OperationError):

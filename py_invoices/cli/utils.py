@@ -7,6 +7,7 @@ from rich.markup import escape
 
 from py_invoices import RepositoryFactory
 from py_invoices.config import InvoiceSettings
+from py_invoices.core.pdf_service import WEASYPRINT_INSTALL_DOCS
 from py_invoices.operations.errors import (
     ClientNotFoundError,
     ClientNotSpecifiedError,
@@ -15,6 +16,7 @@ from py_invoices.operations.errors import (
     CreditNoteNotFoundError,
     InvoiceNotFoundError,
     MissingDependencyError,
+    MissingSystemLibrariesError,
     OperationError,
     ProductNotFoundError,
 )
@@ -65,6 +67,22 @@ def error_lines(error: OperationError) -> list[str]:
                 "[red]Error: --company-name and --company-address are required when "
                 "generating files.[/red]"
             ]
+        case MissingSystemLibrariesError():
+            library = f" ({escape(error.library)})" if error.library else ""
+            lines = [
+                f"[red]Error: {error.extra.upper()} generation cannot load the system "
+                f"libraries it needs{library}.[/red]"
+            ]
+            if error.found_in:
+                lines.append(
+                    f"[yellow]They are installed in {escape(str(error.found_in))} but not on "
+                    "the library search path.[/yellow]"
+                )
+            if error.steps:
+                lines.append("Fix:")
+                lines += [f"  [bold]{escape(step)}[/bold]" for step in error.steps]
+            lines.append(f"[dim]See {WEASYPRINT_INSTALL_DOCS}[/dim]")
+            return lines
         case MissingDependencyError():
             package = escape(f"py-invoices[{error.extra}]")
             return [

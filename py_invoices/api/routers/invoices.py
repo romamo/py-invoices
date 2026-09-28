@@ -13,6 +13,7 @@ from py_invoices.operations.errors import (
     CompanyDetailsUnresolvedError,
     LogoNotFoundError,
     MissingDependencyError,
+    MissingSystemLibrariesError,
     OperationError,
     PaymentNoteNotFoundError,
 )
@@ -29,7 +30,7 @@ def _find(factory: RepositoryFactory, invoice_number: str) -> Invoice:
 
 def _render_error(error: OperationError) -> HTTPException:
     match error:
-        case MissingDependencyError():
+        case MissingDependencyError() | MissingSystemLibrariesError():
             return HTTPException(status_code=501, detail=str(error))
         case CompanyDetailsUnresolvedError() | LogoNotFoundError() | PaymentNoteNotFoundError():
             return HTTPException(status_code=409, detail=str(error))
