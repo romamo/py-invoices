@@ -258,7 +258,8 @@ cython_debug/
 /output/
 data/
 
-# Local scratch, OS metadata and local databases
+# Local scratch, OS metadata, IDE settings and local databases
 tmp/
 .DS_Store
+.idea/
 *.db
