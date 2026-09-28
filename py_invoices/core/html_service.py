@@ -5,12 +5,50 @@ Provides invoice HTML generation using Jinja2 templates.
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    pass
+from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescape
+from markupsafe import Markup, escape
+from pydantic_invoices.schemas import Invoice
 
-    from pydantic_invoices.schemas import Invoice
+from py_invoices.core.totals import cents, format_money, invoice_totals, line_net
+
+PACKAGE_TEMPLATES_DIR = str(Path(__file__).parent.parent / "templates")
+
+# Templates are named "*.html.j2" / "*.xml.j2"; the inner extension selects escaping.
+AUTOESCAPE_EXTENSIONS = ("html", "xml", "html.j2", "xml.j2")
+
+
+def is_safe_file_name(name: str) -> bool:
+    """True for a plain file name: no directory part, no leading dot, no NUL."""
+    return (
+        bool(name)
+        and name == os.path.basename(name)
+        and not name.startswith(".")
+        and "\\" not in name
+        and "\0" not in name
+    )
+
+
+def output_path(output_dir: str, filename: str) -> str:
+    """Path of `filename` inside `output_dir`.
+
+    Raises:
+        ValueError: If the name contains a directory part or starts with a dot, which would
+            let a document number such as "../x" write outside `output_dir`
+    """
+    if not is_safe_file_name(filename):
+        raise ValueError(f"Unsafe output file name: {filename!r}")
+    os.makedirs(output_dir, exist_ok=True)
+    return os.path.join(output_dir, filename)
+
+
+def nl2br(value: object) -> Markup:
+    """Escape a value and turn its newlines (real or literal "\\n") into <br>."""
+    if value is None:
+        return Markup("")
+    text = str(value).replace("\\n", "\n")
+    return Markup("<br>").join(escape(part) for part in text.split("\n"))
 
 
 class HTMLService:
@@ -28,109 +66,59 @@ class HTMLService:
         """Initialize HTML service.
 
         Args:
-            template_dir: Directory containing Jinja2 templates (optional)
-            output_dir: Directory for generated files
+            template_dir: Directory with templates that take precedence over the package ones
+            output_dir: Directory for generated files, created on first save
             default_template: Default template filename
-
-        Raises:
-            ImportError: If jinja2 is not installed
         """
-        from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescape
-
         self.output_dir = output_dir
         self.default_template = default_template
+        self.template_dir = template_dir or PACKAGE_TEMPLATES_DIR
 
-        # Ensure output directory exists
-        Path(output_dir).mkdir(parents=True, exist_ok=True)
-
-        # 1. Package templates (always available as fallback)
-        package_templates_dir = str(Path(__file__).parent.parent / "templates")
-
-        # 2. Determine loaders
-        loaders = []
+        loaders = [FileSystemLoader(PACKAGE_TEMPLATES_DIR)]
         if template_dir:
-            self.template_dir = template_dir
-            loaders.append(FileSystemLoader(template_dir))
+            loaders.insert(0, FileSystemLoader(template_dir))
 
-        loaders.append(FileSystemLoader(package_templates_dir))
-
-        # If we have multiple loaders, use ChoiceLoader
-        loader: ChoiceLoader | FileSystemLoader
-        if len(loaders) > 1:
-            loader = ChoiceLoader(loaders)
-        else:
-            loader = loaders[0]
-            self.template_dir = package_templates_dir
-
-        # Setup Jinja2 environment
-        self.env: Environment = Environment(
-            loader=loader, autoescape=select_autoescape(["html", "xml"])
+        self.env = Environment(
+            loader=ChoiceLoader(loaders),
+            autoescape=select_autoescape(AUTOESCAPE_EXTENSIONS),
         )
+        self.env.filters["nl2br"] = nl2br
+        self.env.filters["money"] = format_money
+        self.env.filters["cents"] = cents
+        self.env.globals["line_net"] = line_net
 
     def generate_html(
         self,
-        invoice: "Invoice",
+        invoice: Invoice,
         company: dict[str, Any],
         template_name: str | None = None,
         **context: Any,
     ) -> str:
-        """Generate HTML from invoice data.
-
-        Args:
-            invoice: Invoice schema instance
-            company: Company information dictionary
-            template_name: Template to use (defaults to default_template)
-            logo_path: Optional path to company logo
-            **context: Additional template context variables
-
-        Returns:
-            Rendered HTML string
-        """
+        """Render a template with the invoice, company, computed totals and extra context."""
         template = self.env.get_template(template_name or self.default_template)
-
         return template.render(
             invoice=invoice,
             company=company,
+            totals=invoice_totals(invoice),
             **context,
         )
 
+    def _write(self, filename: str, content: str) -> str:
+        path = output_path(self.output_dir, filename)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(content)
+        return path
+
     def save_html(
         self,
-        invoice: "Invoice",
+        invoice: Invoice,
         company: dict[str, Any],
         output_filename: str | None = None,
         template_name: str | None = None,
         **context: Any,
     ) -> str:
-        """Save invoice as HTML file.
-
-        Args:
-            invoice: Invoice schema instance
-            company: Company information dictionary
-            output_filename: Custom output filename (defaults to invoice number)
-            template_name: Template to use (defaults to default_template)
-            logo_path: Optional path to company logo
-            **context: Additional template context variables
-
-        Returns:
-            Path to generated HTML file
-        """
-        # Generate HTML
+        """Save invoice as HTML file and return its path (defaults to "<number>.html")."""
         html_content = self.generate_html(
-            invoice=invoice,
-            company=company,
-            template_name=template_name,
-            **context,
+            invoice=invoice, company=company, template_name=template_name, **context
         )
-
-        # Determine output path
-        if not output_filename:
-            output_filename = f"{invoice.number}.html"
-
-        output_path = os.path.join(self.output_dir, output_filename)
-
-        # Save HTML
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(html_content)
-
-        return output_path
+        return self._write(output_filename or f"{invoice.number}.html", html_content)

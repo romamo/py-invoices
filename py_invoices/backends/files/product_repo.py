@@ -20,7 +20,7 @@ class FileProductRepository(ProductRepository):
     def create(self, data: ProductCreate) -> Product:
         """Create a new product."""
         product_id = self.storage.get_next_id()
-        product = Product(id=product_id, **data.model_dump())
+        product = Product(id=product_id, **dict(data))
         self.storage.save(product, product_id)
         return product
 

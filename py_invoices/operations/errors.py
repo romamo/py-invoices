@@ -66,3 +66,58 @@ class CreditNoteNotFoundError(OperationError):
 
 class CreditNoteRejectedError(OperationError):
     """The credit service refused to credit the invoice."""
+
+
+class DuplicateInvoiceNumberError(OperationError):
+    def __init__(self, number: str) -> None:
+        super().__init__(f"Invoice number '{number}' is already used")
+        self.number = number
+
+
+class InvalidAmountError(OperationError):
+    def __init__(self, amount: str) -> None:
+        super().__init__(f"Amount must be a positive number, got '{amount}'")
+        self.amount = amount
+
+
+class PaymentTermsError(OperationError):
+    """The due date cannot be derived from free-form payment terms."""
+
+    def __init__(self, terms: str) -> None:
+        super().__init__(
+            f"Cannot derive a due date from payment terms '{terms}'; "
+            "use 'Net <days>', 'Due on Receipt', or give the due date explicitly"
+        )
+        self.terms = terms
+
+
+class UnknownExportFormatError(OperationError):
+    def __init__(self, formats: list[str], supported: list[str]) -> None:
+        super().__init__(
+            f"Unknown format(s): {', '.join(formats)}. Supported: {', '.join(supported)}"
+        )
+        self.formats = formats
+
+
+class LogoNotFoundError(OperationError):
+    def __init__(self, path: str) -> None:
+        super().__init__(f"Company logo not found: {path}")
+        self.path = path
+
+
+class PaymentNoteNotFoundError(OperationError):
+    def __init__(self, note_id: int) -> None:
+        super().__init__(f"Payment note {note_id} referenced by the invoice does not exist")
+        self.note_id = note_id
+
+
+class SummaryUnavailableError(OperationError):
+    """The stored invoices cannot be summarized (e.g. they use several currencies)."""
+
+
+class InvalidInvoiceNumberError(OperationError):
+    """Invoice numbers become file names, so they cannot contain path parts."""
+
+    def __init__(self, number: str) -> None:
+        super().__init__(f"Invoice number {number!r} cannot contain '/', '\\' or start with '.'")
+        self.number = number

@@ -15,13 +15,13 @@ from .plugins.factory import RepositoryFactory
 from .plugins.registry import PluginRegistry
 
 __all__ = [
-    "APP_NAME",
     "APP_DISPLAY_NAME",
-    "RepositoryFactory",
-    "PluginRegistry",
-    "InvoiceSettings",
+    "APP_NAME",
     "AuditService",
+    "InvoiceSettings",
     "NumberingService",
     "PDFService",
+    "PluginRegistry",
+    "RepositoryFactory",
     "__version__",
 ]

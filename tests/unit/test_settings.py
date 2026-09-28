@@ -2,6 +2,7 @@
 
 import pytest
 from _pytest.monkeypatch import MonkeyPatch
+from pydantic import ValidationError
 
 from py_invoices import InvoiceSettings, RepositoryFactory
 
@@ -99,7 +100,7 @@ class TestRepositoryFactoryFromSettings:
     def test_from_settings_invalid_backend(self) -> None:
         """Test from_settings with invalid backend."""
         # Pydantic validation should catch this before factory creation
-        with pytest.raises(Exception):  # Pydantic ValidationError
+        with pytest.raises(ValidationError):
             InvoiceSettings(backend="invalid")
 
     def test_from_settings_environment_integration(self, monkeypatch: MonkeyPatch) -> None:

@@ -34,7 +34,7 @@ def install_package(package: str) -> bool:
         else [sys.executable, "-m", "pip", "install", package]
     )
     try:
-        subprocess.run(command, check=True, capture_output=True)  # nosec B603
+        subprocess.run(command, check=True, capture_output=True)  # noqa: S603  # nosec B603
     except subprocess.CalledProcessError:
         return False
     return True

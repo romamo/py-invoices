@@ -6,6 +6,8 @@ from pydantic_invoices.schemas.payment_note import (
     PaymentNoteCreate,
 )
 
+from .ids import IdSequence
+
 
 class MemoryPaymentNoteRepository(PaymentNoteRepository):
     """In-memory implementation of PaymentNoteRepository for testing."""
@@ -13,11 +15,11 @@ class MemoryPaymentNoteRepository(PaymentNoteRepository):
     def __init__(self) -> None:
         """Initialize with empty storage."""
         self._storage: dict[int, PaymentNote] = {}
+        self._ids = IdSequence()
 
     def create(self, entity: PaymentNoteCreate) -> PaymentNote:
         """Create a new payment note."""
-        note_id = len(self._storage) + 1
-        note_id = len(self._storage) + 1
+        note_id = self._ids.next()
 
         note = PaymentNote(
             id=note_id,

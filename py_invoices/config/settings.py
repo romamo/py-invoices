@@ -1,6 +1,7 @@
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,6 +18,12 @@ class InvoiceSettings(BaseSettings):
 
     # Path for files backend data
     storage_path: str = "./data"
+
+    # HTTP API: every request must send this key in the X-API-Key header.
+    # Without it the API refuses all data requests.
+    api_key: SecretStr | None = None
+    # Browser origins allowed to call the API (CORS); empty allows none.
+    cors_origins: list[str] = []
 
     model_config = SettingsConfigDict(env_prefix="INVOICES_", env_file=".env", extra="ignore")
 

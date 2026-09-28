@@ -22,7 +22,7 @@ class FilePaymentRepository(PaymentRepository):
     def create(self, data: PaymentCreate) -> Payment:
         """Create a new payment."""
         payment_id = self.storage.get_next_id()
-        payment = Payment(id=payment_id, **data.model_dump())
+        payment = Payment(id=payment_id, **dict(data))
         self.storage.save(payment, payment_id)
         return payment
 

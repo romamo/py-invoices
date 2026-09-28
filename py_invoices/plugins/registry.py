@@ -1,5 +1,7 @@
 """Plugin registry for managing storage backends."""
 
+from typing import ClassVar
+
 from .base import StoragePlugin
 
 
@@ -10,7 +12,7 @@ class PluginRegistry:
     Plugins can self-register by calling PluginRegistry.register() when imported.
     """
 
-    _plugins: dict[str, type[StoragePlugin]] = {}
+    _plugins: ClassVar[dict[str, type[StoragePlugin]]] = {}
 
     @classmethod
     def register(cls, plugin_class: type[StoragePlugin]) -> None:
@@ -22,9 +24,9 @@ class PluginRegistry:
         Raises:
             ValueError: If a plugin with the same name is already registered
         """
-        # Create temporary instance to get the name
-        plugin = plugin_class()
-        plugin_name = plugin.name
+        plugin_name = getattr(plugin_class, "name", None)
+        if not isinstance(plugin_name, str) or not plugin_name:
+            raise ValueError(f"{plugin_class.__name__} must define a class attribute `name`")
 
         if plugin_name in cls._plugins:
             raise ValueError(

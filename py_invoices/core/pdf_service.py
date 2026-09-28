@@ -4,113 +4,31 @@ Provides invoice PDF generation using Jinja2 templates and WeasyPrint.
 """
 
 import os
-from typing import TYPE_CHECKING, Any
+from typing import Any, cast
 
-if TYPE_CHECKING:
-    pass
+from pydantic_invoices.schemas import Invoice
 
-    from pydantic_invoices.schemas import Invoice
-
-from py_invoices.core.html_service import HTMLService
+from py_invoices.core.html_service import HTMLService, output_path
+from py_invoices.core.ubl_service import UBLService
 
 
 class PDFService(HTMLService):
     """Service for generating PDF invoices from templates.
 
-    This service extends HTMLService to add WeasyPrint PDF generation capabilities.
-    Also supports Factur-X (ZUGFeRD) generation using UBLService.
+    Extends HTMLService with WeasyPrint rendering, including PDF/A-3 output that
+    embeds the invoice's UBL XML.
     """
-
-    def __init__(
-        self,
-        template_dir: str | None = None,
-        output_dir: str = "output",
-        default_template: str = "invoice.html.j2",
-    ):
-        """Initialize PDF service.
-
-        Args:
-            template_dir: Directory containing Jinja2 templates (optional)
-            output_dir: Directory for generated PDF files
-            default_template: Default template filename
-
-        Raises:
-            ImportError: If jinja2 is not installed
-        """
-        super().__init__(template_dir, output_dir, default_template)
-
-    def generate_facturx(
-        self,
-        invoice: "Invoice",
-        company: dict[str, Any],
-        output_filename: str | None = None,
-        template_name: str | None = None,
-        ubl_template_name: str = "ubl_invoice.xml.j2",
-        **context: Any,
-    ) -> str:
-        """Generate Factur-X (PDF/A-3 + XML) invoice.
-
-        Args:
-            invoice: Invoice schema instance
-            company: Company information dictionary
-            output_filename: Custom output filename (defaults to invoice number)
-            template_name: HTML Template to use
-            ubl_template_name: UBL Template to use
-            **context: Additional template context variables
-
-        Returns:
-            Path to generated PDF file
-        """
-        pdf_bytes = self.generate_facturx_bytes(
-            invoice=invoice,
-            company=company,
-            template_name=template_name,
-            ubl_template_name=ubl_template_name,
-            **context,
-        )
-
-        # Determine output path
-        if not output_filename:
-            output_filename = f"{invoice.number}_facturx.pdf"
-        output_path = os.path.join(self.output_dir, output_filename)
-
-        with open(output_path, "wb") as f:
-            f.write(pdf_bytes)
-
-        return output_path
 
     @staticmethod
     def _get_weasyprint_modules() -> tuple[Any, Any]:
-        """Import weasyprint modules with unified error handling.
-
-        Returns:
-            Tuple containing (HTML, Attachment) classes from weasyprint.
+        """Import WeasyPrint's (HTML, Attachment) classes.
 
         Raises:
-            ImportError: If weasyprint is not installed or system dependencies are missing.
+            ImportError: If WeasyPrint or its system libraries (pango) are missing
         """
         try:
             from weasyprint import HTML, Attachment  # type: ignore[import-untyped]
-
-            return HTML, Attachment
         except (ImportError, OSError) as e:
-            # On macOS ARM, Homebrew libraries are in /opt/homebrew/lib
-            # which might not be in the dynamic linker path.
-            import platform
-            import sys
-
-            if sys.platform == "darwin" and platform.machine() == "arm64":
-                brew_lib_path = "/opt/homebrew/lib"
-                if os.path.exists(brew_lib_path):
-                    # Setting DYLD_FALLBACK_LIBRARY_PATH in the current process
-                    # doesn't always affect already loaded ctypes/dlopen logic,
-                    # but weasyprint/cairocffi often rely on find_library.
-                    # We can try to re-import after adding to path if needed,
-                    # or just provide a better error message.
-                    # For now, let's try to add it to the environment for child processes
-                    # and suggest it to the user.
-                    pass
-
             raise ImportError(
                 "WeasyPrint is required for PDF generation but was not found or "
                 "is missing system dependencies (like pango).\n"
@@ -120,146 +38,98 @@ class PDFService(HTMLService):
                 "export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib\n"
                 f"Original error: {e}"
             ) from e
+        return HTML, Attachment
+
+    def _write_bytes(self, filename: str, content: bytes) -> str:
+        path = output_path(self.output_dir, filename)
+        with open(path, "wb") as f:
+            f.write(content)
+        return path
+
+    def _render_pdf(self, html_content: str, **write_options: Any) -> bytes:
+        html_cls, _ = self._get_weasyprint_modules()
+        pdf_bytes = html_cls(
+            string=html_content, base_url=os.path.abspath(self.template_dir)
+        ).write_pdf(**write_options)
+        if pdf_bytes is None:
+            raise RuntimeError("WeasyPrint returned no PDF data")
+        return cast(bytes, pdf_bytes)
 
     def generate_facturx_bytes(
         self,
-        invoice: "Invoice",
+        invoice: Invoice,
         company: dict[str, Any],
         template_name: str | None = None,
-        ubl_template_name: str = "ubl_invoice.xml.j2",
+        ubl_template_name: str | None = None,
         **context: Any,
     ) -> bytes:
-        """Generate Factur-X (PDF/A-3 + XML) invoice as bytes.
+        """Generate a PDF/A-3b document with its UBL XML embedded as an attachment.
 
-        Args:
-            invoice: Invoice schema instance
-            company: Company information dictionary
-            template_name: HTML Template to use
-            ubl_template_name: UBL Template to use
-            **context: Additional template context variables
-
-        Returns:
-            Raw PDF bytes
+        The XML template defaults to the one for the document type (Invoice or CreditNote).
         """
-        html_cls, attachment_cls = self._get_weasyprint_modules()
-
-        # 1. Generate XML Content
-        # Simpler: render using self.generate_html but with UBL template
-        xml_content = self.generate_html(
-            invoice=invoice, company=company, template_name=ubl_template_name, **context
-        )
-
-        # 2. Generate PDF with Attachment
-        # Generate HTML
+        _, attachment_cls = self._get_weasyprint_modules()
+        ubl = UBLService(template_dir=self.template_dir, output_dir=self.output_dir)
+        xml_content = ubl.generate_ubl(invoice, company, ubl_template_name, **context)
         html_content = self.generate_html(
-            invoice=invoice,
-            company=company,
-            template_name=template_name,
-            **context,
+            invoice=invoice, company=company, template_name=template_name, **context
         )
-
-        # Create Attachment
         attachment = attachment_cls(
             string=xml_content,
             filename="factur-x.xml",
             description="Factur-X Invoice Data",
         )
+        return self._render_pdf(html_content, attachments=[attachment], pdf_variant="pdf/a-3b")
 
-        # Generate PDF/A-3
-        # render pdf bytes
-        pdf_bytes = html_cls(
-            string=html_content, base_url=os.path.abspath(self.template_dir)
-        ).write_pdf(attachments=[attachment], pdf_variant="pdf/a-3b")
+    def generate_facturx(
+        self,
+        invoice: Invoice,
+        company: dict[str, Any],
+        output_filename: str | None = None,
+        template_name: str | None = None,
+        ubl_template_name: str | None = None,
+        **context: Any,
+    ) -> str:
+        """Save a PDF/A-3b invoice with embedded XML; defaults to "<number>_facturx.pdf"."""
+        pdf_bytes = self.generate_facturx_bytes(
+            invoice=invoice,
+            company=company,
+            template_name=template_name,
+            ubl_template_name=ubl_template_name,
+            **context,
+        )
+        return self._write_bytes(output_filename or f"{invoice.number}_facturx.pdf", pdf_bytes)
 
-        if pdf_bytes is None:
-            raise RuntimeError("Failed to generate PDF")
+    def generate_pdf_bytes(
+        self,
+        invoice: Invoice,
+        company: dict[str, Any],
+        template_name: str | None = None,
+        **context: Any,
+    ) -> bytes:
+        """Render the invoice to PDF bytes.
 
-        from typing import cast
-
-        return cast(bytes, pdf_bytes)
+        Raises:
+            ImportError: If WeasyPrint is not installed or system dependencies missing
+        """
+        html_content = self.generate_html(
+            invoice=invoice, company=company, template_name=template_name, **context
+        )
+        return self._render_pdf(html_content)
 
     def generate_pdf(
         self,
-        invoice: "Invoice",
+        invoice: Invoice,
         company: dict[str, Any],
         output_filename: str | None = None,
         template_name: str | None = None,
         **context: Any,
     ) -> str:
-        """Generate PDF for an invoice and save to file.
-
-        Args:
-            invoice: Invoice schema instance
-            company: Company information dictionary
-            output_filename: Custom output filename (defaults to invoice number)
-            template_name: Template to use (defaults to default_template)
-            **context: Additional template context variables
-
-        Returns:
-            Path to generated PDF file
+        """Save the invoice as PDF and return its path (defaults to "<number>.pdf").
 
         Raises:
             ImportError: If WeasyPrint is not installed or system dependencies missing
         """
-        # Generate PDF bytes
         pdf_bytes = self.generate_pdf_bytes(
-            invoice=invoice,
-            company=company,
-            template_name=template_name,
-            **context,
+            invoice=invoice, company=company, template_name=template_name, **context
         )
-
-        # Determine output path
-        if not output_filename:
-            output_filename = f"{invoice.number}.pdf"
-
-        output_path = os.path.join(self.output_dir, output_filename)
-
-        # Save PDF
-        with open(output_path, "wb") as f:
-            f.write(pdf_bytes)
-
-        return output_path
-
-    def generate_pdf_bytes(
-        self,
-        invoice: "Invoice",
-        company: dict[str, Any],
-        template_name: str | None = None,
-        **context: Any,
-    ) -> bytes:
-        """Generate PDF for an invoice and return as bytes.
-
-        Args:
-            invoice: Invoice schema instance
-            company: Company information dictionary
-            template_name: Template to use (defaults to default_template)
-            **context: Additional template context variables
-
-        Returns:
-            Raw PDF bytes
-
-        Raises:
-            ImportError: If WeasyPrint is not installed or system dependencies missing
-        """
-        html_cls, _ = self._get_weasyprint_modules()
-
-        # Generate HTML
-        html_content = self.generate_html(
-            invoice=invoice,
-            company=company,
-            template_name=template_name,
-            **context,
-        )
-
-        # Generate PDF
-        pdf_bytes = html_cls(
-            string=html_content, base_url=os.path.abspath(self.template_dir)
-        ).write_pdf()
-
-        if pdf_bytes is None:
-            raise RuntimeError("Failed to generate PDF bytes")
-
-        from typing import cast
-
-        return cast(bytes, pdf_bytes)
+        return self._write_bytes(output_filename or f"{invoice.number}.pdf", pdf_bytes)

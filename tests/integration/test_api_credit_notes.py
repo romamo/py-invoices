@@ -8,6 +8,8 @@ from pydantic_invoices.schemas import InvoiceStatus
 from py_invoices import RepositoryFactory
 from py_invoices.api.deps import get_factory
 from py_invoices.api.main import app
+from py_invoices.api.security import API_KEY_HEADER, get_api_settings
+from py_invoices.config import InvoiceSettings
 
 # Shared factory for the module to persist state between API calls
 _shared_factory = RepositoryFactory("memory")
@@ -17,15 +19,17 @@ def get_shared_memory_factory() -> Generator[RepositoryFactory, None, None]:
     yield _shared_factory
 
 
-client = TestClient(app)
+client = TestClient(app, headers={API_KEY_HEADER: "test-key"})
 
 
 @pytest.fixture(autouse=True)
 def override_repository_factory() -> Generator[None, None, None]:
     """Override the repository factory for this test module."""
     app.dependency_overrides[get_factory] = get_shared_memory_factory
+    app.dependency_overrides[get_api_settings] = lambda: InvoiceSettings(api_key="test-key")
     yield
     app.dependency_overrides.pop(get_factory, None)
+    app.dependency_overrides.pop(get_api_settings, None)
 
 
 @pytest.fixture(autouse=True)

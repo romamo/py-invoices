@@ -48,10 +48,13 @@ def interactive_setup(
             )
 
     env_path = Path(".env")
-    if env_path.exists() and not force:
-        if not Confirm.ask(f"[yellow]{env_path.absolute()} already exists. Overwrite?[/yellow]"):
-            console.print("[red]Aborted.[/red]")
-            raise typer.Exit()
+    if (
+        env_path.exists()
+        and not force
+        and not Confirm.ask(f"[yellow]{env_path.absolute()} already exists. Overwrite?[/yellow]")
+    ):
+        console.print("[red]Aborted.[/red]")
+        raise typer.Exit()
 
     if not backend:
         console.print(f"[bold cyan]Welcome to {APP_NAME} setup![/bold cyan]")

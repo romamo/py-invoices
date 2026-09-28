@@ -9,6 +9,7 @@ from pydantic_invoices.schemas import (
     InvoiceLineCreate,
     InvoiceStatus,
 )
+from sqlalchemy.exc import SQLAlchemyError
 
 from py_invoices import RepositoryFactory
 from py_invoices.core import NumberingService
@@ -54,7 +55,7 @@ def run_example(backend: str, **config: str) -> None:
                     client_id=client.id,
                     client_name_snapshot=client.name,
                     client_address_snapshot=client.address,
-                    client_tax_id_snapshot=client.tax_id,
+                    client_tax_id_snapshot=str(client.tax_id) if client.tax_id else None,
                     company_id=1,
                     lines=[
                         InvoiceLineCreate(
@@ -74,7 +75,7 @@ def run_example(backend: str, **config: str) -> None:
                 if retrieved:
                     print(f"✓ Verified persistence: {retrieved.number} found.")
 
-    except Exception as e:
+    except (ImportError, OSError, RuntimeError, ValueError, SQLAlchemyError) as e:
         print(f"✗ Failed to run {backend} backend: {e}")
         print("  (Note: Optional backends require their respective driver dependencies)")
 

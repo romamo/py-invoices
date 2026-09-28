@@ -135,3 +135,49 @@ def test_xml_none_value(storage) -> None:
 
     loaded = storage.load(item_id)
     assert loaded.description is None
+
+
+def test_corrupt_meta_is_an_error_not_a_reset(storage_dir) -> None:
+    storage = FileStorage[ItemModel](storage_dir, "items", ItemModel)
+    storage.save(ItemModel(name="keep", value=1), storage.get_next_id())
+    (storage_dir / "items" / "_meta.json").write_text("{not json")
+    with pytest.raises(ValueError, match="Corrupt ID metadata"):
+        FileStorage[ItemModel](storage_dir, "items", ItemModel)
+
+
+def test_missing_meta_never_reuses_existing_ids(storage_dir) -> None:
+    storage = FileStorage[ItemModel](storage_dir, "items", ItemModel)
+    storage.save(ItemModel(name="a", value=1), storage.get_next_id())
+    storage.save(ItemModel(name="b", value=2), storage.get_next_id())
+    (storage_dir / "items" / "_meta.json").unlink()
+    fresh = FileStorage[ItemModel](storage_dir, "items", ItemModel)
+    assert fresh.get_next_id() == 3
+
+
+def test_update_keeps_friendly_name_and_format(storage_dir) -> None:
+    storage = FileStorage[ItemModel](storage_dir, "items", ItemModel, default_format="md")
+    friendly = storage_dir / "items" / "7.acme.json"
+    friendly.write_text('{"name": "acme", "value": 1}')
+    path = storage.save(ItemModel(name="acme", value=2), 7)
+    assert path == friendly
+    assert storage.load(7).value == 2
+
+
+def test_markdown_values_may_contain_frontmatter_markers(storage) -> None:
+    item = ItemModel(name="---", value=1, description="line\n---\nline")
+    item_id = storage.get_next_id()
+    storage.save(item, item_id, fmt="md")
+    assert storage.load(item_id) == item
+
+
+def test_two_files_for_one_id_is_an_error(storage_dir) -> None:
+    storage = FileStorage[ItemModel](storage_dir, "items", ItemModel)
+    (storage_dir / "items" / "1.json").write_text('{"name": "a", "value": 1}')
+    (storage_dir / "items" / "1.b.json").write_text('{"name": "b", "value": 2}')
+    with pytest.raises(ValueError, match="Two files for ID 1"):
+        storage.load_all()
+
+
+def test_no_temporary_files_left_behind(storage) -> None:
+    storage.save(ItemModel(name="a", value=1), storage.get_next_id())
+    assert not [p for p in storage.entity_dir.iterdir() if p.name.endswith(".tmp")]

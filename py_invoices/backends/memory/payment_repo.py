@@ -6,6 +6,8 @@ from pydantic_invoices.interfaces import PaymentRepository
 from pydantic_invoices.schemas import Payment, PaymentCreate
 from pydantic_invoices.vo import Money
 
+from .ids import IdSequence
+
 
 class MemoryPaymentRepository(PaymentRepository):
     """In-memory implementation of PaymentRepository for testing."""
@@ -13,13 +15,13 @@ class MemoryPaymentRepository(PaymentRepository):
     def __init__(self) -> None:
         """Initialize in-memory storage."""
         self._storage: dict[int, Payment] = {}
-        self._next_id = 1
+        self._ids = IdSequence()
 
     def create(self, data: PaymentCreate) -> Payment:
         """Create a new payment."""
-        payment = Payment(id=self._next_id, **data.model_dump())
-        self._storage[self._next_id] = payment
-        self._next_id += 1
+        payment_id = self._ids.next()
+        payment = Payment(id=payment_id, **dict(data))
+        self._storage[payment_id] = payment
         return payment
 
     def get_by_id(self, payment_id: int) -> Payment | None:

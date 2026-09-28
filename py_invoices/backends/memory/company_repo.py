@@ -3,6 +3,8 @@
 from pydantic_invoices.interfaces import CompanyRepository
 from pydantic_invoices.schemas.company import Company, CompanyCreate
 
+from .ids import IdSequence
+
 
 class MemoryCompanyRepository(CompanyRepository):
     """In-memory implementation for Company repository."""
@@ -10,13 +12,13 @@ class MemoryCompanyRepository(CompanyRepository):
     def __init__(self) -> None:
         """Initialize with empty storage."""
         self._storage: dict[int, Company] = {}
-        self._next_id = 1
+        self._ids = IdSequence()
 
     def create(self, data: CompanyCreate) -> Company:
         """Create company."""
-        company = Company(id=self._next_id, **data.model_dump())
-        self._storage[self._next_id] = company
-        self._next_id += 1
+        company_id = self._ids.next()
+        company = Company(id=company_id, **dict(data))
+        self._storage[company_id] = company
         return company
 
     def get_by_id(self, company_id: int) -> Company | None:

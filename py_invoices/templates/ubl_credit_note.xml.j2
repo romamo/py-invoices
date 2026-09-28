@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+{% import '_ubl_parties.xml.j2' as ubl with context %}
+<CreditNote xmlns="urn:oasis:names:specification:ubl:schema:xsd:CreditNote-2"
+            xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+            xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+    <cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0</cbc:CustomizationID>
+    <cbc:ProfileID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</cbc:ProfileID>
+    <cbc:ID>{{ invoice.number }}</cbc:ID>
+    <cbc:IssueDate>{{ invoice.issue_date }}</cbc:IssueDate>
+    <cbc:CreditNoteTypeCode>381</cbc:CreditNoteTypeCode>
+    {% if invoice.reason %}<cbc:Note>{{ invoice.reason }}</cbc:Note>{% endif %}
+    <cbc:DocumentCurrencyCode>{{ totals.currency }}</cbc:DocumentCurrencyCode>
+    {% if original_invoice_number %}
+    <cac:BillingReference>
+        <cac:InvoiceDocumentReference>
+            <cbc:ID>{{ original_invoice_number }}</cbc:ID>
+        </cac:InvoiceDocumentReference>
+    </cac:BillingReference>
+    {% endif %}
+{{ ubl.supplier() }}
+{{ ubl.customer() }}
+{{ ubl.tax_and_totals() }}
+    {% for line in invoice.lines %}
+    <cac:CreditNoteLine>
+        <cbc:ID>{{ loop.index }}</cbc:ID>
+        <cbc:CreditedQuantity unitCode="C62">{{ line.quantity }}</cbc:CreditedQuantity>
+{{ ubl.line_body(line) }}
+    </cac:CreditNoteLine>
+    {% endfor %}
+</CreditNote>

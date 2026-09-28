@@ -180,9 +180,11 @@ factory = RepositoryFactory.from_settings(settings)
 | `database_url` | `INVOICES_DATABASE_URL` | `None` | Database connection URL |
 | `database_echo` | `INVOICES_DATABASE_ECHO` | `false` | Enable SQL query logging |
 | `file_format` | `INVOICES_FILE_FORMAT` | `md` | Format for files backend: `json`, `yaml`, `yml`, or `md` |
-| `root_dir` | `INVOICES_ROOT_DIR` | `./data` | Root directory for files backend |
+| `storage_path` | `INVOICES_STORAGE_PATH` | `./data` | Root directory for files backend |
 | `template_dir` | `INVOICES_TEMPLATE_DIR` | `None` | Directory for invoice templates (defaults to included) |
 | `output_dir` | `INVOICES_OUTPUT_DIR` | `output` | Directory for generated files |
+| `api_key` | `INVOICES_API_KEY` | `None` | Key every API request must send in `X-API-Key`; the API refuses requests until it is set |
+| `cors_origins` | `INVOICES_CORS_ORIGINS` | `[]` | JSON list of extra browser origins allowed to call the API |
 
 ## Core Services
 

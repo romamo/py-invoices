@@ -3,4 +3,4 @@
 from .invoice_repo import FileInvoiceRepository
 from .storage import FileStorage
 
-__all__ = ["FileStorage", "FileInvoiceRepository"]
+__all__ = ["FileInvoiceRepository", "FileStorage"]

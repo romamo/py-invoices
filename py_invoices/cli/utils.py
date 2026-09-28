@@ -5,7 +5,7 @@ import typer
 from rich.console import Console
 
 from py_invoices import RepositoryFactory
-from py_invoices.config import get_settings
+from py_invoices.config import InvoiceSettings
 from py_invoices.operations.errors import (
     ClientNotFoundError,
     ClientNotSpecifiedError,
@@ -27,11 +27,10 @@ def get_console() -> Console:
 
 
 def get_factory(backend: str | None = None) -> RepositoryFactory:
-    settings = get_settings()
-    # Use explicit backend if provided, otherwise use settings
-    if backend and backend != settings.backend:
-        settings = settings.model_copy(update={"backend": backend})
-
+    """Factory from the current environment; `backend` overrides the configured one."""
+    settings = InvoiceSettings()
+    if backend:
+        settings = InvoiceSettings.model_validate({**settings.model_dump(), "backend": backend})
     return RepositoryFactory.from_settings(settings)
 
 

@@ -3,6 +3,7 @@ from pydantic_invoices.schemas import InvoiceType
 from rich.table import Table
 
 from py_invoices.cli.utils import cli_errors, get_console, get_factory
+from py_invoices.core.totals import format_money
 from py_invoices.operations import credit_notes as ops
 
 app = typer.Typer()
@@ -14,16 +15,21 @@ def create_credit_note(
     invoice_number: str = typer.Argument(..., help="Original Invoice Number"),
     reason: str = typer.Option(..., help="Reason for credit note"),
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
-    full_refund: bool = typer.Option(True, help="Full refund of the invoice"),
-    # TODO: Add partial refund support via interactive prompt or complex flags if needed later
+    lines: list[int] = typer.Option(
+        [],
+        "--line",
+        help="0-based index of an invoice line to credit (repeatable); default credits all",
+    ),
 ) -> None:
     """Create a Credit Note for an invoice."""
     with cli_errors():
-        created = ops.create_credit_note(get_factory(backend), invoice_number, reason)
+        created = ops.create_credit_note(
+            get_factory(backend), invoice_number, reason, line_indices=lines or None
+        )
 
     console.print(f"[green]✓ Created Credit Note {created.credit_note.number}[/green]")
     console.print(f"  Reference: {created.original.number}")
-    console.print(f"  Total Credited: ${created.credit_note.total_amount:.2f}")
+    console.print(f"  Total Credited: {format_money(created.credit_note.total_amount)}")
 
 
 @app.command("get")
@@ -54,8 +60,8 @@ def get_credit_note(
         table.add_row(
             line.description,
             str(line.quantity),
-            f"${line.unit_price:.2f}",
-            f"${line.total:.2f}",
+            format_money(line.unit_price),
+            format_money(line.total),
         )
     console.print(table)
-    console.print(f"[bold]Total: ${invoice.total_amount:.2f}[/bold]")
+    console.print(f"[bold]Total: {format_money(invoice.total_amount)}[/bold]")

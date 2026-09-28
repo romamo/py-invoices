@@ -1,45 +1,70 @@
 const API_BASE = '/';
+const KEY_STORAGE = 'py-invoices-api-key';
+
+function apiKey() {
+    let key = sessionStorage.getItem(KEY_STORAGE);
+    if (!key) {
+        key = window.prompt('API key (INVOICES_API_KEY)') || '';
+        sessionStorage.setItem(KEY_STORAGE, key);
+    }
+    return key;
+}
+
+function messageRow(tbody, text, isError) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 5;
+    td.textContent = text;
+    if (isError) td.style.color = 'red';
+    tr.appendChild(td);
+    tbody.replaceChildren(tr);
+}
 
 async function fetchInvoices() {
     const tbody = document.getElementById('invoices-table-body');
-    tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
+    messageRow(tbody, 'Loading...', false);
 
     try {
-        const response = await fetch(`${API_BASE}invoices/`);
+        const response = await fetch(`${API_BASE}invoices/`, {
+            headers: { 'X-API-Key': apiKey() },
+        });
+        if (response.status === 401) {
+            sessionStorage.removeItem(KEY_STORAGE);
+        }
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const invoices = await response.json();
-        renderInvoices(invoices);
+        renderInvoices(await response.json());
     } catch (error) {
         console.error('Error fetching invoices:', error);
-        tbody.innerHTML = `<tr><td colspan="5" style="color: red">Error loading invoices: ${error.message}</td></tr>`;
+        messageRow(tbody, `Error loading invoices: ${error.message}`, true);
     }
 }
 
 function renderInvoices(invoices) {
     const tbody = document.getElementById('invoices-table-body');
-    tbody.innerHTML = '';
-
     if (invoices.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5">No invoices found.</td></tr>';
+        messageRow(tbody, 'No invoices found.', false);
         return;
     }
 
-    invoices.forEach(invoice => {
+    tbody.replaceChildren(...invoices.map(invoice => {
         const tr = document.createElement('tr');
-        const issueDate = new Date(invoice.issue_date).toLocaleDateString();
-
-        tr.innerHTML = `
-            <td>${invoice.number}</td>
-            <td>${issueDate}</td>
-            <td>${invoice.client_name_snapshot}</td>
-            <td>$${invoice.total_amount.toFixed(2)}</td>
-            <td>${invoice.status}</td>
-        `;
-        tbody.appendChild(tr);
-    });
+        const cells = [
+            invoice.number,
+            new Date(invoice.issue_date).toLocaleDateString(),
+            invoice.client_name_snapshot ?? '',
+            // Money is serialized as a decimal string without its currency
+            Number(invoice.total_amount).toFixed(2),
+            invoice.status,
+        ];
+        for (const value of cells) {
+            const td = document.createElement('td');
+            td.textContent = value;
+            tr.appendChild(td);
+        }
+        return tr;
+    }));
 }
 
-// Load on start
 document.addEventListener('DOMContentLoaded', fetchInvoices);

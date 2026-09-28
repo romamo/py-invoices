@@ -5,7 +5,7 @@ from .factory import RepositoryFactory
 from .registry import PluginRegistry
 
 __all__ = [
-    "StoragePlugin",
-    "RepositoryFactory",
     "PluginRegistry",
+    "RepositoryFactory",
+    "StoragePlugin",
 ]

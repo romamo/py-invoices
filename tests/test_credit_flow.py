@@ -5,7 +5,6 @@ from pydantic_invoices.schemas import InvoiceCreate, InvoiceLineCreate, InvoiceS
 
 from py_invoices import RepositoryFactory
 from py_invoices.core.credit_service import CreditService
-from py_invoices.core.numbering_service import NumberingService
 from py_invoices.core.validator import BusinessValidator
 
 
@@ -99,7 +98,7 @@ def test_modification_restriction(invoice_repo: Any, base_invoice: Any) -> None:
     invoice_repo.update(inv)
 
     # SENT: Modification Fail
-    with pytest.raises(ValueError, match="is in InvoiceStatus.SENT state"):
+    with pytest.raises(ValueError, match=r"is in InvoiceStatus\.SENT state"):
         BusinessValidator.validate_modification(inv)
 
 
@@ -109,8 +108,7 @@ def test_credit_note_creation(client_repo: Any, invoice_repo: Any, base_invoice:
     inv.status = InvoiceStatus.SENT
     invoice_repo.update(inv)
 
-    numbering = NumberingService(invoice_repo=invoice_repo)
-    credit_service = CreditService(invoice_repo, numbering)
+    credit_service = CreditService(invoice_repo)
 
     # Create Full Credit Note
     cn = credit_service.create_credit_note(inv, reason="Mistake")

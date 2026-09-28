@@ -2,7 +2,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from py_invoices.config import get_settings
+from py_invoices.config import InvoiceSettings
 from py_invoices.constants import APP_DISPLAY_NAME
 from py_invoices.operations.config import settings_overview
 
@@ -13,7 +13,7 @@ console = Console()
 @app.command("show")
 def show_config() -> None:
     """Show current configuration details."""
-    overview = settings_overview(get_settings())
+    overview = settings_overview(InvoiceSettings())
 
     table = Table(
         title=f"{APP_DISPLAY_NAME} Configuration",

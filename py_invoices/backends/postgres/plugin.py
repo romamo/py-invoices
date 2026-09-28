@@ -10,15 +10,8 @@ class PostgresPlugin(SQLModelBasePlugin):
     Provides persistent storage using PostgreSQL database via SQLModel.
     """
 
-    @property
-    def name(self) -> str:
-        """Plugin name."""
-        return "postgres"
-
-    @property
-    def default_url(self) -> str:
-        """Default database URL."""
-        return "postgresql://postgres:postgres@localhost:5432/invoices"
+    name = "postgres"
+    default_url = "postgresql://postgres:postgres@localhost:5432/invoices"
 
 
 # Auto-register the Postgres plugin

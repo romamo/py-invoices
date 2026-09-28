@@ -2,6 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Security
+- **Template escaping**: HTML and UBL templates were rendered without autoescaping (`*.html.j2` / `*.xml.j2` did not match `select_autoescape`). Client names, addresses and line descriptions are now escaped; the `| safe` newline hack is replaced by an escaping `nl2br` filter.
+- **API authentication**: every API route now requires the `X-API-Key` header matching `INVOICES_API_KEY`; without a configured key the API answers 503. CORS no longer allows every origin with credentials; extra origins come from `INVOICES_CORS_ORIGINS`.
+- **Web app**: invoice fields are inserted as text, not HTML.
+- **UBL upload**: validation reads uploads in memory with a 5 MB limit instead of via a temp file.
+
+### Fixed
+- **Invoice numbering**: the next number continues from the highest number issued in the same series and year, instead of "invoice count + 1" (which reused numbers after deletions, never reset yearly, and was shifted by credit notes).
+- **Credit notes**: own `CN-<year>-<nnnn>` series; cannot exceed the tax-inclusive amount left to credit; cannot credit a credit note, draft, cancelled, refunded or already credited invoice; a line can be credited only once; a refused credit leaves nothing stored; `POST /invoices` no longer accepts credit notes (use `POST /credit-notes`); invalid or duplicate line indices are errors; crediting an overdue invoice no longer fails on its past due date; a fully credited invoice becomes `CREDITED`; UBL output uses the UBL `CreditNote` document (type 381) with a billing reference.
+- **Summaries**: one calculation for all backends, in tax-inclusive amounts (what the documents show). Credit notes reduce `total_amount`, drafts and cancelled invoices are excluded, and `total_due` counts only open invoices after payments and credits. Memory and files backends now include recorded payments. Invoices in several currencies raise `MixedCurrencyError` (API 409, CLI error) instead of crashing.
+- **Currencies**: memory and files backends kept only the amount of money values and silently turned every currency into USD. Money is now stored with its currency; files written by earlier versions still load (as USD).
+- **Concurrency**: memory and files backends hand out IDs under a lock, so parallel API requests no longer overwrite each other's records. The memory payment-note repository reused IDs after a deletion.
+- **Document numbers** become file names, so numbers with `/`, `\` or a leading `.` are rejected (they could write outside the output directory).
+- **SQL backends**: money is stored as exact `NUMERIC` with its currency (was `float`); line `tax_rate`, `payment_note_ids` and currency were silently dropped and are now stored; `issue_date` is a date. Each API request gets its own session; `cleanup()` disposes the engine; list queries are ordered by ID so paging is stable. Opening a database whose tables lack new columns (or, outside SQLite, still use float money or datetime dates) fails with a clear error instead of breaking later. Audit entries are returned oldest first like the other backends.
+- **Files backend**: a corrupt `_meta.json` is an error instead of silently resetting IDs (which overwrote entity 1); new IDs never collide with files on disk; writes are atomic; updating a record keeps its file name and format; Markdown values may contain `---`; two files for one ID are reported.
+- **API**: one factory per process (the memory backend lost all data between requests, and SQL settings like `database_url` were ignored); `offset` works for invoices, clients and products; creating an invoice with a used number returns 409 and is audited; HTML/PDF use the same company, template, logo and payment-note resolution as the CLI; `Content-Disposition` is RFC 5987 encoded; the API reports the package version.
+- **Invoice CLI**: `--payment-terms "Net N"` sets the due date (unparseable terms need `--due-date`); `clone` keeps the original payment period and company snapshots; `create` snapshots the default company; `--format` values, company details, logo and PDF support are checked before anything is created; missing PDF dependencies exit with code 1; the client or preferred template is used for exported files; a number that looks like an ID is looked up as a number first; a missing logo file is an error instead of a broken image.
+- **Amounts**: `--amount` is parsed as an exact decimal and `--currency` sets its currency; displays use the invoice currency instead of a hard-coded `$`; HTML and UBL show per-rate tax and the tax-inclusive total (UBL line amounts and totals were empty or 0); line amounts are rounded before summing (EN16931 BR-CO-10). Factur-X PDFs of credit notes embed a CreditNote XML.
+- **Audit**: entries are typed `AuditLogEntry` in every backend; `get_logs` applies all filters and reads beyond the first 100 entries; `get_summary` reads the repository; invoice and credit-note creation are logged.
+- **Backends loading**: only the requested backend is imported; a missing driver reports the extra to install instead of "Unknown backend".
+- **Examples** run again with current `pydantic-invoices` (tax IDs are value objects).
+
+### Changed
+- `credit-notes create --full-refund` (never used) is replaced by `--line INDEX` for partial credits.
+- `CreditService(invoice_repo)` no longer needs a numbering service; pass one only to change the series.
+- `HTMLService` creates the output directory on first save, not on construction.
+- Plugins declare `name` (and SQL plugins `default_url`) as class attributes.
+- `python-multipart` is only a dependency of the `api` extra; `all` now includes `yaml`.
+- Ruff also checks bugbear, blind-except, simplify, ruff and bandit rules.
+
+### Migration (SQL databases created by earlier versions)
+`create_all` never alters existing tables, so add the new columns once. SQLite:
+
+```sql
+ALTER TABLE invoice_lines ADD COLUMN currency VARCHAR(3) NOT NULL DEFAULT 'USD';
+ALTER TABLE invoice_lines ADD COLUMN tax_rate NUMERIC(5, 2) NOT NULL DEFAULT 0;
+ALTER TABLE payments ADD COLUMN currency VARCHAR(3) NOT NULL DEFAULT 'USD';
+ALTER TABLE invoices ADD COLUMN payment_note_ids JSON;
+UPDATE invoices SET issue_date = substr(issue_date, 1, 10);
+```
+
+SQLite keeps the old column types, so amounts already stored as `REAL` stay binary floats; recreate the tables (export and re-import) for exact storage of existing rows.
+
+PostgreSQL/MySQL: add the same columns and convert `issue_date` to `DATE` and the `unit_price`/`amount` columns to `NUMERIC(18, 4)`; the schema check refuses the old types.
+
 ## [1.11.0] - 2026-03-27
 
 ### Added

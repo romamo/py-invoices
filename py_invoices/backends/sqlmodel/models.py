@@ -5,7 +5,8 @@ They integrate with pydantic-invoices schemas via conversion methods.
 """
 
 from datetime import date, datetime
-from typing import Any
+from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from pydantic_invoices.schemas import (
     Client,
@@ -17,7 +18,24 @@ from pydantic_invoices.schemas import (
 from pydantic_invoices.schemas.company import Company
 from pydantic_invoices.schemas.payment_note import PaymentNote
 from pydantic_invoices.schemas.product import Product
+from pydantic_invoices.vo import Money
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, Relationship, SQLModel
+
+from py_invoices.core.totals import as_money
+
+if TYPE_CHECKING:
+    from py_invoices.core.audit_service import AuditLogEntry
+
+
+MONEY_DIGITS = 18
+MONEY_PLACES = 4
+
+
+def money_columns(value: Money.Input) -> tuple[Decimal, str]:
+    """Split a schema money value into the (amount, currency) stored in the database."""
+    money = as_money(value)
+    return money.amount, money.currency
 
 
 class ClientDB(SQLModel, table=True):
@@ -62,15 +80,12 @@ class InvoiceLineDB(SQLModel, table=True):
     invoice_id: int = Field(foreign_key="invoices.id", index=True)
     description: str = Field(max_length=500)
     quantity: int = Field(default=1)
-    unit_price: float
+    unit_price: Decimal = Field(max_digits=MONEY_DIGITS, decimal_places=MONEY_PLACES)
+    currency: str = Field(default="USD", max_length=3)
+    tax_rate: Decimal = Field(default=Decimal(0), max_digits=5, decimal_places=2)
 
     # Relationship
     invoice: "InvoiceDB" = Relationship(back_populates="lines")
-
-    @property
-    def total(self) -> float:
-        """Calculate line total."""
-        return self.quantity * self.unit_price
 
     def to_schema(self) -> InvoiceLine:
         """Convert to pydantic-invoices InvoiceLine schema."""
@@ -83,7 +98,8 @@ class InvoiceLineDB(SQLModel, table=True):
             invoice_id=self.invoice_id,
             description=self.description,
             quantity=self.quantity,
-            unit_price=self.unit_price,
+            unit_price=Money(self.unit_price, self.currency),
+            tax_rate=float(self.tax_rate),
         )
 
 
@@ -94,7 +110,7 @@ class InvoiceDB(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     number: str = Field(unique=True, index=True, max_length=50)
-    issue_date: datetime
+    issue_date: date
 
     status: InvoiceStatus = Field(default=InvoiceStatus.DRAFT, max_length=20)
     type: str = Field(
@@ -122,6 +138,7 @@ class InvoiceDB(SQLModel, table=True):
     company_tax_id_snapshot: str | None = None
 
     template_name: str | None = Field(None, max_length=255)
+    payment_note_ids: list[int] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Relationships
     client: ClientDB = Relationship(back_populates="invoices")
@@ -135,35 +152,6 @@ class InvoiceDB(SQLModel, table=True):
     original_invoice: "InvoiceDB" = Relationship(
         sa_relationship_kwargs={"remote_side": "InvoiceDB.id"}
     )
-
-    @property
-    def total_amount(self) -> float:
-        """Calculate total from all line items."""
-        return sum(line.total for line in self.lines)
-
-    @property
-    def total_paid(self) -> float:
-        """Calculate total amount paid."""
-        return sum(payment.amount for payment in self.payments)
-
-    @property
-    def balance_due(self) -> float:
-        """Calculate remaining balance."""
-        return self.total_amount - self.total_paid
-
-    @property
-    def is_overdue(self) -> bool:
-        """Check if invoice is overdue."""
-        if self.status in (
-            InvoiceStatus.PAID,
-            InvoiceStatus.CANCELLED,
-            InvoiceStatus.REFUNDED,
-            InvoiceStatus.CREDITED,
-        ):
-            return False
-        if self.due_date:
-            return date.today() > self.due_date
-        return False
 
     def to_schema(self) -> Invoice:
         """Convert to pydantic-invoices Invoice schema."""
@@ -190,6 +178,7 @@ class InvoiceDB(SQLModel, table=True):
             company_address_snapshot=self.company_address_snapshot,
             company_tax_id_snapshot=self.company_tax_id_snapshot,
             template_name=self.template_name,
+            payment_note_ids=list(self.payment_note_ids or []),
             lines=[line.to_schema() for line in self.lines],
             payments=[payment.to_schema() for payment in self.payments],
         )
@@ -202,7 +191,8 @@ class PaymentDB(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     invoice_id: int = Field(foreign_key="invoices.id", index=True)
-    amount: float
+    amount: Decimal = Field(max_digits=MONEY_DIGITS, decimal_places=MONEY_PLACES)
+    currency: str = Field(default="USD", max_length=3)
     payment_date: datetime
     payment_method: str | None = None
     reference: str | None = None
@@ -220,7 +210,7 @@ class PaymentDB(SQLModel, table=True):
         return Payment(
             id=self.id,
             invoice_id=self.invoice_id,
-            amount=self.amount,
+            amount=Money(self.amount, self.currency),
             payment_date=self.payment_date,
             payment_method=self.payment_method or "Unknown",
             reference=self.reference,
@@ -242,7 +232,7 @@ class AuditLogDB(SQLModel, table=True):
     notes: str | None = Field(default=None)
     user: str | None = Field(default=None, max_length=100)
 
-    def to_schema(self) -> Any:
+    def to_schema(self) -> "AuditLogEntry":
         """Convert to AuditLogEntry schema."""
         from py_invoices.core.audit_service import AuditLogEntry
 
@@ -312,9 +302,9 @@ class ProductDB(SQLModel, table=True):
     code: str | None = Field(default=None, max_length=50, index=True)
     name: str = Field(max_length=255, index=True)
     description: str | None = Field(default=None, max_length=500)
-    unit_price: float
+    unit_price: Decimal = Field(max_digits=MONEY_DIGITS, decimal_places=MONEY_PLACES)
     currency: str = Field(default="USD", max_length=10)
-    tax_rate: float = Field(default=0.0)
+    tax_rate: Decimal = Field(default=Decimal(0), max_digits=5, decimal_places=2)
     unit: str = Field(default="unit", max_length=50)
     is_active: bool = Field(default=True)
     category: str | None = Field(default=None, max_length=100)
@@ -330,9 +320,9 @@ class ProductDB(SQLModel, table=True):
             code=self.code or "",
             name=self.name,
             description=self.description,
-            unit_price=self.unit_price,
+            unit_price=Money(self.unit_price, self.currency),
             currency=self.currency,
-            tax_rate=self.tax_rate,
+            tax_rate=float(self.tax_rate),
             unit=self.unit,
             is_active=self.is_active,
             category=self.category,

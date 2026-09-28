@@ -1,13 +1,21 @@
 """SQLModel product repository implementation."""
 
+from decimal import Decimal
+
 from pydantic_invoices.interfaces import ProductRepository
 from pydantic_invoices.schemas.product import (
     Product,
     ProductCreate,
 )
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
-from .models import ProductDB
+from .models import ProductDB, money_columns
+
+
+def _product_columns(product: ProductCreate | Product) -> dict[str, object]:
+    fields = product.model_dump(exclude={"id", "unit_price", "tax_rate"})
+    unit_price, _ = money_columns(product.unit_price)
+    return {**fields, "unit_price": unit_price, "tax_rate": Decimal(str(product.tax_rate or 0))}
 
 
 class SQLModelProductRepository(ProductRepository):
@@ -19,7 +27,7 @@ class SQLModelProductRepository(ProductRepository):
 
     def create(self, data: ProductCreate) -> Product:
         """Create product in database."""
-        db_product = ProductDB(**data.model_dump())
+        db_product = ProductDB(**_product_columns(data))
         self.session.add(db_product)
         self.session.commit()
         self.session.refresh(db_product)
@@ -38,7 +46,7 @@ class SQLModelProductRepository(ProductRepository):
 
     def get_all(self, skip: int = 0, limit: int = 100) -> list[Product]:
         """Get all products with pagination."""
-        stmt = select(ProductDB).offset(skip).limit(limit)
+        stmt = select(ProductDB).order_by(col(ProductDB.id)).offset(skip).limit(limit)
         db_products = self.session.exec(stmt).all()
         return [p.to_schema() for p in db_products]
 
@@ -68,7 +76,7 @@ class SQLModelProductRepository(ProductRepository):
         if not db_product:
             raise ValueError(f"Product {product.id} not found")
 
-        for key, value in product.model_dump(exclude={"id"}).items():
+        for key, value in _product_columns(product).items():
             setattr(db_product, key, value)
 
         self.session.commit()

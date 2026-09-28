@@ -18,7 +18,7 @@ class FileClientRepository(ClientRepository):
     def create(self, data: ClientCreate) -> Client:
         """Create a new client."""
         client_id = self.storage.get_next_id()
-        client = Client(id=client_id, **data.model_dump())
+        client = Client(id=client_id, **dict(data))
         self.storage.save(client, client_id)
         return client
 
