@@ -3,6 +3,7 @@ from contextlib import contextmanager
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 from py_invoices import RepositoryFactory
 from py_invoices.config import InvoiceSettings
@@ -68,10 +69,11 @@ def error_lines(error: OperationError) -> list[str]:
                 "generating files.[/red]"
             ]
         case MissingDependencyError():
+            package = escape(f"py-invoices[{error.extra}]")
             return [
                 f"[red]Error: {error.extra.upper()} generation dependencies missing.[/red]",
-                str(error),
-                f"[yellow]Tip: Install with `pip install 'py-invoices[{error.extra}]'`[/yellow]",
+                escape(str(error)),
+                f"[yellow]Tip: Install with `pip install '{package}'`[/yellow]",
             ]
     return [f"[red]Error: {error}[/red]"]
 
