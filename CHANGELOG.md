@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **PDF system libraries**: when WeasyPrint is installed but cannot load Pango or GObject, the CLI and API (501) now name the missing library and give fix steps for the platform instead of suggesting `pip install`. On macOS, Homebrew libraries that are installed but not on the loader path are detected and the matching `export DYLD_FALLBACK_LIBRARY_PATH=...` is shown; Linux gets the apt packages to install
+- **Install hint**: the CLI tip for a missing extra printed `pip install 'py-invoices'` because Rich read `[pdf]` as markup; it now shows `pip install 'py-invoices[pdf]'`
+
+### Removed
+- `CompanyNotFoundError` from `py_invoices.operations.errors`; company resolution no longer raises it
+
 ## [2.0.0] - 2026-09-28
 
 Breaking: the HTTP API requires `INVOICES_API_KEY`, SQL databases from 1.x need the migration below, `credit-notes create --full-refund` is replaced by `--line`, and payment terms without a derivable due date need `--due-date`.
