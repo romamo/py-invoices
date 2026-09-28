@@ -12,9 +12,10 @@ class InvoiceNotFoundError(OperationError):
 
 
 class ClientNotFoundError(OperationError):
-    def __init__(self, client_id: int) -> None:
-        super().__init__(f"Client with ID {client_id} not found")
-        self.client_id = client_id
+    def __init__(self, identifier: str, *, by_id: bool) -> None:
+        super().__init__(f"Client '{identifier}' not found")
+        self.identifier = identifier
+        self.by_id = by_id
 
 
 class CompanyNotFoundError(OperationError):
@@ -49,3 +50,19 @@ class MissingDependencyError(OperationError):
     def __init__(self, extra: str, detail: str) -> None:
         super().__init__(detail)
         self.extra = extra
+
+
+class ProductNotFoundError(OperationError):
+    def __init__(self, code: str) -> None:
+        super().__init__(f"Product '{code}' not found")
+        self.code = code
+
+
+class CreditNoteNotFoundError(OperationError):
+    def __init__(self, number: str) -> None:
+        super().__init__(f"Credit Note '{number}' not found")
+        self.number = number
+
+
+class CreditNoteRejectedError(OperationError):
+    """The credit service refused to credit the invoice."""

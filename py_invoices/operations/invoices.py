@@ -226,7 +226,7 @@ def _resolve_client(factory: RepositoryFactory, request: NewInvoice) -> tuple[Cl
     if request.client_id:
         client = repo.get_by_id(request.client_id)
         if client is None:
-            raise ClientNotFoundError(request.client_id)
+            raise ClientNotFoundError(str(request.client_id), by_id=True)
         return client, False
     if not request.client_name:
         raise ClientNotSpecifiedError()

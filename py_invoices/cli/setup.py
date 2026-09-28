@@ -1,6 +1,3 @@
-import shutil
-import subprocess  # nosec B404
-import sys
 from pathlib import Path
 
 import typer
@@ -8,28 +5,17 @@ from rich.console import Console
 from rich.prompt import Confirm, Prompt
 
 from py_invoices.constants import APP_NAME, CLI_NAME
+from py_invoices.operations import setup as ops
 
 console = Console()
 
 
-def install_package(package: str) -> bool:
-    """Install a package using uv (preferred) or pip."""
-    try:
-        # Try uv first
-        uv_path = shutil.which("uv")
-        if uv_path:
-            subprocess.run(  # nosec B603
-                [uv_path, "pip", "install", package], check=True, capture_output=True
-            )
-            return True
-
-        # Fallback to pip
-        subprocess.run(  # nosec B603
-            [sys.executable, "-m", "pip", "install", package], check=True, capture_output=True
-        )
-        return True
-    except subprocess.CalledProcessError:
-        return False
+def install_with_progress(package: str, label: str) -> None:
+    console.print(f"[dim]Installing {label}...[/dim]")
+    if ops.install_package(package):
+        console.print(f"[green]Installed {package}[/green]")
+    else:
+        console.print(f"[yellow]Failed to install {package}.[/yellow]")
 
 
 def interactive_setup(
@@ -52,12 +38,9 @@ def interactive_setup(
     Configure settings interactively or via CLI arguments.
     Generates a .env file for persistent configuration.
     """
-    # Check/Install python-dotenv
-    try:
-        import dotenv  # noqa: F401
-    except ImportError:
+    if not ops.module_available("dotenv"):
         console.print("[dim]Installing python-dotenv...[/dim]")
-        if install_package("python-dotenv"):
+        if ops.install_package("python-dotenv"):
             console.print("[green]Installed python-dotenv[/green]")
         else:
             console.print(
@@ -70,90 +53,27 @@ def interactive_setup(
             console.print("[red]Aborted.[/red]")
             raise typer.Exit()
 
-    # --- Configuration Logic ---
-
-    # Defaults
-    default_storage_path = "./data"
-    # Actually checking settings.py: default file_format is "md".
-    default_format_real = "md"
-
-    # 1. Backend
     if not backend:
         console.print(f"[bold cyan]Welcome to {APP_NAME} setup![/bold cyan]")
-        backend = Prompt.ask(
-            "Choose a storage backend",
-            choices=["files", "sqlite", "postgres", "mysql", "memory"],
-            default="files",
-        )
+        backend = Prompt.ask("Choose a storage backend", choices=ops.BACKENDS, default="files")
 
-    # Check/Install backend dependencies
-    backend_extras = {
-        "sqlite": f"{APP_NAME}[sqlite]",
-        "postgres": f"{APP_NAME}[postgres]",
-        "mysql": f"{APP_NAME}[mysql]",
-    }
+    extra = ops.missing_backend_extra(backend)
+    if extra:
+        install_with_progress(extra, f"dependencies for {backend}")
 
-    if backend in backend_extras:
-        extra_pkg = backend_extras[backend]
-        # Check if sqlmodel is installed (common dep for all SQL backends)
-        try:
-            import sqlmodel  # noqa: F401
-
-            # For postgres/mysql specifically check drivers?
-            # Keeping it simple: if generic sqlmodel missing, install extra.
-            if backend == "postgres":
-                import psycopg2  # noqa: F401
-            elif backend == "mysql":
-                import pymysql  # noqa: F401
-        except ImportError:
-            console.print(f"[dim]Installing dependencies for {backend}...[/dim]")
-            if install_package(extra_pkg):
-                console.print(f"[green]Installed {extra_pkg}[/green]")
-            else:
-                console.print(f"[yellow]Failed to install {extra_pkg}.[/yellow]")
-
-    config_lines = [
-        f"INVOICES_BACKEND={backend}",
-    ]
-
-    # 2. Specific Configs
     if backend == "files":
-        # Storage Path
         if storage_path is None:
-            storage_path = Prompt.ask("Enter storage path", default=default_storage_path)
-        config_lines.append(f"INVOICES_STORAGE_PATH={storage_path}")
-
-        # format
+            storage_path = Prompt.ask("Enter storage path", default=ops.DEFAULT_STORAGE_PATH)
         if file_format is None:
             file_format = Prompt.ask(
-                "Enter file format", choices=["json", "xml", "md"], default=default_format_real
+                "Enter file format", choices=ops.FILE_FORMATS, default=ops.DEFAULT_FILE_FORMAT
             )
-        config_lines.append(f"INVOICES_FILE_FORMAT={file_format}")
+    elif backend in ["sqlite", "postgres", "mysql"] and db_url is None:
+        db_url = Prompt.ask(f"Enter Database URL (e.g. {ops.db_url_example(backend)})")
 
-    elif backend in ["sqlite", "postgres", "mysql"]:
-        if db_url is None:
-            example = "sqlite:///invoices.db"
-            if backend == "postgres":
-                example = "postgresql://user:pass@localhost/db"
-            elif backend == "mysql":
-                example = "mysql://user:pass@localhost/db"
-
-            db_url = Prompt.ask(f"Enter Database URL (e.g. {example})")
-
-        if db_url:
-            config_lines.append(f"INVOICES_DATABASE_URL={db_url}")
-
-    # 3. Output Directory
-    if output_dir:
-        config_lines.append(f"INVOICES_OUTPUT_DIR={output_dir}")
-
-    # Write to .env
-    with open(env_path, "w") as f:
-        f.write(f"# Generated by {CLI_NAME} setup\n")
-        f.write("\n".join(config_lines))
-        f.write("\n")
+    lines = ops.env_config_lines(backend, storage_path, file_format, db_url, output_dir)
+    ops.write_env_file(env_path, lines)
 
     console.print(f"\n[green]Configuration saved to {env_path.absolute()}[/green]")
-
     console.print("\n[dim]Next step: Run initialization[/dim]")
     console.print(f"[bold]{CLI_NAME} init[/bold]")
