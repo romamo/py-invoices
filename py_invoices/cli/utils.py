@@ -1,11 +1,21 @@
-from typing import Any
+from collections.abc import Iterator
+from contextlib import contextmanager
 
 import typer
 from rich.console import Console
 
 from py_invoices import RepositoryFactory
 from py_invoices.config import get_settings
-from py_invoices.utils.image import file_to_base64_data_uri
+from py_invoices.operations.errors import (
+    ClientNotFoundError,
+    ClientNotSpecifiedError,
+    CompanyDetailsRequiredError,
+    CompanyDetailsUnresolvedError,
+    CompanyNotFoundError,
+    InvoiceNotFoundError,
+    MissingDependencyError,
+    OperationError,
+)
 
 console = Console()
 
@@ -23,73 +33,48 @@ def get_factory(backend: str | None = None) -> RepositoryFactory:
     return RepositoryFactory.from_settings(settings)
 
 
-def resolve_company_details(
-    factory: Any,
-    invoice: Any,
-    company_name: str | None = None,
-    company_address: str | None = None,
-    company_tax_id: str | None = None,
-    company_email: str | None = None,
-    company_logo_path: str | None = None,
-) -> tuple[dict[str, Any], str | None]:
-    """
-    Resolve company details from CLI options, snapshots, or live lookup.
-    """
-    console = get_console()
-    name = company_name
-    address = company_address
-    tax_id = company_tax_id
-    email = company_email
-    logo_path = company_logo_path
+def error_lines(error: OperationError) -> list[str]:
+    """Render an operation error as console lines, naming the CLI flags that fix it."""
+    match error:
+        case InvoiceNotFoundError():
+            return [f"[red]Error: Invoice '{error.identifier}' not found.[/red]"]
+        case ClientNotFoundError():
+            return [f"[red]Error: Client with ID {error.client_id} not found.[/red]"]
+        case CompanyNotFoundError():
+            return [f"[red]Error: Company with ID {error.company_id} not found.[/red]"]
+        case ClientNotSpecifiedError():
+            return ["[red]Error: Must provide --client-id or --client-name[/red]"]
+        case CompanyDetailsUnresolvedError():
+            return [
+                "[red]Error: Company details (name and address) could not be resolved. "
+                "Please provide them via --company-name and --company-address or ensure "
+                "the invoice has a valid company_id.[/red]"
+            ]
+        case CompanyDetailsRequiredError(lookup_attempted=True):
+            return [
+                "[red]Error: --company-name and --company-address are required when "
+                "generating files and cannot be resolved automatically.[/red]"
+            ]
+        case CompanyDetailsRequiredError():
+            return [
+                "[red]Error: --company-name and --company-address are required when "
+                "generating files.[/red]"
+            ]
+        case MissingDependencyError():
+            return [
+                f"[red]Error: {error.extra.upper()} generation dependencies missing.[/red]",
+                str(error),
+                f"[yellow]Tip: Install with `pip install 'py-invoices[{error.extra}]'`[/yellow]",
+            ]
+    return [f"[red]Error: {error}[/red]"]
 
-    # 1. Fallback to snapshots
-    if not name:
-        name = getattr(invoice, "company_name_snapshot", None)
-    if not address:
-        address = getattr(invoice, "company_address_snapshot", None)
-    if not tax_id:
-        tax_id = getattr(invoice, "company_tax_id_snapshot", None)
-    if not email:
-        email = getattr(invoice, "company_email_snapshot", None)
-    if not logo_path:
-        logo_path = getattr(invoice, "company_logo_path_snapshot", None)
 
-    # 2. Fallback to live lookup via company_id
-    # FIX: Perform lookup if any essential field (name, address, tax_id) is missing
-    if (
-        (not name or not address or not tax_id or not logo_path)
-        and hasattr(invoice, "company_id")
-        and invoice.company_id
-    ):
-        company_repo = factory.create_company_repository()
-        company_record = company_repo.get_by_id(invoice.company_id)
-        if not company_record:
-            console.print(f"[red]Error: Company with ID {invoice.company_id} not found.[/red]")
-            raise typer.Exit(code=1)
-        if not name:
-            name = company_record.name
-        if not address:
-            address = company_record.address
-        if not tax_id:
-            tax_id = getattr(company_record, "tax_id", None)
-        if not email:
-            email = getattr(company_record, "email", None)
-        if not logo_path:
-            logo_path = getattr(company_record, "logo_path", None)
-
-    # 3. Final validation
-    if not name or not address:
-        console.print(
-            "[red]Error: Company details (name and address) could not be resolved. "
-            "Please provide them via --company-name and --company-address or ensure "
-            "the invoice has a valid company_id.[/red]"
-        )
-        raise typer.Exit(code=1)
-
-    company_details = {
-        "name": name,
-        "address": address,
-        "email": email,
-        "tax_id": tax_id,
-    }
-    return company_details, file_to_base64_data_uri(logo_path)
+@contextmanager
+def cli_errors() -> Iterator[None]:
+    """Print an OperationError raised inside the block and exit with code 1."""
+    try:
+        yield
+    except OperationError as e:
+        for line in error_lines(e):
+            console.print(line)
+        raise typer.Exit(code=1) from e
