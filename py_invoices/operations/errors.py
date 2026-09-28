@@ -18,12 +18,6 @@ class ClientNotFoundError(OperationError):
         self.by_id = by_id
 
 
-class CompanyNotFoundError(OperationError):
-    def __init__(self, company_id: int) -> None:
-        super().__init__(f"Company with ID {company_id} not found")
-        self.company_id = company_id
-
-
 class ClientNotSpecifiedError(OperationError):
     def __init__(self) -> None:
         super().__init__("Either a client ID or a client name is required")

@@ -12,7 +12,6 @@ from py_invoices.operations.errors import (
     ClientNotSpecifiedError,
     CompanyDetailsRequiredError,
     CompanyDetailsUnresolvedError,
-    CompanyNotFoundError,
     CreditNoteNotFoundError,
     InvoiceNotFoundError,
     MissingDependencyError,
@@ -48,8 +47,6 @@ def error_lines(error: OperationError) -> list[str]:
             return [f"[red]Error: Product '{error.code}' not found.[/red]"]
         case CreditNoteNotFoundError():
             return [f"[red]Error: Credit Note '{error.number}' not found.[/red]"]
-        case CompanyNotFoundError():
-            return [f"[red]Error: Company with ID {error.company_id} not found.[/red]"]
         case ClientNotSpecifiedError():
             return ["[red]Error: Must provide --client-id or --client-name[/red]"]
         case CompanyDetailsUnresolvedError():
