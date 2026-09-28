@@ -2,7 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.0.0] - 2026-09-28
+
+Breaking: the HTTP API requires `INVOICES_API_KEY`, SQL databases from 1.x need the migration below, `credit-notes create --full-refund` is replaced by `--line`, and payment terms without a derivable due date need `--due-date`.
 
 ### Security
 - **Template escaping**: HTML and UBL templates were rendered without autoescaping (`*.html.j2` / `*.xml.j2` did not match `select_autoescape`). Client names, addresses and line descriptions are now escaped; the `| safe` newline hack is replaced by an escaping `nl2br` filter.
