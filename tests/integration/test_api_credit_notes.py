@@ -15,7 +15,7 @@ from py_invoices.config import InvoiceSettings
 _shared_factory = RepositoryFactory("memory")
 
 
-def get_shared_memory_factory() -> Generator[RepositoryFactory, None, None]:
+def get_shared_memory_factory() -> Generator[RepositoryFactory]:
     yield _shared_factory
 
 
@@ -23,7 +23,7 @@ client = TestClient(app, headers={API_KEY_HEADER: "test-key"})
 
 
 @pytest.fixture(autouse=True)
-def override_repository_factory() -> Generator[None, None, None]:
+def override_repository_factory() -> Generator[None]:
     """Override the repository factory for this test module."""
     app.dependency_overrides[get_factory] = get_shared_memory_factory
     app.dependency_overrides[get_api_settings] = lambda: InvoiceSettings(api_key="test-key")

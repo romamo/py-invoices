@@ -42,7 +42,7 @@ class AuditService:
     Provides high-level methods for logging invoice lifecycle events.
     """
 
-    def __init__(self, audit_repo: "AuditRepository | None" = None) -> None:
+    def __init__(self, audit_repo: AuditRepository | None = None) -> None:
         """Initialize audit service.
 
         Args:
@@ -53,7 +53,7 @@ class AuditService:
 
     def log_invoice_created(
         self,
-        invoice: "Invoice | int",
+        invoice: Invoice | int,
         user_id: str | None = None,
         **kwargs: Any,
     ) -> AuditLogEntry:
@@ -94,7 +94,7 @@ class AuditService:
 
     def log_status_changed(
         self,
-        invoice: "Invoice | int",
+        invoice: Invoice | int,
         new_status: str | None = None,
         old_status: str | None = None,
         user_id: str | None = None,
@@ -123,8 +123,8 @@ class AuditService:
 
     def log_payment_added(
         self,
-        invoice: "Invoice | int",
-        payment: "Payment | Money | float | None" = None,
+        invoice: Invoice | int,
+        payment: Payment | Money | float | None = None,
         user_id: str | None = None,
         **kwargs: Any,
     ) -> AuditLogEntry:

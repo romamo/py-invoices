@@ -79,7 +79,7 @@ class RepositoryFactory:
             raise hint from e
 
     @classmethod
-    def from_settings(cls, settings: "InvoiceSettings | None" = None) -> "RepositoryFactory":
+    def from_settings(cls, settings: InvoiceSettings | None = None) -> RepositoryFactory:
         """Create factory from settings.
 
         This method allows configuration via environment variables or .env files.
@@ -180,7 +180,7 @@ class RepositoryFactory:
         return self.plugin.create_audit_repository(**self.config)
 
     @contextmanager
-    def scope(self) -> Iterator["RepositoryFactory"]:
+    def scope(self) -> Iterator[RepositoryFactory]:
         """A factory for one unit of work, sharing this backend.
 
         SQL backends get a dedicated session that is closed on exit, which makes it safe
@@ -210,7 +210,7 @@ class RepositoryFactory:
         """
         self.plugin.cleanup()
 
-    def __enter__(self) -> "RepositoryFactory":
+    def __enter__(self) -> RepositoryFactory:
         """Context manager entry."""
         return self
 

@@ -55,7 +55,7 @@ class ClientDB(SQLModel, table=True):
     preferred_template: str | None = Field(None, max_length=255)
 
     # Relationships
-    invoices: list["InvoiceDB"] = Relationship(back_populates="client")
+    invoices: list[InvoiceDB] = Relationship(back_populates="client")
 
     def to_schema(self) -> Client:
         """Convert to pydantic-invoices Client schema."""
@@ -91,7 +91,7 @@ class InvoiceLineDB(SQLModel, table=True):
     tax_rate: Decimal = Field(default=Decimal(0), max_digits=5, decimal_places=2)
 
     # Relationship
-    invoice: "InvoiceDB" = Relationship(back_populates="lines")
+    invoice: InvoiceDB = Relationship(back_populates="lines")
 
     def to_schema(self) -> InvoiceLine:
         """Convert to pydantic-invoices InvoiceLine schema."""
@@ -154,11 +154,11 @@ class InvoiceDB(SQLModel, table=True):
     lines: list[InvoiceLineDB] = Relationship(
         back_populates="invoice", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
-    payments: list["PaymentDB"] = Relationship(
+    payments: list[PaymentDB] = Relationship(
         back_populates="invoice", sa_relationship_kwargs={"cascade": "all, delete-orphan"}
     )
     # self-referential relationship for credit notes
-    original_invoice: "InvoiceDB" = Relationship(
+    original_invoice: InvoiceDB = Relationship(
         sa_relationship_kwargs={"remote_side": "InvoiceDB.id"}
     )
 
@@ -244,7 +244,7 @@ class AuditLogDB(SQLModel, table=True):
     notes: str | None = Field(default=None)
     user: str | None = Field(default=None, max_length=100)
 
-    def to_schema(self) -> "AuditLogEntry":
+    def to_schema(self) -> AuditLogEntry:
         """Convert to AuditLogEntry schema."""
         from py_invoices.core.audit_service import AuditLogEntry
 

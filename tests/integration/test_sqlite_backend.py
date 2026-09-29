@@ -20,7 +20,7 @@ from py_invoices.backends.sqlmodel.payment_repo import SQLModelPaymentRepository
 
 
 @pytest.fixture
-def session(tmp_path: Path) -> Generator[Session, None, None]:
+def session(tmp_path: Path) -> Generator[Session]:
     """Create a temporary SQLite database session."""
     db_path = tmp_path / "test.db"
     database_url = f"sqlite:///{db_path}"

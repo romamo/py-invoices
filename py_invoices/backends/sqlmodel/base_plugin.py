@@ -55,7 +55,7 @@ class SQLModelBasePlugin(StoragePlugin):
         check_schema(self.engine)
         self.session = Session(self.engine)
 
-    def open_scope(self) -> "SQLModelBasePlugin":
+    def open_scope(self) -> SQLModelBasePlugin:
         """A plugin sharing this engine with its own session, closed by close_scope()."""
         if self.engine is None:
             raise RuntimeError("Plugin not initialized. Call initialize() first.")

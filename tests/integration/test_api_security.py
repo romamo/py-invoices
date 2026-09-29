@@ -19,10 +19,10 @@ KEY = "s3cret"
 
 
 @pytest.fixture
-def factory() -> Generator[RepositoryFactory, None, None]:
+def factory() -> Generator[RepositoryFactory]:
     shared = RepositoryFactory("memory")
 
-    def scoped() -> Generator[RepositoryFactory, None, None]:
+    def scoped() -> Generator[RepositoryFactory]:
         with shared.scope() as scoped_factory:
             yield scoped_factory
 

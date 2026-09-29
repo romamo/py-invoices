@@ -15,7 +15,7 @@ from py_invoices.plugins.factory import RepositoryFactory
 
 class TestUserScenario:
     @pytest.fixture
-    def temp_dir(self) -> Generator[str, None, None]:
+    def temp_dir(self) -> Generator[str]:
         """Create a temporary directory for file storage."""
         temp_dir = tempfile.mkdtemp()
         yield temp_dir

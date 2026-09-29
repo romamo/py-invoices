@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+Breaking: requires Python 3.14 or later.
+
+### Changed
+- **Python 3.14**: `requires-python` is `>=3.14`; CI, publishing, ruff and mypy target 3.14. Installs on older Pythons resolve to 3.0.0
+- `DocumentKind` and `MessageLevel` are `StrEnum`s, so they format as their value in f-strings; generics use PEP 695 type parameters
+
 ## [3.0.0] - 2026-09-29
 
 Breaking: Factur-X PDFs embed CII instead of UBL, `generate_facturx` / `generate_facturx_bytes` take `cii_template_name` instead of `ubl_template_name` and raise `FacturXDataError` when EN 16931 data is missing, SQL databases need the migration below, and pydantic-invoices 1.5.0 rejects invalid tax IDs.

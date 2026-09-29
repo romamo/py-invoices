@@ -3,7 +3,7 @@
 import re
 from dataclasses import dataclass
 from datetime import date, timedelta
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic_invoices.schemas import (
@@ -69,7 +69,7 @@ class ResolvedCompany:
     logo: str | None
 
 
-class DocumentKind(str, Enum):
+class DocumentKind(StrEnum):
     PDF = "pdf"
     HTML = "html"
 

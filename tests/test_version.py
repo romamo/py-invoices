@@ -1,14 +1,8 @@
 import re
-import sys
+import tomllib
 from pathlib import Path
 
 import pytest
-
-# Use tomli for Python < 3.11
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
 
 
 def test_version_consistency() -> None:

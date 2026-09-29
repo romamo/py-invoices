@@ -4,7 +4,7 @@ import json
 import os
 import threading
 from pathlib import Path
-from typing import Any, Generic, TypeVar, cast, get_origin
+from typing import Any, cast, get_origin
 
 from pydantic import BaseModel
 from pydantic_invoices.vo import Money
@@ -15,7 +15,6 @@ try:
 except ImportError:
     yaml = None  # type: ignore
 
-T = TypeVar("T", bound=BaseModel)
 
 SUPPORTED_FORMATS = ("json", "yaml", "yml", "xml", "md")
 FRONTMATTER = "---\n"
@@ -59,7 +58,7 @@ def _atomic_write(path: Path, content: str) -> None:
     os.replace(tmp_path, path)
 
 
-class FileStorage(Generic[T]):
+class FileStorage[T: BaseModel]:
     """File storage handler for a specific entity type."""
 
     def __init__(

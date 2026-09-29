@@ -11,7 +11,7 @@ def _app_factory() -> RepositoryFactory:
     return RepositoryFactory.from_settings(get_settings())
 
 
-def get_factory() -> Generator[RepositoryFactory, None, None]:
+def get_factory() -> Generator[RepositoryFactory]:
     """Dependency: a factory scoped to the request, with its own database session."""
     with _app_factory().scope() as factory:
         yield factory

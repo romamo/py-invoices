@@ -117,7 +117,7 @@ class StoragePlugin(ABC):
         """
         pass
 
-    def open_scope(self) -> "StoragePlugin":
+    def open_scope(self) -> StoragePlugin:
         """Return a plugin for one unit of work (e.g. one API request).
 
         Backends with per-connection state return a copy with its own session; the

@@ -4,7 +4,7 @@ version = "3.0.0"
 description = "Framework-agnostic invoice management with pluggable storage backends"
 authors = [{name = "Roman Medvedev", email = "pypi@romavm.dev"}]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 license = {text = "MIT"}
 dependencies = [
     "pydantic-invoices>=1.5.0",
@@ -87,7 +87,7 @@ show_missing = true
 skip_covered = false
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.14"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
@@ -96,7 +96,7 @@ plugins = ["pydantic.mypy"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "BLE", "SIM", "RUF", "S"]

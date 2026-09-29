@@ -14,6 +14,8 @@ Framework-agnostic invoice management with pluggable storage backends.
 
 ## Installation
 
+Requires Python 3.14 or later.
+
 ```bash
 # Basic installation (includes HTML generation)
 pip install py-invoices

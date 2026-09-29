@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from pydantic_invoices.schemas import Invoice
 
 
-class MessageLevel(str, Enum):
+class MessageLevel(StrEnum):
     INFO = "info"
     SUCCESS = "success"
     WARNING = "warning"
@@ -175,7 +175,7 @@ class BusinessValidator:
             pass
 
     @staticmethod
-    def validate_modification(invoice: "Invoice") -> None:
+    def validate_modification(invoice: Invoice) -> None:
         """Validate if invoice can be modified based on its state.
 
         Args:
@@ -196,7 +196,7 @@ class BusinessValidator:
             )
 
     @staticmethod
-    def validate_dates(invoice: "Invoice") -> None:
+    def validate_dates(invoice: Invoice) -> None:
         """Validate invoice dates.
 
         Args:

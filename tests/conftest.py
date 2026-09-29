@@ -9,7 +9,7 @@ from py_invoices import RepositoryFactory
 
 
 @pytest.fixture(autouse=True, scope="function")
-def reset_registry() -> Generator[None, None, None]:
+def reset_registry() -> Generator[None]:
     """Ensure backends are available for each test.
 
     With lazy registration, backends are registered on first factory creation.
@@ -21,7 +21,7 @@ def reset_registry() -> Generator[None, None, None]:
 
 
 @pytest.fixture
-def factory() -> Generator[RepositoryFactory, None, None]:
+def factory() -> Generator[RepositoryFactory]:
     """Create a memory backend factory for testing."""
     factory = RepositoryFactory(backend="memory")
     yield factory
