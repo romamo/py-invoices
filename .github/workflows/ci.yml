@@ -7,6 +7,28 @@ on:
   pull_request:
 
 jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Oldest supported and newest Python
+        python-version: ["3.10", "3.14"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Install WeasyPrint system libraries
+        run: sudo apt-get update && sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0 libharfbuzz0b
+      - name: Install dependencies
+        run: uv sync --locked --all-extras --python ${{ matrix.python-version }}
+      # PDF tests skip when WeasyPrint cannot load; fail here instead so CI never skips them
+      - name: Check WeasyPrint loads
+        run: uv run --no-sync python -c "import weasyprint"
+      - name: Run tests
+        run: uv run --no-sync pytest -rs
+
   smoke-test:
     runs-on: ubuntu-latest
     steps:

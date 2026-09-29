@@ -7,6 +7,9 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **Status in messages**: invoice status and type appeared as `InvoiceStatus.SENT` / `InvoiceType.STANDARD` in validation errors and in `invoices details` / `credit-notes get` on Python 3.12+ (and as `SENT` on 3.10/3.11); they now always show the value, e.g. `SENT`. `validate_state_transition` rejects unknown status strings instead of ignoring them
 
+### Changed
+- CI runs the test suite on Python 3.10 and 3.14 with WeasyPrint's system libraries installed, so PDF tests never skip there
+
 ## [2.0.2] - 2026-09-29
 
 ### Fixed
