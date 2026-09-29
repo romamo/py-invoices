@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.0.2] - 2026-09-29
 
 ### Fixed
 - **Factur-X PDFs**: `PDFService.generate_facturx` and `generate_facturx_bytes` failed with `FileNotFoundError: 'factur-x.xml'` because the embedded XML's name was passed as WeasyPrint's `filename` (a path to read) instead of `name`
