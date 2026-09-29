@@ -133,9 +133,9 @@ def get_invoice_details(
 
     console.print(f"[bold]Invoice: {invoice.number}[/bold]")
     console.print(f"Date: {invoice.issue_date}")
-    console.print(f"Status: {invoice.status}")
+    console.print(f"Status: {invoice.status.value}")
     console.print(f"Client: {invoice.client_name_snapshot}")
-    console.print(f"Type: {invoice.type}")
+    console.print(f"Type: {invoice.type.value}")
 
     table = Table(title="Line Items")
     table.add_column("Description")

@@ -98,7 +98,7 @@ def test_modification_restriction(invoice_repo: Any, base_invoice: Any) -> None:
     invoice_repo.update(inv)
 
     # SENT: Modification Fail
-    with pytest.raises(ValueError, match=r"is in InvoiceStatus\.SENT state"):
+    with pytest.raises(ValueError, match="is in SENT state"):
         BusinessValidator.validate_modification(inv)
 
 

@@ -46,7 +46,7 @@ def get_credit_note(
 
     console.print(f"[bold]Credit Note: {invoice.number}[/bold]")
     console.print(f"Date: {invoice.issue_date}")
-    console.print(f"Status: {invoice.status}")
+    console.print(f"Status: {invoice.status.value}")
     console.print(f"Client: {invoice.client_name_snapshot}")
     console.print(f"Reason: {invoice.reason}")
     console.print(f"Original Invoice: {invoice.original_invoice_id} (ID)")

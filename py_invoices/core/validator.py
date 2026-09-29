@@ -129,9 +129,12 @@ class BusinessValidator:
             new_status: New status
 
         Raises:
-            ValueError: If transition is invalid
+            ValueError: If either status is unknown or the transition is invalid
         """
         from pydantic_invoices.schemas import InvoiceStatus
+
+        old = InvoiceStatus(old_status)
+        new = InvoiceStatus(new_status)
 
         # Valid Transitions:
         # DRAFT -> SENT
@@ -139,33 +142,34 @@ class BusinessValidator:
         # SENT -> CREDITED (via Credit Note logic, handled separately usually)
         # PAID -> REFUNDED | CREDITED (maybe?)
 
-        if old_status == new_status:
+        if old == new:
             return
 
         # If already in a closed state, cannot change status
         # (unless to CREDITED/REFUNDED in specific flows)
-        if old_status in (InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED, InvoiceStatus.CREDITED):
-            raise ValueError(f"Cannot change status from final state {old_status}")
+        if old in (InvoiceStatus.CANCELLED, InvoiceStatus.REFUNDED, InvoiceStatus.CREDITED):
+            raise ValueError(f"Cannot change status from final state {old.value}")
 
-        if old_status == InvoiceStatus.PAID and new_status not in (
+        if old == InvoiceStatus.PAID and new not in (
             InvoiceStatus.REFUNDED,
             InvoiceStatus.CREDITED,
         ):
-            raise ValueError(f"Cannot change status from PAID to {new_status}")
+            raise ValueError(f"Cannot change status from PAID to {new.value}")
 
-        if old_status == InvoiceStatus.SENT:
+        if old == InvoiceStatus.SENT:
             allowed = (
                 InvoiceStatus.PAID,
                 InvoiceStatus.PARTIALLY_PAID,
                 InvoiceStatus.CANCELLED,
                 InvoiceStatus.CREDITED,
             )
-            if new_status not in allowed:
+            if new not in allowed:
                 raise ValueError(
-                    f"Cannot change status from SENT to {new_status}. Must be one of {allowed}"
+                    f"Cannot change status from SENT to {new.value}. "
+                    f"Must be one of {', '.join(s.value for s in allowed)}"
                 )
 
-        if old_status == InvoiceStatus.DRAFT:
+        if old == InvoiceStatus.DRAFT:
             # Draft effectively can go to SENT.
             # Going directly to PAID is possible for simple flows but discouraged.
             pass
@@ -185,7 +189,8 @@ class BusinessValidator:
         # In strict mode, only DRAFT invoices can be edited (content, lines, amounts)
         if invoice.status != InvoiceStatus.DRAFT:
             raise ValueError(
-                f"Cannot modify invoice {invoice.number} because it is in {invoice.status} state. "
+                f"Cannot modify invoice {invoice.number} because it is in "
+                f"{invoice.status.value} state. "
                 "Only DRAFT invoices can be edited. "
                 "To correct a SENT invoice, issue a Credit Note."
             )
