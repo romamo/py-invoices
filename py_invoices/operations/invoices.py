@@ -17,7 +17,7 @@ from pydantic_invoices.schemas import (
     InvoiceType,
 )
 from pydantic_invoices.schemas.company import Company
-from pydantic_invoices.vo import Money
+from pydantic_invoices.vo import CountryCode, Money
 
 from py_invoices.config import get_settings
 from py_invoices.core import AuditService, HTMLService, NumberingService, PDFService, UBLService
@@ -90,6 +90,9 @@ class NewInvoice:
     client_tax_id: str | None = None
     client_email: str | None = None
     client_phone: str | None = None
+    client_city: str | None = None
+    client_postal_code: str | None = None
+    client_country: CountryCode | None = None
     invoice_number: str | None = None
     payment_terms: str = "Due on Receipt"
     due_date: date | None = None
@@ -205,6 +208,7 @@ def resolve_company_details(
         or invoice.company_tax_id_snapshot
         or (record.tax_id if record else None),
         "email": overrides.email or (record.email if record else None),
+        "registration_number": record.registration_number if record else None,
         "city": record.city if record else None,
         "postal_code": record.postal_code if record else None,
         "country_code": _country_code(record) if record else None,
@@ -323,6 +327,9 @@ def _resolve_client(factory: RepositoryFactory, request: NewInvoice) -> tuple[Cl
             tax_id=request.client_tax_id,
             email=request.client_email,
             phone=request.client_phone,
+            city=request.client_city,
+            postal_code=request.client_postal_code,
+            country=request.client_country,
             preferred_template=None,
         )
     )
@@ -368,6 +375,9 @@ def create_invoice(factory: RepositoryFactory, request: NewInvoice) -> CreatedIn
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
             client_tax_id_snapshot=str(client.tax_id) if client.tax_id else None,
+            client_city_snapshot=client.city,
+            client_postal_code_snapshot=client.postal_code,
+            client_country_snapshot=client.country,
             company_id=company.id if company else 1,
             company_name_snapshot=request.company.name or (company.name if company else None),
             company_address_snapshot=request.company.address
@@ -409,6 +419,9 @@ def clone_invoice(factory: RepositoryFactory, identifier: str, issue_date: date)
             client_name_snapshot=original.client_name_snapshot,
             client_address_snapshot=original.client_address_snapshot,
             client_tax_id_snapshot=original.client_tax_id_snapshot,
+            client_city_snapshot=original.client_city_snapshot,
+            client_postal_code_snapshot=original.client_postal_code_snapshot,
+            client_country_snapshot=original.client_country_snapshot,
             company_id=original.company_id,
             company_name_snapshot=original.company_name_snapshot,
             company_address_snapshot=original.company_address_snapshot,

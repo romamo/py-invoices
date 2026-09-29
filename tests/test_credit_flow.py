@@ -28,7 +28,9 @@ def base_invoice(invoice_repo: Any, client_repo: Any) -> Any:
     from pydantic_invoices.schemas import ClientCreate
 
     client = client_repo.create(
-        ClientCreate(name="Credit Client", address="123 St", tax_id="123", email=None, phone=None)
+        ClientCreate(
+            name="Credit Client", address="123 St", tax_id="TAX-12345", email=None, phone=None
+        )
     )
 
     return invoice_repo.create(
@@ -41,7 +43,7 @@ def base_invoice(invoice_repo: Any, client_repo: Any) -> Any:
             due_date=None,
             client_name_snapshot=client.name,
             client_address_snapshot=client.address,
-            client_tax_id_snapshot=client.tax_id,
+            client_tax_id_snapshot=str(client.tax_id),
             lines=[InvoiceLineCreate(description="Item 1", quantity=1, unit_price=100.0)],
         )
     )

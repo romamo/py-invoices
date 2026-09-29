@@ -138,7 +138,7 @@ def test_invoice_queries(
         ClientCreate(
             name="Q Client",
             address="...",
-            tax_id="...",
+            tax_id="TAX-00001",
             email=None,
             phone=None,
         )
@@ -192,7 +192,7 @@ def test_payment_operations(
         ClientCreate(
             name="P Client",
             address="...",
-            tax_id="...",
+            tax_id="TAX-00001",
             email=None,
             phone=None,
         )

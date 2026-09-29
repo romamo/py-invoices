@@ -4,7 +4,7 @@ import typer
 from pydantic_invoices.schemas import Invoice
 from rich.table import Table
 
-from py_invoices.cli.utils import cli_errors, get_console, get_factory
+from py_invoices.cli.utils import cli_errors, get_console, get_factory, parse_country
 from py_invoices.core.totals import format_money
 from py_invoices.operations import invoices as ops
 from py_invoices.operations.invoices import (
@@ -205,6 +205,11 @@ def create_invoice(
     client_tax_id: str = typer.Option(None, help="Client Tax ID (if creating new)"),
     client_email: str = typer.Option(None, help="Client Email (if creating new)"),
     client_phone: str = typer.Option(None, help="Client Phone (if creating new)"),
+    client_city: str = typer.Option(None, help="Client city (if creating new)"),
+    client_postal_code: str = typer.Option(None, help="Client postal code (if creating new)"),
+    client_country: str = typer.Option(
+        None, help="Client ISO 3166-1 alpha-2 country code, e.g. DE (if creating new)"
+    ),
     description: str = typer.Option(..., help="Line item description"),
     invoice_number: str = typer.Option(
         None, help="Custom invoice number (overrides auto-generation)"
@@ -252,6 +257,9 @@ def create_invoice(
         client_tax_id=client_tax_id,
         client_email=client_email,
         client_phone=client_phone,
+        client_city=client_city,
+        client_postal_code=client_postal_code,
+        client_country=parse_country(client_country, "--client-country"),
         invoice_number=invoice_number,
         payment_terms=payment_terms,
         due_date=parse_date(due_date_str, "--due-date"),

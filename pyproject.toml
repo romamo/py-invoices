@@ -7,7 +7,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 dependencies = [
-    "pydantic-invoices>=1.4.1",
+    "pydantic-invoices>=1.5.0",
     "pydantic>=2.10.0",
     "pydantic-settings>=2.13.1",
     "jinja2>=3.1.5",
@@ -130,4 +130,8 @@ dev = [
     "types-psycopg2",
     "types-PyMySQL",
     "types-defusedxml",
+    # Factur-X / EN 16931 validation in tests
+    "factur-x>=7.0",
+    "pypdf>=5.0",
+    "saxonche>=13.0",
 ]

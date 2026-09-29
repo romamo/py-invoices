@@ -3,17 +3,76 @@
 Provides invoice PDF generation using Jinja2 templates and WeasyPrint.
 """
 
+import base64
+import io
 import os
 import re
 import sys
 from collections.abc import Sequence
+from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
 from pydantic_invoices.schemas import Invoice
 
+from py_invoices.core.cii_service import CIIService
 from py_invoices.core.html_service import HTMLService, output_path
-from py_invoices.core.ubl_service import UBLService
+
+FACTURX_FILENAME = "factur-x.xml"
+
+# Factur-X 1.0 XMP: the fx properties plus the PDF/A extension schema that declares them
+FACTURX_XMP = b"""<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about=""
+      xmlns:pdfaExtension="http://www.aiim.org/pdfa/ns/extension/"
+      xmlns:pdfaSchema="http://www.aiim.org/pdfa/ns/schema#"
+      xmlns:pdfaProperty="http://www.aiim.org/pdfa/ns/property#">
+    <pdfaExtension:schemas>
+      <rdf:Bag>
+        <rdf:li rdf:parseType="Resource">
+          <pdfaSchema:schema>Factur-X PDFA Extension Schema</pdfaSchema:schema>
+          <pdfaSchema:namespaceURI>urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#</pdfaSchema:namespaceURI>
+          <pdfaSchema:prefix>fx</pdfaSchema:prefix>
+          <pdfaSchema:property>
+            <rdf:Seq>
+              <rdf:li rdf:parseType="Resource">
+                <pdfaProperty:name>DocumentFileName</pdfaProperty:name>
+                <pdfaProperty:valueType>Text</pdfaProperty:valueType>
+                <pdfaProperty:category>external</pdfaProperty:category>
+                <pdfaProperty:description>Embedded XML file name</pdfaProperty:description>
+              </rdf:li>
+              <rdf:li rdf:parseType="Resource">
+                <pdfaProperty:name>DocumentType</pdfaProperty:name>
+                <pdfaProperty:valueType>Text</pdfaProperty:valueType>
+                <pdfaProperty:category>external</pdfaProperty:category>
+                <pdfaProperty:description>INVOICE</pdfaProperty:description>
+              </rdf:li>
+              <rdf:li rdf:parseType="Resource">
+                <pdfaProperty:name>Version</pdfaProperty:name>
+                <pdfaProperty:valueType>Text</pdfaProperty:valueType>
+                <pdfaProperty:category>external</pdfaProperty:category>
+                <pdfaProperty:description>Factur-X version</pdfaProperty:description>
+              </rdf:li>
+              <rdf:li rdf:parseType="Resource">
+                <pdfaProperty:name>ConformanceLevel</pdfaProperty:name>
+                <pdfaProperty:valueType>Text</pdfaProperty:valueType>
+                <pdfaProperty:category>external</pdfaProperty:category>
+                <pdfaProperty:description>Factur-X profile</pdfaProperty:description>
+              </rdf:li>
+            </rdf:Seq>
+          </pdfaSchema:property>
+        </rdf:li>
+      </rdf:Bag>
+    </pdfaExtension:schemas>
+  </rdf:Description>
+  <rdf:Description rdf:about=""
+      xmlns:fx="urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#">
+    <fx:DocumentType>INVOICE</fx:DocumentType>
+    <fx:DocumentFileName>factur-x.xml</fx:DocumentFileName>
+    <fx:Version>1.0</fx:Version>
+    <fx:ConformanceLevel>EN 16931</fx:ConformanceLevel>
+  </rdf:Description>
+</rdf:RDF>
+"""
 
 WEASYPRINT_INSTALL_DOCS = (
     "https://doc.courtbouillon.org/weasyprint/stable/first_steps.html#installation"
@@ -128,25 +187,40 @@ class PDFService(HTMLService):
         invoice: Invoice,
         company: dict[str, Any],
         template_name: str | None = None,
-        ubl_template_name: str | None = None,
+        cii_template_name: str | None = None,
+        delivery_date: date | None = None,
         **context: Any,
     ) -> bytes:
-        """Generate a PDF/A-3b document with its UBL XML embedded as an attachment.
+        """Generate a Factur-X (EN 16931 profile) invoice or credit note.
 
-        The XML template defaults to the one for the document type (Invoice or CreditNote).
+        A PDF/A-3b document embedding CII XML as factur-x.xml, with the Factur-X XMP
+        metadata. See CIIService.generate_cii for the data the invoice and company need.
+
+        Raises:
+            FacturXDataError: If data an EN 16931 invoice requires is missing.
         """
         _, attachment_cls = self._get_weasyprint_modules()
-        ubl = UBLService(template_dir=self.template_dir, output_dir=self.output_dir)
-        xml_content = ubl.generate_ubl(invoice, company, ubl_template_name, **context)
+        cii = CIIService(template_dir=self.template_dir, output_dir=self.output_dir)
+        xml_content = cii.generate_cii(
+            invoice, company, cii_template_name, delivery_date, **context
+        )
         html_content = self.generate_html(
             invoice=invoice, company=company, template_name=template_name, **context
         )
+        # A data URL gives the embedded file the text/xml subtype Factur-X requires
+        xml_url = "data:text/xml;base64," + base64.b64encode(xml_content.encode()).decode()
         attachment = attachment_cls(
-            string=xml_content,
-            name="factur-x.xml",
-            description="Factur-X Invoice Data",
+            url=xml_url,
+            name=FACTURX_FILENAME,
+            description="Factur-X invoice data (EN 16931)",
+            relationship="Alternative",
         )
-        return self._render_pdf(html_content, attachments=[attachment], pdf_variant="pdf/a-3b")
+        return self._render_pdf(
+            html_content,
+            attachments=[attachment],
+            pdf_variant="pdf/a-3b",
+            xmp_metadata=[io.BytesIO(FACTURX_XMP)],
+        )
 
     def generate_facturx(
         self,
@@ -154,15 +228,17 @@ class PDFService(HTMLService):
         company: dict[str, Any],
         output_filename: str | None = None,
         template_name: str | None = None,
-        ubl_template_name: str | None = None,
+        cii_template_name: str | None = None,
+        delivery_date: date | None = None,
         **context: Any,
     ) -> str:
-        """Save a PDF/A-3b invoice with embedded XML; defaults to "<number>_facturx.pdf"."""
+        """Save a Factur-X PDF; defaults to "<number>_facturx.pdf"."""
         pdf_bytes = self.generate_facturx_bytes(
             invoice=invoice,
             company=company,
             template_name=template_name,
-            ubl_template_name=ubl_template_name,
+            cii_template_name=cii_template_name,
+            delivery_date=delivery_date,
             **context,
         )
         return self._write_bytes(output_filename or f"{invoice.number}_facturx.pdf", pdf_bytes)

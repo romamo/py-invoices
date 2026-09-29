@@ -46,6 +46,9 @@ class ClientDB(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=255, index=True)
     address: str | None = Field(None, max_length=500)
+    city: str | None = Field(None, max_length=100)
+    postal_code: str | None = Field(None, max_length=20)
+    country: str | None = Field(None, max_length=2)
     tax_id: str | None = Field(None, max_length=50, index=True)
     email: str | None = Field(None, max_length=255)
     phone: str | None = Field(None, max_length=50)
@@ -64,6 +67,9 @@ class ClientDB(SQLModel, table=True):
             id=self.id,
             name=self.name,
             address=self.address,
+            city=self.city,
+            postal_code=self.postal_code,
+            country=self.country,
             tax_id=self.tax_id,
             email=self.email,
             phone=self.phone,
@@ -131,6 +137,9 @@ class InvoiceDB(SQLModel, table=True):
     client_name_snapshot: str | None = None
     client_address_snapshot: str | None = None
     client_tax_id_snapshot: str | None = None
+    client_city_snapshot: str | None = Field(None, max_length=100)
+    client_postal_code_snapshot: str | None = Field(None, max_length=20)
+    client_country_snapshot: str | None = Field(None, max_length=2)
 
     # Company snapshots (immutable at invoice creation)
     company_name_snapshot: str | None = None
@@ -174,6 +183,9 @@ class InvoiceDB(SQLModel, table=True):
             client_name_snapshot=self.client_name_snapshot,
             client_address_snapshot=self.client_address_snapshot,
             client_tax_id_snapshot=self.client_tax_id_snapshot,
+            client_city_snapshot=self.client_city_snapshot,
+            client_postal_code_snapshot=self.client_postal_code_snapshot,
+            client_country_snapshot=self.client_country_snapshot,
             company_name_snapshot=self.company_name_snapshot,
             company_address_snapshot=self.company_address_snapshot,
             company_tax_id_snapshot=self.company_tax_id_snapshot,

@@ -2,7 +2,7 @@ import typer
 from pydantic_invoices.schemas import Client, ClientCreate
 from rich.table import Table
 
-from py_invoices.cli.utils import cli_errors, get_console, get_factory
+from py_invoices.cli.utils import cli_errors, get_console, get_factory, parse_country
 from py_invoices.operations import clients as ops
 
 app = typer.Typer()
@@ -50,6 +50,9 @@ def get_client_details(
     console.print(f"[bold]Client: {client.name}[/bold]")
     console.print(f"ID: {client.id}")
     console.print(f"Address: {client.address}")
+    console.print(f"City: {client.city or 'N/A'}")
+    console.print(f"Postal Code: {client.postal_code or 'N/A'}")
+    console.print(f"Country: {client.country or 'N/A'}")
     console.print(f"Tax ID: {client.tax_id or 'N/A'}")
     console.print(f"Email: {client.email or 'N/A'}")
     console.print(f"Phone: {client.phone or 'N/A'}")
@@ -73,6 +76,9 @@ def search_clients(
 def create_client(
     name: str = typer.Option(..., help="Client name"),
     address: str = typer.Option(..., help="Client address"),
+    city: str = typer.Option(None, help="Client city"),
+    postal_code: str = typer.Option(None, help="Client postal code"),
+    country: str = typer.Option(None, help="ISO 3166-1 alpha-2 country code, e.g. DE"),
     tax_id: str = typer.Option(None, help="Client Tax ID"),
     email: str = typer.Option(None, help="Client email"),
     phone: str = typer.Option(None, help="Client phone"),
@@ -84,6 +90,9 @@ def create_client(
     data = ClientCreate(
         name=name,
         address=address,
+        city=city,
+        postal_code=postal_code,
+        country=parse_country(country, "--country"),
         tax_id=tax_id,
         email=email,
         phone=phone,

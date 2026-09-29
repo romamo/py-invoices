@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+Breaking: Factur-X PDFs embed CII instead of UBL, `generate_facturx` / `generate_facturx_bytes` take `cii_template_name` instead of `ubl_template_name` and raise `FacturXDataError` when EN 16931 data is missing, SQL databases need the migration below, and pydantic-invoices 1.5.0 rejects invalid tax IDs.
+
+### Fixed
+- **Factur-X compliance**: Factur-X PDFs embedded UBL XML with an unspecified relationship, the `application/xml` subtype and no Factur-X XMP metadata, so Factur-X validators rejected them. They now embed UN/CEFACT CII in the EN 16931 profile (`urn:cen.eu:en16931:2017`) as `factur-x.xml` with `/AFRelationship /Alternative`, subtype `text/xml` and the Factur-X XMP extension schema (`fx:ConformanceLevel` EN 16931). Invoices and credit notes (type 381, referencing `original_invoice_number`) pass the Factur-X 1.09 XSD, the official EN 16931 CII Schematron 1.3.16 and the Factur-X EN 16931 Schematron
+
+### Added
+- **Buyer address**: clients have `city`, `postal_code` and `country` (ISO 3166-1 alpha-2), set with `clients create --city --postal-code --country` or `invoices create --client-city --client-postal-code --client-country` and shown by `clients details`. Invoices snapshot them on create, clone and credit note; EN 16931 requires the buyer's country
+- `CIIService` renders the CII XML on its own; `FacturXDataError` lists every missing seller or buyer detail at once. Company details include `registration_number`, required when the seller's tax ID is not a VAT number (BR-CO-26)
+- `delivery_date=` for Factur-X; it defaults to the issue date
+
+### Changed
+- Requires pydantic-invoices >= 1.5.0. Its `TaxId` rejects invalid values such as `"123"`, so clients or companies stored with such tax IDs fail to load until corrected
+- Tests validate Factur-X output with `factur-x`, `pypdf` and `saxonche` (dev dependencies); `tests/data/en16931` holds the EN 16931 CII XSLT (EUPL 1.2)
+
+### Known issues
+- WeasyPrint lists the embedded file twice in the catalog `/AF` array (both entries are the same file specification); fixed on WeasyPrint's main branch but not yet in a release
+
+### Migration (SQL databases created by earlier versions)
+
+```sql
+ALTER TABLE clients ADD COLUMN city VARCHAR(100);
+ALTER TABLE clients ADD COLUMN postal_code VARCHAR(20);
+ALTER TABLE clients ADD COLUMN country VARCHAR(2);
+ALTER TABLE invoices ADD COLUMN client_city_snapshot VARCHAR(100);
+ALTER TABLE invoices ADD COLUMN client_postal_code_snapshot VARCHAR(20);
+ALTER TABLE invoices ADD COLUMN client_country_snapshot VARCHAR(2);
+```
+
 ## [2.0.3] - 2026-09-29
 
 ### Fixed

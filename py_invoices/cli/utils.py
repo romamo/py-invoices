@@ -2,6 +2,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 import typer
+from pydantic_invoices.vo import CountryCode
 from rich.console import Console
 from rich.markup import escape
 
@@ -91,6 +92,20 @@ def error_lines(error: OperationError) -> list[str]:
                 f"[yellow]Tip: Install with `pip install '{package}'`[/yellow]",
             ]
     return [f"[red]Error: {error}[/red]"]
+
+
+def parse_country(value: str | None, option: str) -> CountryCode | None:
+    """An ISO 3166-1 alpha-2 country option, or exit with an error naming the option."""
+    if value is None:
+        return None
+    try:
+        return CountryCode(value)
+    except ValueError:
+        console.print(
+            f"[red]Error: Invalid {option} '{escape(value)}'. "
+            "Use an ISO 3166-1 alpha-2 code such as DE or FR.[/red]"
+        )
+        raise typer.Exit(code=1) from None
 
 
 @contextmanager

@@ -134,7 +134,7 @@ def test_invoices_api_extended() -> None:
     # Create necessary data
     # Create client
     response = client.post(
-        "/clients/", json={"name": "Inv Client", "tax_id": "999", "address": "Nowhere"}
+        "/clients/", json={"name": "Inv Client", "tax_id": "TAX-99999", "address": "Nowhere"}
     )
     client_id = response.json()["id"]
 
@@ -205,7 +205,7 @@ def test_pdf_generation() -> None:
 
     # We need a valid client first
     client_response = client.post(
-        "/clients/", json={"name": "PDF Client", "tax_id": "888", "address": "PDF St"}
+        "/clients/", json={"name": "PDF Client", "tax_id": "TAX-88888", "address": "PDF St"}
     )
     client_id = client_response.json()["id"]
 

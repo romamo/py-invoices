@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+{#- UN/CEFACT CII D16B invoice or credit note, Factur-X / EN 16931 profile.
+    Expects `invoice`, `company`, `totals` and the `cii` context from CIIService. -#}
+{% macro amount(money) %}{{ money|cents }}{% endmacro %}
+{% macro date(value) %}<udt:DateTimeString format="102">{{ value.strftime('%Y%m%d') }}</udt:DateTimeString>{% endmacro %}
+{% macro address(postcode, line, city, country) %}
+            <ram:PostalTradeAddress>
+                {% if postcode %}<ram:PostcodeCode>{{ postcode }}</ram:PostcodeCode>{% endif %}
+                {% if line %}<ram:LineOne>{{ line }}</ram:LineOne>{% endif %}
+                {% if city %}<ram:CityName>{{ city }}</ram:CityName>{% endif %}
+                <ram:CountryID>{{ country }}</ram:CountryID>
+            </ram:PostalTradeAddress>
+{% endmacro %}
+{% macro tax_ids(party) %}
+            {% if party.registration_id %}
+            <ram:SpecifiedTaxRegistration>
+                <ram:ID schemeID="{{ party.registration_scheme }}">{{ party.registration_id }}</ram:ID>
+            </ram:SpecifiedTaxRegistration>
+            {% endif %}
+{% endmacro %}
+<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+                          xmlns:qdt="urn:un:unece:uncefact:data:standard:QualifiedDataType:100"
+                          xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+                          xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+    <rsm:ExchangedDocumentContext>
+        <ram:GuidelineSpecifiedDocumentContextParameter>
+            <ram:ID>{{ cii.guideline }}</ram:ID>
+        </ram:GuidelineSpecifiedDocumentContextParameter>
+    </rsm:ExchangedDocumentContext>
+    <rsm:ExchangedDocument>
+        <ram:ID>{{ invoice.number }}</ram:ID>
+        <ram:TypeCode>{{ cii.type_code }}</ram:TypeCode>
+        <ram:IssueDateTime>{{ date(invoice.issue_date) }}</ram:IssueDateTime>
+        {% if invoice.reason %}
+        <ram:IncludedNote>
+            <ram:Content>{{ invoice.reason }}</ram:Content>
+        </ram:IncludedNote>
+        {% endif %}
+    </rsm:ExchangedDocument>
+    <rsm:SupplyChainTradeTransaction>
+        {% for line in invoice.lines %}
+        <ram:IncludedSupplyChainTradeLineItem>
+            <ram:AssociatedDocumentLineDocument>
+                <ram:LineID>{{ loop.index }}</ram:LineID>
+            </ram:AssociatedDocumentLineDocument>
+            <ram:SpecifiedTradeProduct>
+                <ram:Name>{{ line.description }}</ram:Name>
+            </ram:SpecifiedTradeProduct>
+            <ram:SpecifiedLineTradeAgreement>
+                <ram:NetPriceProductTradePrice>
+                    <ram:ChargeAmount>{{ line.unit_price.amount }}</ram:ChargeAmount>
+                </ram:NetPriceProductTradePrice>
+            </ram:SpecifiedLineTradeAgreement>
+            <ram:SpecifiedLineTradeDelivery>
+                <ram:BilledQuantity unitCode="C62">{{ line.quantity }}</ram:BilledQuantity>
+            </ram:SpecifiedLineTradeDelivery>
+            <ram:SpecifiedLineTradeSettlement>
+                <ram:ApplicableTradeTax>
+                    <ram:TypeCode>VAT</ram:TypeCode>
+                    <ram:CategoryCode>{{ cii.category(line.tax_rate) }}</ram:CategoryCode>
+                    <ram:RateApplicablePercent>{{ cii.rate(line.tax_rate) }}</ram:RateApplicablePercent>
+                </ram:ApplicableTradeTax>
+                <ram:SpecifiedTradeSettlementLineMonetarySummation>
+                    <ram:LineTotalAmount>{{ amount(line_net(line)) }}</ram:LineTotalAmount>
+                </ram:SpecifiedTradeSettlementLineMonetarySummation>
+            </ram:SpecifiedLineTradeSettlement>
+        </ram:IncludedSupplyChainTradeLineItem>
+        {% endfor %}
+        <ram:ApplicableHeaderTradeAgreement>
+            <ram:SellerTradeParty>
+                <ram:Name>{{ company.name }}</ram:Name>
+                {% if cii.seller.legal_id %}
+                <ram:SpecifiedLegalOrganization>
+                    <ram:ID>{{ cii.seller.legal_id }}</ram:ID>
+                </ram:SpecifiedLegalOrganization>
+                {% endif %}
+{{ address(company.postal_code, company.address, company.city, cii.seller.country) }}
+{{ tax_ids(cii.seller) }}
+            </ram:SellerTradeParty>
+            <ram:BuyerTradeParty>
+                <ram:Name>{{ invoice.client_name_snapshot }}</ram:Name>
+                {% if cii.buyer.legal_id %}
+                <ram:SpecifiedLegalOrganization>
+                    <ram:ID>{{ cii.buyer.legal_id }}</ram:ID>
+                </ram:SpecifiedLegalOrganization>
+                {% endif %}
+{{ address(invoice.client_postal_code_snapshot, invoice.client_address_snapshot, invoice.client_city_snapshot, cii.buyer.country) }}
+{{ tax_ids(cii.buyer) }}
+            </ram:BuyerTradeParty>
+        </ram:ApplicableHeaderTradeAgreement>
+        <ram:ApplicableHeaderTradeDelivery>
+            <ram:ActualDeliverySupplyChainEvent>
+                <ram:OccurrenceDateTime>{{ date(cii.delivery_date) }}</ram:OccurrenceDateTime>
+            </ram:ActualDeliverySupplyChainEvent>
+        </ram:ApplicableHeaderTradeDelivery>
+        <ram:ApplicableHeaderTradeSettlement>
+            <ram:InvoiceCurrencyCode>{{ totals.currency }}</ram:InvoiceCurrencyCode>
+            {% for subtotal in totals.tax_subtotals %}
+            <ram:ApplicableTradeTax>
+                <ram:CalculatedAmount>{{ amount(subtotal.tax) }}</ram:CalculatedAmount>
+                <ram:TypeCode>VAT</ram:TypeCode>
+                <ram:BasisAmount>{{ amount(subtotal.taxable) }}</ram:BasisAmount>
+                <ram:CategoryCode>{{ cii.category(subtotal.rate) }}</ram:CategoryCode>
+                <ram:RateApplicablePercent>{{ cii.rate(subtotal.rate) }}</ram:RateApplicablePercent>
+            </ram:ApplicableTradeTax>
+            {% endfor %}
+            <ram:SpecifiedTradePaymentTerms>
+                {% if invoice.payment_terms %}<ram:Description>{{ invoice.payment_terms }}</ram:Description>{% endif %}
+                {% if invoice.due_date %}<ram:DueDateDateTime>{{ date(invoice.due_date) }}</ram:DueDateDateTime>{% endif %}
+            </ram:SpecifiedTradePaymentTerms>
+            <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+                <ram:LineTotalAmount>{{ amount(totals.net) }}</ram:LineTotalAmount>
+                <ram:TaxBasisTotalAmount>{{ amount(totals.net) }}</ram:TaxBasisTotalAmount>
+                <ram:TaxTotalAmount currencyID="{{ totals.currency }}">{{ amount(totals.tax) }}</ram:TaxTotalAmount>
+                <ram:GrandTotalAmount>{{ amount(totals.gross) }}</ram:GrandTotalAmount>
+                <ram:DuePayableAmount>{{ amount(totals.gross) }}</ram:DuePayableAmount>
+            </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+            {% if original_invoice_number %}
+            <ram:InvoiceReferencedDocument>
+                <ram:IssuerAssignedID>{{ original_invoice_number }}</ram:IssuerAssignedID>
+            </ram:InvoiceReferencedDocument>
+            {% endif %}
+        </ram:ApplicableHeaderTradeSettlement>
+    </rsm:SupplyChainTradeTransaction>
+</rsm:CrossIndustryInvoice>

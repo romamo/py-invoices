@@ -233,12 +233,19 @@ html_path = html_service.save_html(invoice=invoice, company=company)
 Generate enterprise-ready invoices compliant with European standards:
 
 **Factur-X (PDF/A-3 + XML):**
-A standard PDF that includes the invoice data as a structured XML file (Factur-X/ZUGFeRD compliant).
+A PDF/A-3b document embedding the invoice as UN/CEFACT CII XML (`factur-x.xml`), Factur-X 1.0 profile EN 16931 (compatible with ZUGFeRD 2 COMFORT). Credit notes use document type 381.
 
 ```python
 # Requires py-invoices[pdf]
 facturx_path = pdf_service.generate_facturx(invoice=invoice, company=company)
 ```
+
+EN 16931 requires data that plain PDFs do not:
+
+- `company`: `name`, `country_code` (or `country`) as an ISO 3166-1 alpha-2 code, and `tax_id`; when `tax_id` is not a VAT number (e.g. `DE123456789`), also `registration_number`
+- the invoice: `client_name_snapshot` and `client_country_snapshot`, filled from the client's `country` when the invoice is created (`clients create --country DE`, `invoices create --client-country DE`)
+
+Missing data raises `FacturXDataError` listing every problem. The delivery date defaults to the issue date (`delivery_date=` overrides it); pass `original_invoice_number=` for a credit note. The CII XML alone is available from `CIIService().generate_cii(invoice, company)`.
 
 **UBL (XML Only):**
 Universal Business Language Version 2.1 XML invoices.
