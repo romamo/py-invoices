@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [4.0.0] - 2026-09-29
 
 Breaking: requires Python 3.14 or later.
 

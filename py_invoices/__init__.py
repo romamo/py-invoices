@@ -6,7 +6,7 @@ This package provides:
 - PDF generation capabilities
 """
 
-__version__ = "3.0.0"
+__version__ = "4.0.0"
 
 from .config import InvoiceSettings
 from .constants import APP_DISPLAY_NAME, APP_NAME
