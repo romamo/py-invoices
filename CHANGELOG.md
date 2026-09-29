@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [3.0.0] - 2026-09-29
 
 Breaking: Factur-X PDFs embed CII instead of UBL, `generate_facturx` / `generate_facturx_bytes` take `cii_template_name` instead of `ubl_template_name` and raise `FacturXDataError` when EN 16931 data is missing, SQL databases need the migration below, and pydantic-invoices 1.5.0 rejects invalid tax IDs.
 
