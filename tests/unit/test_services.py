@@ -1,8 +1,11 @@
 """Tests for core services."""
 
+import re
+import zlib
 from datetime import datetime
 from pathlib import Path
 
+import pytest
 from pydantic_invoices.schemas import (
     Invoice,
     InvoiceLine,
@@ -11,6 +14,7 @@ from pydantic_invoices.schemas import (
 )
 
 from py_invoices.core import AuditService, NumberingService, PDFService, UBLService
+from py_invoices.core.pdf_service import PdfSystemLibrariesError, WeasyPrintMissingError
 from py_invoices.core.validator import UBLValidator
 
 
@@ -231,34 +235,33 @@ class TestPDFService:
         assert "INV-001" in content
 
     def test_facturx_bytes_generation(self, tmp_path: Path) -> None:
-        """Test generating Factur-X PDF as bytes."""
-        import sys
-        from unittest.mock import MagicMock, patch
-
+        """Factur-X output is a PDF/A-3B document with the UBL XML embedded."""
         service = PDFService(output_dir=str(tmp_path))
+        try:
+            service._get_weasyprint_modules()
+        except (WeasyPrintMissingError, PdfSystemLibrariesError) as e:
+            pytest.skip(f"WeasyPrint unavailable: {e}")
 
-        invoice = _invoice("FX-BYTES-001")
+        pdf_bytes = service.generate_facturx_bytes(_invoice("FX-BYTES-001"), {"name": "Test Co"})
 
-        company = {"name": "Test Co"}
+        assert pdf_bytes.startswith(b"%PDF-")
+        streams = _pdf_streams(pdf_bytes)
+        xmp = next(s for s in streams if b"pdfaid" in s)
+        assert re.search(rb'pdfaid:part(>|=")3', xmp)
+        assert re.search(rb'pdfaid:conformance(>|=")B', xmp)
+        assert any(b"<Invoice" in s and b"FX-BYTES-001" in s for s in streams)
 
-        # Mock weasyprint
-        mock_weasyprint = MagicMock()
-        mock_html_class = MagicMock()
-        mock_html_instance = MagicMock()
-        mock_html_instance.write_pdf.return_value = b"%PDF-MOCK-BYTES"
-        mock_html_class.return_value = mock_html_instance
-        mock_weasyprint.HTML = mock_html_class
-        mock_weasyprint.Attachment = MagicMock()
 
-        with patch.dict(sys.modules, {"weasyprint": mock_weasyprint}):
-            pdf_bytes = service.generate_facturx_bytes(invoice, company)
-            assert isinstance(pdf_bytes, bytes)
-            assert pdf_bytes == b"%PDF-MOCK-BYTES"
-
-            # Verify attachments were passed (PDF/A-3b compliance)
-            call_kwargs = mock_html_instance.write_pdf.call_args[1]
-            assert "attachments" in call_kwargs
-            assert call_kwargs["pdf_variant"] == "pdf/a-3b"
+def _pdf_streams(pdf: bytes) -> list[bytes]:
+    """Every stream in a PDF, inflated when Flate-compressed."""
+    streams = []
+    for match in re.finditer(rb"stream\r?\n(.*?)\r?\nendstream", pdf, re.S):
+        raw = match.group(1)
+        try:
+            streams.append(zlib.decompress(raw))
+        except zlib.error:
+            streams.append(raw)
+    return streams
 
 
 class TestUBLService:

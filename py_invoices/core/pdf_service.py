@@ -143,7 +143,7 @@ class PDFService(HTMLService):
         )
         attachment = attachment_cls(
             string=xml_content,
-            filename="factur-x.xml",
+            name="factur-x.xml",
             description="Factur-X Invoice Data",
         )
         return self._render_pdf(html_content, attachments=[attachment], pdf_variant="pdf/a-3b")
