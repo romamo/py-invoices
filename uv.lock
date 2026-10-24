@@ -820,7 +820,7 @@ requires-dist = [
     { name = "sqlmodel", marker = "extra == 'mysql'", specifier = ">=0.0.37" },
     { name = "sqlmodel", marker = "extra == 'postgres'", specifier = ">=0.0.37" },
     { name = "sqlmodel", marker = "extra == 'sqlite'", specifier = ">=0.0.37" },
-    { name = "treaty", marker = "extra == 'cli'", specifier = ">=1.0.0rc43" },
+    { name = "treaty", marker = "extra == 'cli'", specifier = "==1.0.0rc43" },
     { name = "typer", marker = "extra == 'cli'", specifier = ">=0.24.1" },
     { name = "uvicorn", marker = "extra == 'api'", specifier = ">=0.41.0" },
     { name = "weasyprint", marker = "extra == 'pdf'", specifier = ">=68.1" },

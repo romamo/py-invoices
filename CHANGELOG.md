@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **treaty pinned**: the `cli` extra requires `treaty==1.0.0rc43`; it allowed any later pre-release, and a new one could change the `invoices` commands under an existing install
+
 ## [5.0.0] - 2026-10-24
 
 Breaking: the `invoices` commands run on [treaty](https://pypi.org/project/treaty/), so their output, exit codes, and some flags change. The other command groups still run on typer.
