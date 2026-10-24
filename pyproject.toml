@@ -33,7 +33,11 @@ pdf = [
 ]
 
 # Distribution layers
-cli = ["typer>=0.24.1", "rich>=14.3.3"]
+cli = [
+    "typer>=0.24.1",
+    "rich>=14.3.3",
+    "treaty>=1.0.0rc4",
+]
 api = ["fastapi>=0.135.1", "uvicorn>=0.41.0", "python-multipart>=0.0.22"]
 
 dotenv = ["python-dotenv>=1.0.0"]
@@ -106,8 +110,11 @@ ignore = []
 "tests/**" = ["S101", "S603"]
 
 [tool.ruff.lint.flake8-bugbear]
-# Typer and FastAPI declare parameters through call defaults
+# Typer, FastAPI, and treaty declare parameters through call defaults
 extend-immutable-calls = [
+    "treaty.Arg",
+    "treaty.Flag",
+    "treaty.Out",
     "typer.Argument",
     "typer.Option",
     "fastapi.Depends",

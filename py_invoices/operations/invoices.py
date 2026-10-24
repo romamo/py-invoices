@@ -47,6 +47,7 @@ from py_invoices.utils.image import file_to_base64_data_uri
 
 RENDERED_FORMATS = frozenset({"pdf", "html", "ubl"})
 EXPORT_FORMATS = ("pdf", "html", "ubl", "json")
+DEFAULT_PAYMENT_TERMS = "Net 30"
 
 _NET_TERMS = re.compile(r"net\s*(\d+)(\s*days?)?", re.IGNORECASE)
 _IMMEDIATE_TERMS = {"due on receipt", "due upon receipt", "immediate", "net 0"}
@@ -94,7 +95,7 @@ class NewInvoice:
     client_postal_code: str | None = None
     client_country: CountryCode | None = None
     invoice_number: str | None = None
-    payment_terms: str = "Due on Receipt"
+    payment_terms: str = DEFAULT_PAYMENT_TERMS
     due_date: date | None = None
     company: CompanyOverrides = CompanyOverrides()
     template: str | None = None
@@ -138,8 +139,8 @@ def find_invoice(factory: RepositoryFactory, identifier: str) -> Invoice:
     return invoice
 
 
-def list_invoices(factory: RepositoryFactory, limit: int) -> list[Invoice]:
-    return factory.create_invoice_repository().get_all(limit=limit)
+def list_invoices(factory: RepositoryFactory) -> list[Invoice]:
+    return list(iter_all(factory.create_invoice_repository()))
 
 
 def list_overdue_invoices(factory: RepositoryFactory) -> list[Invoice]:

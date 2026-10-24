@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+Breaking: the `invoices` commands run on [treaty](https://pypi.org/project/treaty/), so their output, exit codes, and some flags change. The other command groups still run on typer.
+
+### Changed
+- **Output**: off a terminal every `invoices` command prints one JSON envelope with typed `data` (amounts as exact decimal strings with their currency); at a terminal it prints the familiar tables, and `--format json|plain` picks one
+- **Exit codes**: `2` invalid arguments (nothing ran; every problem listed at once), `4` a missing precondition (company details, logo file, PDF dependencies), `5` invoice or client not found, `6` `--invoice-number` already used. They were all `1`
+- `invoices create` and `invoices clone` take `-e`/`--export` instead of `-f`/`--format`, which is treaty's output format
+- `invoices list` pages: 10 by default, `--cursor` for the next page, `--limit 0` for all, in ID order (it showed the first 10 only)
+- Arguments are checked before anything runs: a non-positive `--amount`, an unknown export format, an invalid `--client-country`, tax ID or `--due-date`, a path in `--invoice-number`, and payment terms without a derivable due date exit `2`
+- Flags go after the command path; `py-invoices manifest` lists every `invoices` command with its flags, output schema, and exit codes
+- `treaty` joins the `cli` extra
+- **Payment terms default to Net 30**: `invoices create` without `--payment-terms` (and `NewInvoice` without `payment_terms`) is due 30 days after the issue date instead of on it, so it no longer shows up in `invoices overdue` the next day; pass `--payment-terms "Due on Receipt"` for the old behaviour ([#2](https://github.com/romamo/py-invoices/issues/2))
+
 ## [4.0.0] - 2026-09-29
 
 Breaking: requires Python 3.14 or later.

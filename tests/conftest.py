@@ -1,6 +1,12 @@
 """Test configuration for py-invoices."""
 
-from collections.abc import Generator
+import json
+import os
+import subprocess
+import sys
+from collections.abc import Callable, Generator
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -44,3 +50,49 @@ def invoice_repo(factory: RepositoryFactory) -> Any:
 def payment_repo(factory: RepositoryFactory) -> Any:
     """Get payment repository."""
     return factory.create_payment_repository()
+
+
+@dataclass(frozen=True, slots=True)
+class CliRun:
+    exit_code: int
+    stdout: str
+    stderr: str
+
+    @property
+    def envelope(self) -> dict[str, Any]:
+        """The JSON envelope a treaty command prints off a terminal."""
+        envelope: dict[str, Any] = json.loads(self.stdout)
+        return envelope
+
+
+type Cli = Callable[..., CliRun]
+
+
+@pytest.fixture
+def data_dir(tmp_path: Path) -> Path:
+    return tmp_path / "data"
+
+
+@pytest.fixture
+def cli(data_dir: Path, tmp_path: Path) -> Cli:
+    """Run the CLI entry point in a subprocess against a files backend in data_dir."""
+    env = {
+        **os.environ,
+        "INVOICES_BACKEND": "files",
+        "INVOICES_STORAGE_PATH": str(data_dir),
+        "INVOICES_FILE_FORMAT": "json",
+        "PY_INVOICES_AUDIT_LOG": "off",
+        "PY_INVOICES_STATE_DIR": str(tmp_path / "state"),
+    }
+
+    def run(*args: str) -> CliRun:
+        result = subprocess.run(
+            [sys.executable, "-m", "py_invoices.cli.main", *args],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return CliRun(result.returncode, result.stdout, result.stderr)
+
+    return run

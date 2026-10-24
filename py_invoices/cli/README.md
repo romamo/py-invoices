@@ -43,11 +43,12 @@ py-invoices clients create --name "Acme Corp" --address "123 Industrial Way" --t
 
 ## Invoices Management
 
-Manage and generate invoices.
+Manage and generate invoices. The `invoices` commands run on [treaty](https://pypi.org/project/treaty/): off a terminal they print one JSON envelope (`ok`, `data`, `error`, `warnings`, `meta`), at a terminal the tables below, and `--format json` or `--format plain` picks one. Flags go after the command.
 
 **List Invoices:**
 ```bash
-py-invoices invoices list
+py-invoices invoices list             # 10 at a time; --cursor from meta.pagination for the next page
+py-invoices invoices list --limit 0   # every invoice
 ```
 
 **Create Invoice:**
@@ -55,16 +56,17 @@ py-invoices invoices list
 py-invoices invoices create --client-name "Acme Corp" --amount 1500.00 --description "Web Development"
 ```
 
-*Create with Format Generation & Custom Details:*
+*Create and export files* (`-e`/`--export` takes `pdf`, `html`, `ubl`, `json`, repeated):
 ```bash
 py-invoices invoices create \
   --client-name "Acme Corp" \
   --amount 1500.00 \
+  --currency EUR \
   --description "Project X" \
   --invoice-number "0001" \
   --payment-terms "Net 30" \
   --bank-account "IBAN: US123456" \
-  --format pdf --format html \
+  -e pdf -e html --output-dir ./Outbox \
   --company-name "My Company" \
   --company-address "123 Business Rd"
 ```
@@ -91,12 +93,13 @@ py-invoices invoices overdue
 
 **Statistics:**
 ```bash
-py-invoices invoices stats --start-date 2024-01-01 --end-date 2024-12-31
+py-invoices invoices summary   # counts by payment state and totals
+py-invoices invoices stats     # the short form
 ```
 
 **Clone Invoice:**
 ```bash
-py-invoices invoices clone <invoice_number_or_id>
+py-invoices invoices clone <invoice_number_or_id> --date 2026-10-01 -e pdf
 ```
 
 **Generate PDF:**
@@ -105,7 +108,7 @@ py-invoices invoices pdf <invoice_number_or_id> --company-name "My Company" --co
 ```
 *Example:*
 ```bash
-py-invoices invoices pdf INV-2024-001 --output ./my-invoices --company-name "Dev Shop" --company-address "1 Main St"
+py-invoices invoices pdf INV-2024-001 --output-dir ./my-invoices --company-name "Dev Shop" --company-address "1 Main St"
 ```
 
 **Generate HTML:**
@@ -117,6 +120,17 @@ py-invoices invoices html <invoice_number_or_id> --company-name "My Company" --c
 py-invoices invoices html INV-2024-001
 ```
 
+**Exit codes:**
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Success |
+| 2 | Invalid arguments; nothing ran, and `error.errors` lists every problem |
+| 4 | A precondition failed: company details, a logo file, or PDF dependencies are missing (`error.code` says which) |
+| 5 | The invoice or client does not exist |
+| 6 | `--invoice-number` is already used |
+
+`py-invoices manifest` lists every invoice command with its flags, output schema, and exit codes as JSON; `py-invoices invoices <command> --schema` shows one.
 
 ## Products Management
 

@@ -1,11 +1,14 @@
+import sys
+
 import typer
 
+import py_invoices.cli.invoices  # noqa: F401  registers the invoices group
+from py_invoices.cli.app import app as treaty_app
 from py_invoices.cli.audit import app as audit_app
 from py_invoices.cli.clients import app as clients_app
 from py_invoices.cli.companies import app as companies_app
 from py_invoices.cli.config import app as config_app
 from py_invoices.cli.credit_notes import app as credit_notes_app
-from py_invoices.cli.invoices import app as invoices_app
 from py_invoices.cli.payment_notes import app as payment_notes_app
 from py_invoices.cli.payments import app as payments_app
 from py_invoices.cli.products import app as products_app
@@ -22,7 +25,8 @@ app = typer.Typer(
     add_completion=False,
 )
 
-app.add_typer(invoices_app, name="invoices", help="Manage invoices")
+# Listed for --help only: main() hands "invoices" to treaty before typer parses argv
+app.add_typer(typer.Typer(), name="invoices", help="Manage invoices")
 app.add_typer(clients_app, name="clients", help="Manage clients")
 app.add_typer(products_app, name="products", help="Manage products")
 app.add_typer(companies_app, name="companies", help="Manage companies")
@@ -54,7 +58,13 @@ def init_db(backend: str = typer.Option(None, help="Storage backend to use")) ->
     console.print(f"[green]Initialized {resolved_backend} backend successfully.[/green]")
 
 
+# First words that run on treaty; the other groups still run on typer
+TREATY_COMMANDS = frozenset({"invoices", "manifest"})
+
+
 def main() -> None:
+    if sys.argv[1:2] and sys.argv[1] in TREATY_COMMANDS:
+        treaty_app.main()
     app()
 
 

@@ -747,6 +747,7 @@ all = [
     { name = "pyyaml" },
     { name = "rich" },
     { name = "sqlmodel" },
+    { name = "treaty" },
     { name = "typer" },
     { name = "uvicorn" },
     { name = "weasyprint" },
@@ -758,6 +759,7 @@ api = [
 ]
 cli = [
     { name = "rich" },
+    { name = "treaty" },
     { name = "typer" },
 ]
 dotenv = [
@@ -818,6 +820,7 @@ requires-dist = [
     { name = "sqlmodel", marker = "extra == 'mysql'", specifier = ">=0.0.37" },
     { name = "sqlmodel", marker = "extra == 'postgres'", specifier = ">=0.0.37" },
     { name = "sqlmodel", marker = "extra == 'sqlite'", specifier = ">=0.0.37" },
+    { name = "treaty", marker = "extra == 'cli'", specifier = ">=1.0.0rc4" },
     { name = "typer", marker = "extra == 'cli'", specifier = ">=0.24.1" },
     { name = "uvicorn", marker = "extra == 'api'", specifier = ">=0.41.0" },
     { name = "weasyprint", marker = "extra == 'pdf'", specifier = ">=68.1" },
@@ -1215,6 +1218,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/fd/03/6111ed99e9bf7dfa1c30baeef0e0fb7e0bd387bd07f8e5b270776fe1de3f/tinyhtml5-2.0.0.tar.gz", hash = "sha256:086f998833da24c300c414d9fe81d9b368fd04cb9d2596a008421cbc705fcfcc", size = 179507, upload-time = "2024-10-29T15:37:14.078Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5c/de/27c57899297163a4a84104d5cec0af3b1ac5faf62f44667e506373c6b8ce/tinyhtml5-2.0.0-py3-none-any.whl", hash = "sha256:13683277c5b176d070f82d099d977194b7a1e26815b016114f581a74bbfbf47e", size = 39793, upload-time = "2024-10-29T15:37:11.743Z" },
+]
+
+[[package]]
+name = "treaty"
+version = "1.0.0rc4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d7/47/98c6ffb6ae5f1389f26d1e56eb1a898e3153c022d3207c650ed17bd4acd1/treaty-1.0.0rc4.tar.gz", hash = "sha256:ebcfe521fb17308fc5a867791a04089d8139988d8c9602d0eb3fb66435fc5207", size = 379721, upload-time = "2026-09-30T05:46:15.223Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0b/26/38fc89b23e871b78e687bcfe4e0af0e90dda72ee4b25d2dd204247f23070/treaty-1.0.0rc4-py3-none-any.whl", hash = "sha256:9699363e4e7fb8f4488df557d16f94ea04ad1143a183a5d7f3e8ef31d777b4c5", size = 388000, upload-time = "2026-09-30T05:46:13.536Z" },
 ]
 
 [[package]]

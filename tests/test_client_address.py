@@ -2,43 +2,19 @@
 
 from pathlib import Path
 
-import pytest
-from click.testing import Result
+from conftest import Cli
 from pydantic_invoices.schemas import ClientCreate, InvoiceCreate, InvoiceStatus
-from typer.testing import CliRunner
 
 from py_invoices import RepositoryFactory
-from py_invoices.cli.main import app
 from py_invoices.core.credit_service import CreditService
 from py_invoices.operations.invoices import clone_invoice
-
-runner = CliRunner()
-
-
-@pytest.fixture
-def data_dir(tmp_path: Path) -> Path:
-    return tmp_path / "data"
-
-
-@pytest.fixture
-def cli(data_dir: Path):  # type: ignore[no-untyped-def]
-    env = {
-        "INVOICES_BACKEND": "files",
-        "INVOICES_STORAGE_PATH": str(data_dir),
-        "INVOICES_FILE_FORMAT": "json",
-    }
-
-    def invoke(*args: str) -> Result:
-        return runner.invoke(app, list(args), env=env)
-
-    return invoke
 
 
 def files_factory(data_dir: Path) -> RepositoryFactory:
     return RepositoryFactory("files", root_dir=str(data_dir), file_format="json")
 
 
-def test_client_create_stores_address(cli, data_dir: Path) -> None:  # type: ignore[no-untyped-def]
+def test_client_create_stores_address(cli: Cli, data_dir: Path) -> None:
     result = cli(
         "clients", "create", "--name", "Acme", "--address", "Main St 1",
         "--city", "Berlin", "--postal-code", "10115", "--country", "de",
@@ -52,14 +28,14 @@ def test_client_create_stores_address(cli, data_dir: Path) -> None:  # type: ign
     assert "Country: DE" in details.stdout
 
 
-def test_invalid_country_is_rejected(cli) -> None:  # type: ignore[no-untyped-def]
+def test_invalid_country_is_rejected(cli: Cli) -> None:
     result = cli("clients", "create", "--name", "Acme", "--address", "x", "--country", "Germany")
 
     assert result.exit_code == 1
     assert "Invalid --country 'Germany'" in result.stdout
 
 
-def test_new_client_address_is_snapshotted(cli, data_dir: Path) -> None:  # type: ignore[no-untyped-def]
+def test_new_client_address_is_snapshotted(cli: Cli, data_dir: Path) -> None:
     result = cli(
         "invoices", "create", "--amount", "100", "--description", "Work",
         "--client-name", "Buyer SARL", "--client-address", "1 Rue Haute",
@@ -76,7 +52,7 @@ def test_new_client_address_is_snapshotted(cli, data_dir: Path) -> None:  # type
 
 
 def test_clone_and_credit_note_copy_address_snapshots(
-    cli,  # type: ignore[no-untyped-def]
+    cli: Cli,
     data_dir: Path,
 ) -> None:
     cli(
