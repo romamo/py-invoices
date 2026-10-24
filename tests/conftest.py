@@ -81,7 +81,7 @@ def cli(data_dir: Path, tmp_path: Path) -> Cli:
         "INVOICES_BACKEND": "files",
         "INVOICES_STORAGE_PATH": str(data_dir),
         "INVOICES_FILE_FORMAT": "json",
-        "PY_INVOICES_AUDIT_LOG": "off",
+        "PY_INVOICES_AUDIT_LOG": "0",
         "PY_INVOICES_STATE_DIR": str(tmp_path / "state"),
     }
 
