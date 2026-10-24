@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [5.0.1] - 2026-10-24
 
 ### Fixed
 - **treaty pinned**: the `cli` extra requires `treaty==1.0.0rc43`; it allowed any later pre-release, and a new one could change the `invoices` commands under an existing install
