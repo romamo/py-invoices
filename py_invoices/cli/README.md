@@ -47,7 +47,7 @@ Manage and generate invoices. The `invoices` commands run on [treaty](https://py
 
 **List Invoices:**
 ```bash
-py-invoices invoices list             # 10 at a time; --cursor from meta.pagination for the next page
+py-invoices invoices list             # newest first, 10 at a time; --cursor from meta.pagination for the next page
 py-invoices invoices list --limit 0   # every invoice
 ```
 

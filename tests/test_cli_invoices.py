@@ -159,20 +159,28 @@ def test_missing_invoice_is_not_found(cli: Cli) -> None:
         assert result.envelope["error"]["context"] == {"invoice": "999"}
 
 
-def test_list_pages_in_id_order(cli: Cli) -> None:
+def test_list_pages_newest_first(cli: Cli) -> None:
     empty = cli("invoices", "list", "--format", "plain")
     assert empty.stdout == "No invoices found.\n"
 
-    for number in ("B-2", "A-1", "C-3"):
-        assert create(cli, "--invoice-number", number).exit_code == 0
+    last_year = date.today().year - 1
+    assert create(cli, "--invoice-number", "TODAY-1").exit_code == 0
+    for issued in ("01-10", "06-10"):
+        clone = cli("invoices", "clone", "TODAY-1", "--date", f"{last_year}-{issued}")
+        assert clone.exit_code == 0, clone.stdout
+    assert create(cli, "--invoice-number", "TODAY-2").exit_code == 0
 
     first = cli("invoices", "list", "--limit", "2").envelope
-    assert [row["number"] for row in first["data"]] == ["B-2", "A-1"]
+    assert [row["number"] for row in first["data"]] == ["TODAY-2", "TODAY-1"]
+    assert first["meta"]["pagination"]["total"] == 4
     assert first["meta"]["pagination"]["has_more"] is True
 
     cursor = first["meta"]["pagination"]["next_cursor"]
     rest = cli("invoices", "list", "--limit", "2", "--cursor", cursor).envelope
-    assert [row["number"] for row in rest["data"]] == ["C-3"]
+    assert [row["issue_date"] for row in rest["data"]] == [
+        f"{last_year}-06-10",
+        f"{last_year}-01-10",
+    ]
 
 
 def test_clone_keeps_payment_period_and_company(cli: Cli, data_dir: Path) -> None:
