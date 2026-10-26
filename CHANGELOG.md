@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **`invoices list` shows the newest invoices**: it listed in ID order, so with more invoices than `--limit` the first page held the oldest ones and the latest were on later pages. It now lists newest first, by issue date and then by ID; `meta.pagination` (and the note on stderr at a terminal) still says how many there are in all ([#3](https://github.com/romamo/py-invoices/issues/3))
+
 ## [5.0.1] - 2026-10-24
 
 ### Fixed

@@ -415,10 +415,10 @@ def generate_html(args: DocumentArgs, ctx: Ctx, store: Store) -> Document:
 
 @invoices.command(
     "list",
-    description="List invoices",
+    description="List invoices, newest first",
     danger_level="safe",
     exit_codes=[],
-    sort_key="id",
+    ordered=True,
     default_limit=10,
     renderers={Format.PLAIN: render_rows},
     examples=[("List every invoice", f"{CLI_NAME} invoices list --limit 0")],

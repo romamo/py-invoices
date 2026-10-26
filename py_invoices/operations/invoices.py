@@ -140,7 +140,12 @@ def find_invoice(factory: RepositoryFactory, identifier: str) -> Invoice:
 
 
 def list_invoices(factory: RepositoryFactory) -> list[Invoice]:
-    return list(iter_all(factory.create_invoice_repository()))
+    """Every invoice, newest first: by issue date, then by ID."""
+    return sorted(
+        iter_all(factory.create_invoice_repository()),
+        key=lambda invoice: (invoice.issue_date, invoice.id),
+        reverse=True,
+    )
 
 
 def list_overdue_invoices(factory: RepositoryFactory) -> list[Invoice]:
