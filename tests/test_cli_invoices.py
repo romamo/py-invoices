@@ -6,6 +6,7 @@ from pathlib import Path
 
 from conftest import Cli, CliRun
 from pydantic_invoices.schemas import Invoice, InvoiceCreate, InvoiceLineCreate, InvoiceStatus
+from pydantic_invoices.schemas.payment_note import PaymentNoteSnapshot
 
 from py_invoices import RepositoryFactory
 from py_invoices.core.validator import UBLValidator
@@ -215,6 +216,47 @@ def test_html_writes_the_document(cli: Cli, tmp_path: Path) -> None:
     data = result.envelope["data"]
     assert (data["effect"], data["format"], data["invoice"]) == ("created", "html", number)
     assert "Me &amp; Co" in Path(data["path"]).read_text()
+
+
+def payment_notes(html: str) -> str:
+    """The payment notes section of a rendered invoice."""
+    start = html.index('<div class="payment-notes"')
+    return html[start : html.index('<div class="footer">', start)]
+
+
+def test_bank_account_is_stored_so_later_renders_match_the_export(
+    cli: Cli, data_dir: Path, tmp_path: Path
+) -> None:
+    """#11: the export and every later rendering print the same payment notes."""
+    exported = create(
+        cli, "--bank-account", "IBAN DE00 1234", "-e", "html", "--output-dir", str(tmp_path / "e")
+    )
+    assert exported.exit_code == 0, exported.stdout
+    number = f"INV-{date.today().year}-0001"
+    assert stored(data_dir, number).payment_notes_snapshot == [
+        PaymentNoteSnapshot(title="Bank Account", content="IBAN DE00 1234")
+    ]
+
+    rendered = cli("invoices", "html", number, "--output-dir", str(tmp_path / "r"))
+    assert rendered.exit_code == 0, rendered.stdout
+    export_notes = payment_notes(Path(exported.envelope["data"]["exports"][0]["path"]).read_text())
+    assert "IBAN DE00 1234" in export_notes
+    assert "Net 30" in export_notes
+    assert payment_notes(Path(rendered.envelope["data"]["path"]).read_text()) == export_notes
+
+
+def test_clone_exports_what_it_renders_later(cli: Cli, tmp_path: Path) -> None:
+    year = date.today().year
+    assert create(cli, "--bank-account", "IBAN DE00 1234").exit_code == 0
+    cloned = cli(
+        "invoices", "clone", f"INV-{year}-0001", "-e", "html", "--output-dir", str(tmp_path / "e")
+    )
+    assert cloned.exit_code == 0, cloned.stdout
+    draft = cloned.envelope["data"]["invoice"]["number"]
+    rendered = cli("invoices", "html", draft, "--output-dir", str(tmp_path / "r"))
+    assert rendered.exit_code == 0, rendered.stdout
+    export_notes = payment_notes(Path(cloned.envelope["data"]["exports"][0]["path"]).read_text())
+    assert payment_notes(Path(rendered.envelope["data"]["path"]).read_text()) == export_notes
 
 
 def test_missing_logo_fails_instead_of_embedding_a_broken_path(

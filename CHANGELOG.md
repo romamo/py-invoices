@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **`invoices create --bank-account` is stored on the invoice**: the account was printed on the files exported by `create` but stored nowhere, so `invoices pdf` / `invoices html` and the API's HTML view of the same invoice had no bank details, and an issued invoice can no longer be edited to add them. `create` now stores it as a "Bank Account" note in `payment_notes_snapshot`. The "Payment Terms" note is no longer added to exports only: every rendering of a standard invoice (export, `invoices pdf` / `invoices html`, API) prints it from the invoice's `payment_terms`, so a draft's edited terms show and the export matches every later rendering. Renderings of invoices stored earlier gain that line. `clone` copies the original's saved payment notes, not a bank account given to `create` ([#11](https://github.com/romamo/py-invoices/issues/11))
+
 ## [6.0.0] - 2026-11-18
 
 Breaking: `invoices create` and `invoices clone` make drafts, issued invoices are locked in every backend, and the audit log is append-only ([#5](https://github.com/romamo/py-invoices/issues/5), [#7](https://github.com/romamo/py-invoices/issues/7)). Pass `--issue` to keep the one-step flow.

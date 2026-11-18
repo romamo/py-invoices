@@ -112,6 +112,8 @@ class NewInvoice:
     due_date: date | None = None
     company: CompanyOverrides = CompanyOverrides()
     template: str | None = None
+    bank_account: str | None = None
+    """Stored as a "Bank Account" payment note, printed on every rendering of the invoice."""
     issue: bool = False
     """Issue at once instead of leaving a draft."""
 
@@ -313,7 +315,7 @@ def _render_context(
     """(company details, extra template context) for rendering a stored invoice."""
     resolved = resolve_company_details(factory, invoice, company)
     context: dict[str, Any] = {"logo": resolved.logo}
-    payment_notes = _stored_payment_notes(factory, invoice)
+    payment_notes = printed_payment_notes(factory, invoice)
     if payment_notes:
         context["payment_notes"] = payment_notes
     return resolved.details, context
@@ -454,7 +456,11 @@ def create_invoice(factory: RepositoryFactory, request: NewInvoice) -> CreatedIn
             or (company.address if company else None),
             company_tax_id_snapshot=request.company.tax_id or (company.tax_id if company else None),
             template_name=request.template or client.preferred_template,
-            payment_notes_snapshot=[],
+            payment_notes_snapshot=(
+                [PaymentNoteSnapshot(title="Bank Account", content=request.bank_account)]
+                if request.bank_account
+                else []
+            ),
             lines=[
                 InvoiceLineCreate(
                     description=request.description, quantity=1, unit_price=request.amount
@@ -729,14 +735,16 @@ def check_invoice_export(
     return formats
 
 
-def export_payment_notes(
-    payment_terms: str | None, bank_account: str | None
-) -> list[dict[str, str]]:
+def printed_payment_notes(factory: RepositoryFactory, invoice: Invoice) -> list[dict[str, str]]:
+    """The payment notes every rendering of the invoice prints, exported or rendered later.
+
+    A standard invoice's payment terms come first, read from `payment_terms` so a draft's
+    edited terms show; then the notes stored on the invoice.
+    """
     notes = []
-    if payment_terms:
-        notes.append({"title": "Payment Terms", "content": payment_terms})
-    if bank_account:
-        notes.append({"title": "Bank Account", "content": bank_account})
+    if invoice.type is InvoiceType.STANDARD and invoice.payment_terms:
+        notes.append({"title": "Payment Terms", "content": invoice.payment_terms})
+    notes.extend(note.model_dump() for note in _stored_payment_notes(factory, invoice))
     return notes
 
 
