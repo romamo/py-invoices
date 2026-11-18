@@ -1,6 +1,7 @@
 """Base plugin interface for storage backends."""
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any, ClassVar
 
 from pydantic_invoices.interfaces import (
@@ -13,6 +14,16 @@ from pydantic_invoices.interfaces import (
 )
 
 from py_invoices.core.audit_service import AuditLogEntry
+
+
+@dataclass(frozen=True, slots=True)
+class MisplacedRecord:
+    """A stored record found under a key other than its own ID."""
+
+    location: str
+    """Where the record is stored, e.g. "invoices/3.md" """
+    record_id: int
+    """The ID inside the record"""
 
 
 class AuditRepository(ABC):
@@ -120,6 +131,13 @@ class StoragePlugin(ABC):
         default shares this plugin, so in-memory data stays visible across scopes.
         """
         return self
+
+    def misplaced_records(self) -> list[MisplacedRecord]:
+        """Records stored under a key other than their ID; lookups by ID miss them.
+
+        Backends keyed by the ID itself (SQL, memory) cannot misplace a record.
+        """
+        return []
 
     def close_scope(self) -> None:  # noqa: B027 (optional hook)
         """Release what open_scope() acquired. Never discards stored data."""
