@@ -163,6 +163,7 @@ class CreditService:
                 company_address_snapshot=original_invoice.company_address_snapshot,
                 company_tax_id_snapshot=original_invoice.company_tax_id_snapshot,
                 template_name=original_invoice.template_name,
+                payment_notes_snapshot=[],
             )
         )
 

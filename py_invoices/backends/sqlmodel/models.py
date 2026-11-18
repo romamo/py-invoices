@@ -148,6 +148,10 @@ class InvoiceDB(SQLModel, table=True):
 
     template_name: str | None = Field(None, max_length=255)
     payment_note_ids: list[int] = Field(default_factory=list, sa_column=Column(JSON))
+    # None for invoices stored before payment notes were snapshotted
+    payment_notes_snapshot: list[dict[str, str]] | None = Field(
+        default=None, sa_column=Column(JSON)
+    )
 
     # Relationships
     client: ClientDB = Relationship(back_populates="invoices")
@@ -191,6 +195,7 @@ class InvoiceDB(SQLModel, table=True):
             company_tax_id_snapshot=self.company_tax_id_snapshot,
             template_name=self.template_name,
             payment_note_ids=list(self.payment_note_ids or []),
+            payment_notes_snapshot=self.payment_notes_snapshot,
             lines=[line.to_schema() for line in self.lines],
             payments=[payment.to_schema() for payment in self.payments],
         )
