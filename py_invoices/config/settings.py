@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import SecretStr
@@ -26,6 +27,24 @@ class InvoiceSettings(BaseSettings):
     cors_origins: list[str] = []
 
     model_config = SettingsConfigDict(env_prefix="INVOICES_", env_file=".env", extra="ignore")
+
+    @classmethod
+    def load(cls, base: Path) -> InvoiceSettings:
+        """Settings from the environment and `base`/.env, relative paths resolved against `base`.
+
+        A CLI run passes its working directory (`--cwd`), so the store, templates and output
+        directory are the same wherever the process was started.
+        """
+        settings = cls(_env_file=base / ".env")
+        return settings.model_copy(
+            update={
+                "storage_path": str(base / settings.storage_path),
+                "output_dir": str(base / settings.output_dir),
+                "template_dir": str(base / settings.template_dir)
+                if settings.template_dir
+                else None,
+            }
+        )
 
 
 @lru_cache

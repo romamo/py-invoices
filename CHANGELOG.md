@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - **`INVOICES_OUTPUT_DIR` is honored**: `invoices pdf`, `invoices html` and the `--export` of `invoices create` and `invoices clone` wrote to a hardcoded `output` directory whatever the setting, so `config show` named a directory nothing was written to. The directory is now `--output-dir`, then `INVOICES_OUTPUT_DIR` (environment or `.env`), then `output` ([#14](https://github.com/romamo/py-invoices/issues/14))
+- **`--cwd` applies to settings and stored paths**: the global `--cwd` of the `invoices` commands moved only their own path flags. The `.env` file, a relative `INVOICES_STORAGE_PATH`, `INVOICES_OUTPUT_DIR` and `INVOICES_TEMPLATE_DIR`, and a company's relative `logo_path` were read from the directory the process started in, so `--cwd` ran against an empty memory store, created an empty files store, or failed with `LOGO_NOT_FOUND`. They now resolve against the `--cwd` directory. `InvoiceSettings.load(base)` builds settings that way; the operations that render take a `RenderPaths` ([#13](https://github.com/romamo/py-invoices/issues/13))
 
 ## [6.0.0] - 2026-11-18
 

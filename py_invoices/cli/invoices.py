@@ -529,7 +529,13 @@ def _document(kind: DocumentKind, args: DocumentArgs, store: Store) -> Document:
     output_dir = _output_dir(args.output_dir, store)
     with operation_errors():
         document = ops.render_invoice_document(
-            store.factory, args.invoice, kind, str(output_dir), args.company(), args.template
+            store.factory,
+            args.invoice,
+            kind,
+            str(output_dir),
+            args.company(),
+            args.template,
+            store.render_paths(),
         )
     return Document("created", document.invoice.number, kind.value, Path(document.path))
 
@@ -665,6 +671,7 @@ def _export(
             str(_output_dir(output_dir, store)),
             company,
             notes,
+            store.render_paths(),
         )
     except OperationError as e:
         failed = exit_for(e)
@@ -720,7 +727,9 @@ def create_invoice(args: CreateArgs, ctx: Ctx, store: Store) -> Created:
         issue=args.issue,
     )
     with operation_errors():
-        formats = ops.check_new_invoice_export(store.factory, list(args.export), company)
+        formats = ops.check_new_invoice_export(
+            store.factory, list(args.export), company, store.render_paths()
+        )
         created = ops.create_invoice(store.factory, request)
     _warn_if_memory(ctx, store)
     client = ClientRef.of(created.created_client) if created.created_client else None
@@ -750,7 +759,9 @@ def clone_invoice(args: CloneArgs, ctx: Ctx, store: Store) -> Cloned:
     company = args.company()
     with operation_errors():
         original = ops.find_invoice(store.factory, args.invoice)
-        formats = ops.check_invoice_export(store.factory, original, list(args.export), company)
+        formats = ops.check_invoice_export(
+            store.factory, original, list(args.export), company, store.render_paths()
+        )
         cloned = ops.clone_invoice(
             store.factory,
             args.invoice,

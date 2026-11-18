@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from decimal import Decimal
 from enum import StrEnum
+from pathlib import Path
 from typing import Any
 
 from pydantic_invoices.schemas import (
@@ -24,7 +25,7 @@ from pydantic_invoices.schemas.company import Company
 from pydantic_invoices.schemas.payment_note import PaymentNoteSnapshot
 from pydantic_invoices.vo import CountryCode, Money
 
-from py_invoices.config import get_settings
+from py_invoices.config import InvoiceSettings, get_settings
 from py_invoices.core import AuditService, HTMLService, NumberingService, PDFService, UBLService
 from py_invoices.core.audit_service import AuditEntity
 from py_invoices.core.html_service import PACKAGE_TEMPLATES_DIR, is_safe_file_name, output_path
@@ -54,7 +55,7 @@ from py_invoices.operations.errors import (
     UnknownExportFormatError,
 )
 from py_invoices.plugins.factory import RepositoryFactory
-from py_invoices.utils.image import file_to_base64_data_uri
+from py_invoices.utils.image import PASSTHROUGH_SCHEMES, file_to_base64_data_uri
 
 logger = logging.getLogger(__name__)
 
@@ -165,9 +166,39 @@ def package_template_dir() -> str:
     return PACKAGE_TEMPLATES_DIR
 
 
-def template_dir() -> str:
-    """Configured template directory, else the bundled templates."""
-    return get_settings().template_dir or PACKAGE_TEMPLATES_DIR
+@dataclass(frozen=True, slots=True)
+class RenderPaths:
+    """Where rendering finds templates, and what a stored relative path is relative to.
+
+    A company's logo_path is stored as given, so "./data/assets/logo.png" resolves against
+    `base`, the run's working directory (the CLI's --cwd), not the process's.
+    """
+
+    template_dir: str
+    base: Path
+
+    @classmethod
+    def of(cls, settings: InvoiceSettings, base: Path) -> RenderPaths:
+        """The configured template directory, else the bundled templates."""
+        return cls(settings.template_dir or PACKAGE_TEMPLATES_DIR, base)
+
+    @classmethod
+    def current(cls) -> RenderPaths:
+        """Paths of the process: the environment's settings and working directory."""
+        return cls.of(get_settings(), Path.cwd())
+
+    def logo_uri(self, path: str | None) -> str | None:
+        """The logo as a data URI; a relative local path is read under `base`.
+
+        Raises:
+            LogoNotFoundError: If a local path does not point to a file
+        """
+        if path and not path.startswith(PASSTHROUGH_SCHEMES):
+            path = str(self.base / path)
+        try:
+            return file_to_base64_data_uri(path)
+        except FileNotFoundError as e:
+            raise LogoNotFoundError(str(path)) from e
 
 
 def find_invoice(factory: RepositoryFactory, identifier: str) -> Invoice:
@@ -224,20 +255,13 @@ def parse_amount(value: str, currency: str) -> Money:
     return amount
 
 
-def _logo_uri(path: str | None) -> str | None:
-    try:
-        return file_to_base64_data_uri(path)
-    except FileNotFoundError as e:
-        raise LogoNotFoundError(str(path)) from e
-
-
 def _country_code(company: Company) -> str | None:
     country = (company.country or "").strip()
     return country.upper() if len(country) == 2 and country.isalpha() else None
 
 
 def resolve_company_details(
-    factory: RepositoryFactory, invoice: Invoice, overrides: CompanyOverrides
+    factory: RepositoryFactory, invoice: Invoice, overrides: CompanyOverrides, paths: RenderPaths
 ) -> ResolvedCompany:
     """Resolve company details from overrides, then invoice snapshots, then the company record."""
     record = factory.create_company_repository().get_by_id(invoice.company_id)
@@ -263,7 +287,7 @@ def resolve_company_details(
         "country_code": _country_code(record) if record else None,
     }
     logo_path = overrides.logo_path or (record.logo_path if record else None)
-    return ResolvedCompany(details=details, logo=_logo_uri(logo_path))
+    return ResolvedCompany(details=details, logo=paths.logo_uri(logo_path))
 
 
 def _document_template(
@@ -308,10 +332,10 @@ def _stored_payment_notes(
 
 
 def _render_context(
-    factory: RepositoryFactory, invoice: Invoice, company: CompanyOverrides
+    factory: RepositoryFactory, invoice: Invoice, company: CompanyOverrides, paths: RenderPaths
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """(company details, extra template context) for rendering a stored invoice."""
-    resolved = resolve_company_details(factory, invoice, company)
+    resolved = resolve_company_details(factory, invoice, company, paths)
     context: dict[str, Any] = {"logo": resolved.logo}
     payment_notes = _stored_payment_notes(factory, invoice)
     if payment_notes:
@@ -321,8 +345,9 @@ def _render_context(
 
 def render_invoice_html(factory: RepositoryFactory, invoice: Invoice) -> str:
     """HTML for a stored invoice, rendered exactly as the CLI renders it."""
-    details, context = _render_context(factory, invoice, CompanyOverrides())
-    return HTMLService(template_dir=template_dir()).generate_html(
+    paths = RenderPaths.current()
+    details, context = _render_context(factory, invoice, CompanyOverrides(), paths)
+    return HTMLService(template_dir=paths.template_dir).generate_html(
         invoice=invoice,
         company=details,
         template_name=_document_template(factory, invoice, None),
@@ -332,9 +357,10 @@ def render_invoice_html(factory: RepositoryFactory, invoice: Invoice) -> str:
 
 def render_invoice_pdf(factory: RepositoryFactory, invoice: Invoice) -> bytes:
     """PDF bytes for a stored invoice, rendered exactly as the CLI renders it."""
-    details, context = _render_context(factory, invoice, CompanyOverrides())
+    paths = RenderPaths.current()
+    details, context = _render_context(factory, invoice, CompanyOverrides(), paths)
     try:
-        return PDFService(template_dir=template_dir()).generate_pdf_bytes(
+        return PDFService(template_dir=paths.template_dir).generate_pdf_bytes(
             invoice=invoice,
             company=details,
             template_name=_document_template(factory, invoice, None),
@@ -351,20 +377,21 @@ def render_invoice_document(
     output_dir: str,
     company: CompanyOverrides,
     template: str | None,
+    paths: RenderPaths,
 ) -> RenderedDocument:
     """Render a stored invoice to a PDF or HTML file in output_dir."""
     invoice = find_invoice(factory, identifier)
-    details, context = _render_context(factory, invoice, company)
+    details, context = _render_context(factory, invoice, company, paths)
     template_name = _document_template(factory, invoice, template)
 
     if kind is DocumentKind.HTML:
-        path = HTMLService(template_dir=template_dir(), output_dir=output_dir).save_html(
+        path = HTMLService(template_dir=paths.template_dir, output_dir=output_dir).save_html(
             invoice=invoice, company=details, template_name=template_name, **context
         )
         return RenderedDocument(invoice=invoice, path=path)
 
     try:
-        path = PDFService(template_dir=template_dir(), output_dir=output_dir).generate_pdf(
+        path = PDFService(template_dir=paths.template_dir, output_dir=output_dir).generate_pdf(
             invoice=invoice, company=details, template_name=template_name, **context
         )
     except ImportError as e:
@@ -697,7 +724,7 @@ def _require_pdf_support(formats: list[str]) -> None:
 
 
 def check_new_invoice_export(
-    factory: RepositoryFactory, formats: list[str], company: CompanyOverrides
+    factory: RepositoryFactory, formats: list[str], company: CompanyOverrides, paths: RenderPaths
 ) -> list[str]:
     """Check everything export_invoice needs before a new invoice is saved.
 
@@ -710,13 +737,17 @@ def check_new_invoice_export(
             company.address or (issuing and issuing.address)
         ):
             raise CompanyDetailsUnresolvedError()
-        _logo_uri(company.logo_path or (issuing.logo_path if issuing else None))
+        paths.logo_uri(company.logo_path or (issuing.logo_path if issuing else None))
     _require_pdf_support(formats)
     return formats
 
 
 def check_invoice_export(
-    factory: RepositoryFactory, invoice: Invoice, formats: list[str], company: CompanyOverrides
+    factory: RepositoryFactory,
+    invoice: Invoice,
+    formats: list[str],
+    company: CompanyOverrides,
+    paths: RenderPaths,
 ) -> list[str]:
     """Check everything export_invoice needs for a copy of `invoice` before it is saved.
 
@@ -724,7 +755,7 @@ def check_invoice_export(
     """
     formats = validate_export_formats(formats)
     if RENDERED_FORMATS.intersection(formats):
-        resolve_company_details(factory, invoice, company)
+        resolve_company_details(factory, invoice, company, paths)
     _require_pdf_support(formats)
     return formats
 
@@ -747,6 +778,7 @@ def export_invoice(
     output_dir: str,
     company: CompanyOverrides,
     payment_notes: list[dict[str, str]],
+    paths: RenderPaths,
 ) -> list[ExportOutcome]:
     """Write the invoice in each requested format, one outcome per format in order.
 
@@ -757,7 +789,7 @@ def export_invoice(
     formats = validate_export_formats(formats)
     template_name = _document_template(factory, invoice, None)
     resolved = (
-        resolve_company_details(factory, invoice, company)
+        resolve_company_details(factory, invoice, company, paths)
         if RENDERED_FORMATS.intersection(formats)
         else None
     )
@@ -775,7 +807,9 @@ def export_invoice(
             raise CompanyDetailsUnresolvedError()
         if fmt == "pdf":
             try:
-                path = PDFService(template_dir=template_dir(), output_dir=output_dir).generate_pdf(
+                path = PDFService(
+                    template_dir=paths.template_dir, output_dir=output_dir
+                ).generate_pdf(
                     invoice=invoice,
                     company=resolved.details,
                     template_name=template_name,
@@ -785,7 +819,7 @@ def export_invoice(
             except ImportError as e:
                 raise _pdf_unavailable(e) from e
         elif fmt == "html":
-            path = HTMLService(template_dir=template_dir(), output_dir=output_dir).save_html(
+            path = HTMLService(template_dir=paths.template_dir, output_dir=output_dir).save_html(
                 invoice=invoice,
                 company=resolved.details,
                 template_name=template_name,
@@ -793,7 +827,7 @@ def export_invoice(
                 payment_notes=payment_notes,
             )
         else:
-            path = UBLService(template_dir=template_dir(), output_dir=output_dir).save_ubl(
+            path = UBLService(template_dir=paths.template_dir, output_dir=output_dir).save_ubl(
                 invoice=invoice, company=resolved.details
             )
         outcomes.append(ExportOutcome(fmt, path))

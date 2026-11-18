@@ -9,6 +9,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from typing import Literal, Self
 
 from pydantic_invoices.vo import CountryCode, Money, TaxId
@@ -36,6 +37,7 @@ from py_invoices.operations.errors import (
     PaymentNoteNotFoundError,
     SummaryUnavailableError,
 )
+from py_invoices.operations.invoices import RenderPaths
 
 app = App(CLI_NAME, version=__version__, description=f"CLI for {APP_NAME} management")
 
@@ -55,15 +57,20 @@ class Common:
 
 @dataclass(frozen=True, slots=True)
 class Store:
-    """The run's settings and the repository factory for its backend."""
+    """The run's settings, read from its directory (`--cwd`), and the factory for its backend."""
 
     factory: RepositoryFactory
     settings: InvoiceSettings
+    cwd: Path
 
     @classmethod
     def acquire(cls, args: Common, ctx: Ctx) -> Self:
-        settings = get_settings_for(args.backend)
-        return cls(RepositoryFactory.from_settings(settings), settings)
+        settings = get_settings_for(args.backend, ctx.cwd)
+        return cls(RepositoryFactory.from_settings(settings), settings, ctx.cwd)
+
+    def render_paths(self) -> RenderPaths:
+        """Templates and the directory a stored relative path (a logo) is relative to."""
+        return RenderPaths.of(self.settings, self.cwd)
 
 
 @dataclass(frozen=True, slots=True)
