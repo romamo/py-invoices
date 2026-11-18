@@ -29,12 +29,17 @@ def get_console() -> Console:
     return console
 
 
-def get_factory(backend: str | None = None) -> RepositoryFactory:
-    """Factory from the current environment; `backend` overrides the configured one."""
+def get_settings_for(backend: str | None = None) -> InvoiceSettings:
+    """Settings from the current environment; `backend` overrides the configured one."""
     settings = InvoiceSettings()
     if backend:
         settings = InvoiceSettings.model_validate({**settings.model_dump(), "backend": backend})
-    return RepositoryFactory.from_settings(settings)
+    return settings
+
+
+def get_factory(backend: str | None = None) -> RepositoryFactory:
+    """Factory from the current environment; `backend` overrides the configured one."""
+    return RepositoryFactory.from_settings(get_settings_for(backend))
 
 
 def error_lines(error: OperationError) -> list[str]:

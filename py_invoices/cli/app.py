@@ -15,7 +15,8 @@ from pydantic_invoices.vo import CountryCode, Money, TaxId
 from treaty import App, CliExit, Ctx, Exit, Flag
 
 from py_invoices import RepositoryFactory, __version__
-from py_invoices.cli.utils import get_factory
+from py_invoices.cli.utils import get_settings_for
+from py_invoices.config import InvoiceSettings
 from py_invoices.constants import APP_NAME, CLI_NAME
 from py_invoices.core.pdf_service import WEASYPRINT_INSTALL_DOCS
 from py_invoices.core.totals import format_money
@@ -54,13 +55,15 @@ class Common:
 
 @dataclass(frozen=True, slots=True)
 class Store:
-    """The repository factory for the run's backend."""
+    """The run's settings and the repository factory for its backend."""
 
     factory: RepositoryFactory
+    settings: InvoiceSettings
 
     @classmethod
     def acquire(cls, args: Common, ctx: Ctx) -> Self:
-        return cls(get_factory(args.backend))
+        settings = get_settings_for(args.backend)
+        return cls(RepositoryFactory.from_settings(settings), settings)
 
 
 @dataclass(frozen=True, slots=True)

@@ -63,7 +63,9 @@ class CompanyFlags(Common):
 @dataclass(frozen=True, slots=True, kw_only=True)
 class DocumentArgs(CompanyFlags):
     invoice: str = Arg(description="Invoice number or ID")
-    output_dir: Path = Flag(default=Path("output"), description="Directory for the file")
+    output_dir: Path | None = Flag(
+        default=None, description="Directory for the file; default INVOICES_OUTPUT_DIR or output"
+    )
     template: str | None = Flag(default=None, description="Template name, such as invoice.html.j2")
 
 
@@ -108,7 +110,10 @@ class CreateArgs(CompanyFlags):
     export: tuple[ExportFormat, ...] = Flag(
         default=(), short="e", description="File formats to export the new invoice to"
     )
-    output_dir: Path = Flag(default=Path("output"), description="Directory for exported files")
+    output_dir: Path | None = Flag(
+        default=None,
+        description="Directory for exported files; default INVOICES_OUTPUT_DIR or output",
+    )
     template: str | None = Flag(default=None, description="Template name for exported files")
     issue: bool = Flag(
         default=False, description="Issue the invoice at once instead of creating a draft"
@@ -213,7 +218,10 @@ class CloneArgs(CompanyFlags, LineFlags):
     export: tuple[ExportFormat, ...] = Flag(
         default=(), short="e", description="File formats to export the clone to"
     )
-    output_dir: Path = Flag(default=Path("output"), description="Directory for exported files")
+    output_dir: Path | None = Flag(
+        default=None,
+        description="Directory for exported files; default INVOICES_OUTPUT_DIR or output",
+    )
     issue: bool = Flag(
         default=False, description="Issue the copy at once instead of creating a draft"
     )
@@ -512,10 +520,16 @@ def render_issued(data: Mapping[str, Any]) -> str:
 # Commands
 
 
+def _output_dir(flag: Path | None, store: Store) -> Path:
+    """--output-dir, else the configured INVOICES_OUTPUT_DIR (default "output")."""
+    return flag if flag is not None else Path(store.settings.output_dir)
+
+
 def _document(kind: DocumentKind, args: DocumentArgs, store: Store) -> Document:
+    output_dir = _output_dir(args.output_dir, store)
     with operation_errors():
         document = ops.render_invoice_document(
-            store.factory, args.invoice, kind, str(args.output_dir), args.company(), args.template
+            store.factory, args.invoice, kind, str(output_dir), args.company(), args.template
         )
     return Document("created", document.invoice.number, kind.value, Path(document.path))
 
@@ -637,7 +651,7 @@ def _export(
     store: Store,
     invoice: Invoice,
     formats: list[str],
-    output_dir: Path,
+    output_dir: Path | None,
     company: CompanyOverrides,
     notes: list[dict[str, str]],
     result: Created | Cloned,
@@ -645,7 +659,12 @@ def _export(
     """Export a saved invoice; a failure carries `result`, so the caller learns it was saved."""
     try:
         outcomes = ops.export_invoice(
-            store.factory, invoice, formats, str(output_dir), company, notes
+            store.factory,
+            invoice,
+            formats,
+            str(_output_dir(output_dir, store)),
+            company,
+            notes,
         )
     except OperationError as e:
         failed = exit_for(e)
