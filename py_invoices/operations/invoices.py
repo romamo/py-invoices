@@ -1,5 +1,6 @@
 """Invoice operations: return domain objects, raise OperationError, never print."""
 
+import logging
 import re
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -17,6 +18,7 @@ from pydantic_invoices.schemas import (
     InvoiceType,
 )
 from pydantic_invoices.schemas.company import Company
+from pydantic_invoices.schemas.payment_note import PaymentNoteSnapshot
 from pydantic_invoices.vo import CountryCode, Money
 
 from py_invoices.config import get_settings
@@ -44,6 +46,8 @@ from py_invoices.operations.errors import (
 )
 from py_invoices.plugins.factory import RepositoryFactory
 from py_invoices.utils.image import file_to_base64_data_uri
+
+logger = logging.getLogger(__name__)
 
 RENDERED_FORMATS = frozenset({"pdf", "html", "ubl"})
 EXPORT_FORMATS = ("pdf", "html", "ubl", "json")
@@ -235,15 +239,33 @@ def _document_template(
     return chosen
 
 
-def _stored_payment_notes(factory: RepositoryFactory, invoice: Invoice) -> list[Any]:
+def _snapshot_payment_notes(
+    factory: RepositoryFactory, note_ids: list[int]
+) -> list[PaymentNoteSnapshot]:
+    """The current text of the payment notes, frozen for a new invoice."""
     repo = factory.create_payment_note_repository()
-    notes = []
-    for note_id in invoice.payment_note_ids:
+    snapshots = []
+    for note_id in note_ids:
         note = repo.get_by_id(note_id)
         if note is None:
             raise PaymentNoteNotFoundError(note_id)
-        notes.append(note)
-    return notes
+        snapshots.append(PaymentNoteSnapshot(title=note.title, content=note.content))
+    return snapshots
+
+
+def _stored_payment_notes(
+    factory: RepositoryFactory, invoice: Invoice
+) -> list[PaymentNoteSnapshot]:
+    """The payment notes as issued; a live lookup only for invoices stored before snapshots."""
+    if invoice.payment_notes_snapshot is not None:
+        return invoice.payment_notes_snapshot
+    if invoice.payment_note_ids:
+        logger.warning(
+            "Invoice %s has no payment notes snapshot; rendering the current payment notes %s",
+            invoice.number,
+            invoice.payment_note_ids,
+        )
+    return _snapshot_payment_notes(factory, invoice.payment_note_ids)
 
 
 def _render_context(
@@ -390,6 +412,7 @@ def create_invoice(factory: RepositoryFactory, request: NewInvoice) -> CreatedIn
             or (company.address if company else None),
             company_tax_id_snapshot=request.company.tax_id or (company.tax_id if company else None),
             template_name=request.template or client.preferred_template,
+            payment_notes_snapshot=[],
             lines=[
                 InvoiceLineCreate(
                     description=request.description, quantity=1, unit_price=request.amount
@@ -433,6 +456,7 @@ def clone_invoice(factory: RepositoryFactory, identifier: str, issue_date: date)
             company_address_snapshot=original.company_address_snapshot,
             company_tax_id_snapshot=original.company_tax_id_snapshot,
             payment_note_ids=original.payment_note_ids,
+            payment_notes_snapshot=_snapshot_payment_notes(factory, original.payment_note_ids),
             template_name=_document_template(factory, original, None),
             lines=[
                 InvoiceLineCreate(

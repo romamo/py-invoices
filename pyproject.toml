@@ -7,7 +7,7 @@ readme = "README.md"
 requires-python = ">=3.14"
 license = {text = "MIT"}
 dependencies = [
-    "pydantic-invoices>=1.5.0",
+    "pydantic-invoices>=1.6.0",
     "pydantic>=2.10.0",
     "pydantic-settings>=2.13.1",
     "jinja2>=3.1.5",
