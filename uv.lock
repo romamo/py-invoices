@@ -809,7 +809,7 @@ requires-dist = [
     { name = "psycopg2-binary", marker = "extra == 'postgres'", specifier = ">=2.9.0" },
     { name = "py-invoices", extras = ["sqlite", "postgres", "mysql", "files", "yaml", "pdf", "cli", "api", "dotenv"], marker = "extra == 'all'" },
     { name = "pydantic", specifier = ">=2.10.0" },
-    { name = "pydantic-invoices", specifier = ">=1.5.0" },
+    { name = "pydantic-invoices", specifier = ">=1.6.0" },
     { name = "pydantic-settings", specifier = ">=2.13.1" },
     { name = "pymysql", marker = "extra == 'mysql'", specifier = ">=1.1.0" },
     { name = "python-dotenv", marker = "extra == 'dotenv'", specifier = ">=1.0.0" },
@@ -909,15 +909,15 @@ wheels = [
 
 [[package]]
 name = "pydantic-invoices"
-version = "1.5.0"
+version = "1.6.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "python-stdnum" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a2/61/3b178fe658e7b45f1e9b1a4cbff0a02a615c90434ea35e9e00c477205cfd/pydantic_invoices-1.5.0.tar.gz", hash = "sha256:2ef8ebf2505e38652fb28b91b41fa2754e3cbb83d8738e3b4a71a5303017581a", size = 18776, upload-time = "2026-09-29T18:26:02.987Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/76/d6/258e5b4074e49dc01cbc5273cdf2dc1a4139811d747558eaf79c4e2179bf/pydantic_invoices-1.6.0.tar.gz", hash = "sha256:7ea63349d89d08a4b0f6348f008afd70c72e8d43672001e2fafb3679a0ae8d54", size = 19245, upload-time = "2026-11-18T10:00:18.676Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f1/4a/dde94b43aa8aff31285a35ced30ed39dcd16420ce8c2ee148735ca39d667/pydantic_invoices-1.5.0-py3-none-any.whl", hash = "sha256:71ff54374def5bdf9f1f9a944754724a1cf780f799a4063341cec0e53f1d9cff", size = 19718, upload-time = "2026-09-29T18:26:02.079Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/16/3e0acca1a93de9a1d7099a8ae2bed69e05d27ab4217a445709717b1fdad1/pydantic_invoices-1.6.0-py3-none-any.whl", hash = "sha256:984b72637dae5698ea7ed88e5a5825e49cbc67ae47e754ea6acd8849e5fb6833", size = 19863, upload-time = "2026-11-18T10:00:17.657Z" },
 ]
 
 [[package]]
