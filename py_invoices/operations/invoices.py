@@ -29,7 +29,12 @@ from py_invoices.core import AuditService, HTMLService, NumberingService, PDFSer
 from py_invoices.core.audit_service import AuditEntity
 from py_invoices.core.html_service import PACKAGE_TEMPLATES_DIR, is_safe_file_name, output_path
 from py_invoices.core.lifecycle import DRAFT_NUMBER_PREFIX, content_hash, draft_number, is_draft
-from py_invoices.core.numbering_service import CREDIT_NOTE_NUMBER_FORMAT, INVOICE_NUMBER_FORMAT
+from py_invoices.core.numbering_service import (
+    CREDIT_NOTE_NUMBER_FORMAT,
+    INVOICE_NUMBER_FORMAT,
+    NumberTakenError,
+    series_format,
+)
 from py_invoices.core.paging import iter_all
 from py_invoices.core.pdf_service import PdfSystemLibrariesError
 from py_invoices.core.summary import MixedCurrencyError
@@ -50,6 +55,7 @@ from py_invoices.operations.errors import (
     OperationError,
     PaymentNoteNotFoundError,
     PaymentTermsError,
+    SeriesNumberTakenError,
     SummaryUnavailableError,
     UnknownExportFormatError,
 )
@@ -623,6 +629,26 @@ def update_invoice(factory: RepositoryFactory, identifier: str, changes: DraftCh
     return saved
 
 
+def _next_number(factory: RepositoryFactory, draft: Invoice, year: int) -> str:
+    """The next number of the issuing company's series for the draft's document type."""
+    base = (
+        CREDIT_NOTE_NUMBER_FORMAT
+        if draft.type is InvoiceType.CREDIT_NOTE
+        else INVOICE_NUMBER_FORMAT
+    )
+    # Invoices of a company that is not stored (company_id 1 without companies) keep
+    # the unprefixed series
+    company = factory.create_company_repository().get_by_id(draft.company_id)
+    numbering = NumberingService(
+        series_format(base, company.number_prefix if company else None),
+        invoice_repo=factory.create_invoice_repository(),
+    )
+    try:
+        return numbering.generate_number(year=year, company_id=draft.company_id)
+    except NumberTakenError as e:
+        raise SeriesNumberTakenError(str(e), e.number, e.company_id) from e
+
+
 def issue_invoice(
     factory: RepositoryFactory, identifier: str, issue_date: date | None = None
 ) -> Invoice:
@@ -644,12 +670,7 @@ def issue_invoice(
         due_date = issue_date + (due_date - draft.issue_date)
     number = draft.number
     if number.startswith(DRAFT_NUMBER_PREFIX):
-        series = (
-            CREDIT_NOTE_NUMBER_FORMAT
-            if draft.type is InvoiceType.CREDIT_NOTE
-            else INVOICE_NUMBER_FORMAT
-        )
-        number = NumberingService(series, invoice_repo=repo).generate_number(year=issue_date.year)
+        number = _next_number(factory, draft, issue_date.year)
     _check_dates(draft.number, issue_date, due_date)
     notes = draft.payment_notes_snapshot
     if notes is None:  # a draft stored without one, such as through the API

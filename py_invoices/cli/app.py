@@ -33,6 +33,7 @@ from py_invoices.operations.errors import (
     MissingSystemLibrariesError,
     OperationError,
     PaymentNoteNotFoundError,
+    SeriesNumberTakenError,
     SummaryUnavailableError,
 )
 
@@ -125,6 +126,14 @@ def exit_for(error: OperationError) -> CliExit:
                 code=code,
                 context={"invoice": error.number, "lines": error.line_count},
                 suggestion=f"{CLI_NAME} invoices update <draft> --line N changes one line",
+            )
+        case SeriesNumberTakenError():
+            return Exit.PRECONDITION(
+                str(error),
+                code=code,
+                context={"invoice_number": error.number, "company_id": error.company_id},
+                suggestion=f"{CLI_NAME} companies set-number-prefix {error.company_id} <PREFIX> "
+                "starts the company's own series",
             )
         case PaymentNoteNotFoundError():
             return Exit.NOT_FOUND(str(error), code=code, context={"payment_note": error.note_id})

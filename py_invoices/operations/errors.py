@@ -84,6 +84,29 @@ class DuplicateInvoiceNumberError(OperationError):
         self.number = number
 
 
+class CompanyNotFoundError(OperationError):
+    def __init__(self, company_id: int) -> None:
+        super().__init__(f"Company {company_id} not found")
+        self.company_id = company_id
+
+
+class NumberPrefixError(OperationError):
+    """A number prefix that is malformed or already gives another company its series."""
+
+    def __init__(self, message: str, number_prefix: str) -> None:
+        super().__init__(message)
+        self.number_prefix = number_prefix
+
+
+class SeriesNumberTakenError(OperationError):
+    """The next number of a company's series is held by another company's invoice."""
+
+    def __init__(self, message: str, number: str, company_id: int) -> None:
+        super().__init__(message)
+        self.number = number
+        self.company_id = company_id
+
+
 class InvalidAmountError(OperationError):
     def __init__(self, amount: str) -> None:
         super().__init__(f"Amount must be a positive number, got '{amount}'")

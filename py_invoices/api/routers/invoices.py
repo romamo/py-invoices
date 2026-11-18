@@ -24,6 +24,7 @@ from py_invoices.operations.errors import (
     MissingSystemLibrariesError,
     OperationError,
     PaymentNoteNotFoundError,
+    SeriesNumberTakenError,
 )
 
 router = APIRouter()
@@ -145,7 +146,7 @@ def issue_invoice(
     _find(factory, invoice_number)
     try:
         return ops.issue_invoice(factory, invoice_number)
-    except InvoiceNotDraftError as e:
+    except (InvoiceNotDraftError, SeriesNumberTakenError) as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
     except InvalidDueDateError as e:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e)) from e

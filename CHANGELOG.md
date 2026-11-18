@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **`companies set-number-prefix <id> <PREFIX>`** and `companies create --number-prefix`: give a company its own number series, `AC-INV-2026-0001` and `AC-CN-2026-0001`. The prefix is letters and digits and no two companies share one; the change is audited (`NUMBER_PREFIX_SET`). Numbers already issued keep theirs
+
+### Fixed
+- **Each issuing company has its own number series**: `invoices issue`, `create --issue`, `clone --issue` and credit notes took the next number from one sequence shared by every company, so issuing for one company left a gap in another's series. `NumberingService.next_sequence` and `generate_number` take a `company_id` and count only that company's invoices, per document type and year, in every backend. Stores with mixed series continue each company from its own highest number. Companies without a prefix share the `INV-`/`CN-` format, so when a company's next number is already held by another company's invoice, issuing fails with `SERIES_NUMBER_TAKEN` (exit 4, HTTP 409) instead of producing a duplicate; set a prefix on one of them ([#12](https://github.com/romamo/py-invoices/issues/12))
+
+### Changed
+- Requires pydantic-invoices >= 1.8.0 (`Company.number_prefix`)
+
+### Migration (SQL databases created by earlier versions)
+
+```sql
+ALTER TABLE companies ADD COLUMN number_prefix VARCHAR(20);
+```
+
 ## [6.0.0] - 2026-11-18
 
 Breaking: `invoices create` and `invoices clone` make drafts, issued invoices are locked in every backend, and the audit log is append-only ([#5](https://github.com/romamo/py-invoices/issues/5), [#7](https://github.com/romamo/py-invoices/issues/7)). Pass `--issue` to keep the one-step flow.
