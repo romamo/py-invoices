@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [6.0.0] - 2026-11-18
 
 Breaking: `invoices create` and `invoices clone` make drafts, issued invoices are locked in every backend, and the audit log is append-only ([#5](https://github.com/romamo/py-invoices/issues/5), [#7](https://github.com/romamo/py-invoices/issues/7)). Pass `--issue` to keep the one-step flow.
 
