@@ -39,7 +39,7 @@ def test_create_export_follows_the_output_dir_setting(cli: Cli, tmp_path: Path) 
     result = create(cli, "-e", "json", extra_env={"INVOICES_OUTPUT_DIR": str(exported)})
     assert result.exit_code == 0, result.stdout
     assert result.envelope["data"]["exports"] == [
-        {"format": "json", "path": str(exported / f"{NUMBER}.json")}
+        {"effect": "created", "format": "json", "path": str(exported / f"{NUMBER}.json")}
     ]
 
 
@@ -68,3 +68,42 @@ def test_cwd_applies_to_dotenv_storage_and_a_stored_logo(
     assert Path(result.envelope["data"]["path"]) == path
     assert "data:image/png;base64,bG9nbw==" in path.read_text()
     assert not (elsewhere / "data").exists()
+
+
+def test_rendering_refuses_to_replace_a_file_without_overwrite(cli: Cli, tmp_path: Path) -> None:
+    assert create(cli).exit_code == 0
+    out = tmp_path / "out"
+    path = out / f"{NUMBER}.html"
+    first = cli("invoices", "html", NUMBER, "--output-dir", str(out))
+    assert first.exit_code == 0, first.stdout
+    assert first.envelope["data"]["effect"] == "created"
+    path.write_text("the copy sent to the client")
+
+    refused = cli("invoices", "html", NUMBER, "--output-dir", str(out))
+    assert refused.exit_code == 6, refused.stdout
+    error = refused.envelope["error"]
+    assert error["code"] == "OUTPUT_EXISTS"
+    assert error["context"]["path"] == str(path)
+    assert path.read_text() == "the copy sent to the client"
+
+    replaced = cli("invoices", "html", NUMBER, "--output-dir", str(out), "--overwrite")
+    assert replaced.exit_code == 0, replaced.stdout
+    assert replaced.envelope["data"]["effect"] == "updated"
+    assert path.read_text() != "the copy sent to the client"
+
+
+def test_export_refuses_to_replace_any_file_and_writes_none(cli: Cli, tmp_path: Path) -> None:
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / f"{NUMBER}.html").write_text("sent")
+
+    refused = create(cli, "-e", "json", "-e", "html", "--output-dir", str(out))
+    assert refused.exit_code == 6, refused.stdout
+    assert refused.envelope["error"]["code"] == "OUTPUT_EXISTS"
+    assert not (out / f"{NUMBER}.json").exists()
+    assert (out / f"{NUMBER}.html").read_text() == "sent"
+
+    clone = cli("invoices", "clone", NUMBER, "-e", "html", "--output-dir", str(out), "--overwrite")
+    assert clone.exit_code == 0, clone.stdout
+    [export] = clone.envelope["data"]["exports"]
+    assert export["effect"] == "created"

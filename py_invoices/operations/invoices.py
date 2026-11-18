@@ -1,6 +1,7 @@
 """Invoice operations: return domain objects, raise OperationError, never print."""
 
 import logging
+import os
 import re
 import uuid
 from dataclasses import dataclass
@@ -49,6 +50,7 @@ from py_invoices.operations.errors import (
     MissingDependencyError,
     MissingSystemLibrariesError,
     OperationError,
+    OutputExistsError,
     PaymentNoteNotFoundError,
     PaymentTermsError,
     SummaryUnavailableError,
@@ -61,6 +63,7 @@ logger = logging.getLogger(__name__)
 
 RENDERED_FORMATS = frozenset({"pdf", "html", "ubl"})
 EXPORT_FORMATS = ("pdf", "html", "ubl", "json")
+FILE_EXTENSIONS = {"pdf": "pdf", "html": "html", "ubl": "xml", "json": "json"}
 DEFAULT_PAYMENT_TERMS = "Net 30"
 
 _NET_TERMS = re.compile(r"net\s*(\d+)(\s*days?)?", re.IGNORECASE)
@@ -93,6 +96,7 @@ class DocumentKind(StrEnum):
 class RenderedDocument:
     invoice: Invoice
     path: str
+    overwritten: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -160,6 +164,7 @@ class ClonedInvoice:
 class ExportOutcome:
     format: str
     path: str
+    overwritten: bool
 
 
 def package_template_dir() -> str:
@@ -378,25 +383,62 @@ def render_invoice_document(
     company: CompanyOverrides,
     template: str | None,
     paths: RenderPaths,
+    *,
+    overwrite: bool,
 ) -> RenderedDocument:
-    """Render a stored invoice to a PDF or HTML file in output_dir."""
+    """Render a stored invoice to a PDF or HTML file in output_dir.
+
+    Raises:
+        OutputExistsError: If the file exists and `overwrite` is false
+    """
     invoice = find_invoice(factory, identifier)
+    target = _OutputTarget.of(output_dir, invoice, kind.value, overwrite=overwrite)
     details, context = _render_context(factory, invoice, company, paths)
     template_name = _document_template(factory, invoice, template)
 
     if kind is DocumentKind.HTML:
         path = HTMLService(template_dir=paths.template_dir, output_dir=output_dir).save_html(
-            invoice=invoice, company=details, template_name=template_name, **context
+            invoice=invoice,
+            company=details,
+            output_filename=target.filename,
+            template_name=template_name,
+            **context,
         )
-        return RenderedDocument(invoice=invoice, path=path)
+        return RenderedDocument(invoice=invoice, path=path, overwritten=target.exists)
 
     try:
         path = PDFService(template_dir=paths.template_dir, output_dir=output_dir).generate_pdf(
-            invoice=invoice, company=details, template_name=template_name, **context
+            invoice=invoice,
+            company=details,
+            output_filename=target.filename,
+            template_name=template_name,
+            **context,
         )
     except ImportError as e:
         raise _pdf_unavailable(e) from e
-    return RenderedDocument(invoice=invoice, path=path)
+    return RenderedDocument(invoice=invoice, path=path, overwritten=target.exists)
+
+
+@dataclass(frozen=True, slots=True)
+class _OutputTarget:
+    """The file a format of an invoice is written to, and whether it is there already."""
+
+    filename: str
+    exists: bool
+
+    @classmethod
+    def of(cls, output_dir: str, invoice: Invoice, fmt: str, *, overwrite: bool) -> _OutputTarget:
+        """Raises OutputExistsError if the file exists and `overwrite` is false.
+
+        A rendered file of an issued invoice may be the copy sent to the client, so it is
+        replaced only on request.
+        """
+        filename = f"{invoice.number}.{FILE_EXTENSIONS[fmt]}"
+        path = output_path(output_dir, filename)
+        exists = os.path.lexists(path)
+        if exists and not overwrite:
+            raise OutputExistsError(path)
+        return cls(filename, exists)
 
 
 def _resolve_client(factory: RepositoryFactory, request: NewInvoice) -> tuple[Client, bool]:
@@ -779,14 +821,20 @@ def export_invoice(
     company: CompanyOverrides,
     payment_notes: list[dict[str, str]],
     paths: RenderPaths,
+    *,
+    overwrite: bool,
 ) -> list[ExportOutcome]:
     """Write the invoice in each requested format, one outcome per format in order.
 
     Raises:
         UnknownExportFormatError: For a format outside EXPORT_FORMATS
         MissingDependencyError: If PDF output is requested without the pdf extra
+        OutputExistsError: If a file exists and `overwrite` is false; nothing is written
     """
     formats = validate_export_formats(formats)
+    targets = {
+        fmt: _OutputTarget.of(output_dir, invoice, fmt, overwrite=overwrite) for fmt in formats
+    }
     template_name = _document_template(factory, invoice, None)
     resolved = (
         resolve_company_details(factory, invoice, company, paths)
@@ -796,11 +844,12 @@ def export_invoice(
 
     outcomes = []
     for fmt in formats:
+        target = targets[fmt]
         if fmt == "json":
-            path = output_path(output_dir, f"{invoice.number}.json")
+            path = output_path(output_dir, target.filename)
             with open(path, "w", encoding="utf-8") as f:
                 f.write(invoice.model_dump_json(indent=2))
-            outcomes.append(ExportOutcome(fmt, path))
+            outcomes.append(ExportOutcome(fmt, path, target.exists))
             continue
 
         if resolved is None:
@@ -812,6 +861,7 @@ def export_invoice(
                 ).generate_pdf(
                     invoice=invoice,
                     company=resolved.details,
+                    output_filename=target.filename,
                     template_name=template_name,
                     logo=resolved.logo,
                     payment_notes=payment_notes,
@@ -822,13 +872,14 @@ def export_invoice(
             path = HTMLService(template_dir=paths.template_dir, output_dir=output_dir).save_html(
                 invoice=invoice,
                 company=resolved.details,
+                output_filename=target.filename,
                 template_name=template_name,
                 logo=resolved.logo,
                 payment_notes=payment_notes,
             )
         else:
             path = UBLService(template_dir=paths.template_dir, output_dir=output_dir).save_ubl(
-                invoice=invoice, company=resolved.details
+                invoice=invoice, company=resolved.details, output_filename=target.filename
             )
-        outcomes.append(ExportOutcome(fmt, path))
+        outcomes.append(ExportOutcome(fmt, path, target.exists))
     return outcomes

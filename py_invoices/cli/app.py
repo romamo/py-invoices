@@ -34,6 +34,7 @@ from py_invoices.operations.errors import (
     MissingDependencyError,
     MissingSystemLibrariesError,
     OperationError,
+    OutputExistsError,
     PaymentNoteNotFoundError,
     SummaryUnavailableError,
 )
@@ -159,6 +160,14 @@ def exit_for(error: OperationError) -> CliExit:
                 code=code,
                 context={"path": error.path},
                 suggestion="pass --company-logo-path with an existing image file",
+            )
+        case OutputExistsError():
+            return Exit.CONFLICT(
+                str(error),
+                code=code,
+                context={"path": error.path},
+                conflict_id=error.path,
+                suggestion="pass --overwrite to replace it, or --output-dir for another directory",
             )
         case MissingSystemLibrariesError():
             context: dict[str, object] = {"extra": error.extra, "steps": error.steps}

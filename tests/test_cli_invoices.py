@@ -61,7 +61,7 @@ def test_create_exports_formats_with_exact_amounts(
 
     number = f"INV-{date.today().year}-0001"
     assert data["exports"] == [
-        {"format": fmt, "path": str(out / f"{number}.{ext}")}
+        {"effect": "created", "format": fmt, "path": str(out / f"{number}.{ext}")}
         for fmt, ext in (("json", "json"), ("html", "html"), ("ubl", "xml"))
     ]
     exported = json.loads((out / f"{number}.json").read_text())
