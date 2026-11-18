@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **`validate data --seal` no longer stops half-way**: on the files backend, a file whose name carries another ID than the `id` inside it (`data/invoices/3.md` holding `id: 4`) was listed but could not be updated, so `--seal` sealed the invoices before it and then failed with a traceback. `validate data` now reports such files in every entity folder as `misplaced` and exits 1, and `--seal` seals nothing while one exists, reporting each unsealed invoice as `unsealable`. Loading a record by ID from a file that holds another ID raises `MisplacedRecordError` instead of returning the wrong record, so an update can no longer overwrite it. `StoragePlugin.misplaced_records()` exposes the check ([#16](https://github.com/romamo/py-invoices/issues/16))
+
 ## [6.0.0] - 2026-11-18
 
 Breaking: `invoices create` and `invoices clone` make drafts, issued invoices are locked in every backend, and the audit log is append-only ([#5](https://github.com/romamo/py-invoices/issues/5), [#7](https://github.com/romamo/py-invoices/issues/7)). Pass `--issue` to keep the one-step flow.
