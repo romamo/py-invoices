@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [7.0.0] - 2026-11-18
 
 Breaking: `invoices pdf`, `invoices html` and the `--export` of `invoices create` and `invoices clone` no longer replace a file that exists; pass `--overwrite` ([#15](https://github.com/romamo/py-invoices/issues/15)).
 
