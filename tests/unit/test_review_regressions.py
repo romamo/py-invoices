@@ -97,14 +97,17 @@ def test_credit_limits_and_summary_use_tax_inclusive_totals(tmp_path: Path) -> N
 
 def test_refused_status_change_leaves_no_credit_note(tmp_path: Path) -> None:
     factory = _factory("memory", tmp_path)
-    invoice = _invoice(factory, "R-1", Money("10"))
+    refunded_invoice = _invoice(factory, "R-1", Money("10"))
+    paid_invoice = _invoice(factory, "R-2", Money("10"))
     repo = factory.create_invoice_repository()
-    refunded = repo.update(invoice.model_copy(update={"status": InvoiceStatus.REFUNDED}))
+    paid = repo.update(refunded_invoice.model_copy(update={"status": InvoiceStatus.PAID}))
+    refunded = repo.update(paid.model_copy(update={"status": InvoiceStatus.REFUNDED}))
     with pytest.raises(ValueError, match="REFUNDED"):
         CreditService(repo).create_credit_note(refunded)
-    paid = repo.update(invoice.model_copy(update={"status": InvoiceStatus.PAID}))
+    paid = repo.update(paid_invoice.model_copy(update={"status": InvoiceStatus.PAID}))
     CreditService(repo).create_credit_note(paid)  # PAID -> CREDITED is allowed
-    assert [i.number for i in repo.get_all()] == ["R-1", f"CN-{datetime.now().year}-0001"]
+    numbers = [i.number for i in repo.get_all()]
+    assert numbers == ["R-1", "R-2", f"CN-{datetime.now().year}-0001"]
 
 
 def test_a_line_cannot_be_credited_twice(tmp_path: Path) -> None:

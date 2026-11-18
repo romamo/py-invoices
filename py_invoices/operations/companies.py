@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from pydantic_invoices.schemas.company import Company, CompanyCreate
 
+from py_invoices.core.audit_service import AuditEntity, AuditService
 from py_invoices.plugins.factory import RepositoryFactory
 
 
@@ -33,7 +34,7 @@ def create_company(
     email: str | None,
     phone: str | None,
 ) -> Company:
-    return factory.create_company_repository().create(
+    company = factory.create_company_repository().create(
         CompanyCreate(
             name=name,
             tax_id=tax_id,
@@ -49,3 +50,7 @@ def create_company(
             logo_path=None,
         )
     )
+    AuditService(audit_repo=factory.create_audit_repository()).log_record_event(
+        AuditEntity.COMPANY, company.id, "CREATED", new_value=company.name
+    )
+    return company

@@ -2,7 +2,8 @@
 <html>
 <head>
     <meta charset="utf-8">
-    {% set doc_title = 'CREDIT NOTE' if invoice.type.value == 'CREDIT_NOTE' else 'INVOICE' %}
+    {% set is_draft = invoice.status.value == 'DRAFT' %}
+    {% set doc_title = ('DRAFT ' if is_draft else '') ~ ('CREDIT NOTE' if invoice.type.value == 'CREDIT_NOTE' else 'INVOICE') %}
     <title>{{ doc_title|title }} {{ invoice.number }}</title>
     <style>
         body { font-family: 'Inter', sans-serif; color: #333; line-height: 1.6; padding: 40px; }
@@ -18,10 +19,12 @@
         .totals { float: right; width: 300px; }
         .total-row { display: flex; justify-content: space-between; padding: 8px 0; }
         .grand-total { font-size: 20px; font-weight: bold; border-top: 2px solid #eee; margin-top: 10px; padding-top: 10px; color: #1a73e8; }
+        .draft-watermark { position: fixed; top: 40%; left: 0; right: 0; text-align: center; font-size: 120px; font-weight: bold; color: rgba(200, 0, 0, 0.12); transform: rotate(-30deg); pointer-events: none; }
         .footer { margin-top: 100px; text-align: center; color: #888; font-size: 12px; border-top: 1px solid #eee; padding-top: 20px; }
     </style>
 </head>
 <body>
+    {% if is_draft %}<div class="draft-watermark">DRAFT</div>{% endif %}
     <div class="header">
         <div class="company-info" style="display: flex; align-items: center; gap: 20px;">
             {% if logo %}

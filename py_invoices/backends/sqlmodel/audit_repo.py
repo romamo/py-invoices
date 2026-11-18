@@ -1,6 +1,5 @@
 """SQLModel audit repository implementation."""
 
-from sqlalchemy import delete
 from sqlmodel import Session, col, select
 
 from py_invoices.core.audit_service import AuditLogEntry
@@ -40,8 +39,3 @@ class SQLModelAuditRepository(AuditRepository):
         stmt = select(AuditLogDB).order_by(col(AuditLogDB.id)).offset(skip).limit(limit)
         db_entries = self.session.exec(stmt).all()
         return [e.to_schema() for e in db_entries]
-
-    def clear(self) -> None:
-        """Clear all audit logs."""
-        self.session.exec(delete(AuditLogDB))
-        self.session.commit()

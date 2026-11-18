@@ -28,7 +28,9 @@ from py_invoices.operations.errors import OperationError, PaymentTermsError
 from py_invoices.operations.invoices import (
     CompanyOverrides,
     DocumentKind,
+    DraftChanges,
     ExportOutcome,
+    LineChange,
     NewInvoice,
 )
 
@@ -108,6 +110,9 @@ class CreateArgs(CompanyFlags):
     )
     output_dir: Path = Flag(default=Path("output"), description="Directory for exported files")
     template: str | None = Flag(default=None, description="Template name for exported files")
+    issue: bool = Flag(
+        default=False, description="Issue the invoice at once instead of creating a draft"
+    )
 
     def __post_init__(self) -> None:
         errors = []
@@ -149,14 +154,112 @@ class CreateArgs(CompanyFlags):
             raise ParseError.combine(errors)
 
 
+class LineFlags:
+    """Line flags shared by clone and update; each declares the fields itself."""
+
+    __slots__ = ()
+    description: str | None
+    quantity: int | None
+    unit_price: Decimal | None
+    amount: Decimal | None
+
+    def line_change(self) -> LineChange:
+        return LineChange(
+            description=self.description,
+            quantity=self.quantity,
+            unit_price=self.unit_price if self.unit_price is not None else self.amount,
+        )
+
+    def line_errors(self) -> list[ParseError]:
+        errors = []
+        if self.unit_price is not None and self.amount is not None:
+            errors.append(
+                ParseError(
+                    "--unit-price and --amount are the same flag; pass one",
+                    context={"field": "unit_price"},
+                )
+            )
+        price = self.unit_price if self.unit_price is not None else self.amount
+        if price is not None and price <= 0:
+            errors.append(
+                ParseError(
+                    f"--unit-price must be a positive number, got {price}",
+                    context={"field": "unit_price"},
+                )
+            )
+        if self.quantity is not None and self.quantity <= 0:
+            errors.append(
+                ParseError(
+                    f"--quantity must be a positive number, got {self.quantity}",
+                    context={"field": "quantity"},
+                )
+            )
+        return errors
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
-class CloneArgs(CompanyFlags):
+class CloneArgs(CompanyFlags, LineFlags):
     invoice: str = Arg(description="Invoice number or ID to clone")
+    description: str | None = Flag(default=None, description="New line description")
+    quantity: int | None = Flag(default=None, description="New line quantity")
+    unit_price: Decimal | None = Flag(
+        default=None, description="New line unit price, in the line's currency"
+    )
+    amount: Decimal | None = Flag(default=None, description="Same as --unit-price")
     date: dt.date | None = Flag(default=None, description="Issue date (YYYY-MM-DD); default today")
+    due_date: dt.date | None = Flag(
+        default=None, description="Due date (YYYY-MM-DD); default keeps the original's period"
+    )
     export: tuple[ExportFormat, ...] = Flag(
         default=(), short="e", description="File formats to export the clone to"
     )
     output_dir: Path = Flag(default=Path("output"), description="Directory for exported files")
+    issue: bool = Flag(
+        default=False, description="Issue the copy at once instead of creating a draft"
+    )
+
+    def __post_init__(self) -> None:
+        errors = self.line_errors()
+        if errors:
+            raise ParseError.combine(errors)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class UpdateArgs(Common, LineFlags):
+    invoice: str = Arg(description="Number or ID of the draft to edit")
+    description: str | None = Flag(default=None, description="New line description")
+    quantity: int | None = Flag(default=None, description="New line quantity")
+    unit_price: Decimal | None = Flag(
+        default=None, description="New line unit price, in the line's currency"
+    )
+    amount: Decimal | None = Flag(default=None, description="Same as --unit-price")
+    line: int | None = Flag(
+        default=None, description="Index of the line to change (0-based); needed with several"
+    )
+    date: dt.date | None = Flag(default=None, description="New issue date (YYYY-MM-DD)")
+    due_date: dt.date | None = Flag(default=None, description="New due date (YYYY-MM-DD)")
+    payment_terms: str | None = Flag(default=None, description="New payment terms")
+
+    def __post_init__(self) -> None:
+        errors = self.line_errors()
+        changes = (self.date, self.due_date, self.payment_terms, self.line)
+        if self.line_change().is_empty() and all(value is None for value in changes):
+            errors.append(
+                ParseError(
+                    "Nothing to change: pass a line flag, --date, --due-date or --payment-terms",
+                    context={"field": "description"},
+                )
+            )
+        if errors:
+            raise ParseError.combine(errors)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class IssueArgs(Common):
+    invoice: str = Arg(description="Number or ID of the draft to issue")
+    date: dt.date | None = Flag(
+        default=None, description="Issue date (YYYY-MM-DD); default the draft's date"
+    )
 
 
 # Results
@@ -274,6 +377,20 @@ class Cloned:
     exports: list[Export] = Out(ordered=True)
 
 
+@dataclass(frozen=True, slots=True)
+class Updated:
+    effect: Literal["updated"]
+    invoice: InvoiceRow
+
+
+@dataclass(frozen=True, slots=True)
+class Issued:
+    effect: Literal["updated"]
+    draft: str
+    invoice: InvoiceRow
+    content_hash: str
+
+
 # Plain renderers: `data` arrives as JSON values
 
 
@@ -362,7 +479,7 @@ def render_created(data: Mapping[str, Any]) -> str:
     client = data["created_client"]
     created_client = f"Created Client {client['name']} (ID: {client['id']})\n" if client else ""
     return (
-        f"{created_client}Created Invoice {invoice['number']}\n"
+        f"{created_client}Created Invoice {invoice['number']} ({invoice['status']})\n"
         f"  Client: {invoice['client'] or ''}\n"
         f"  Total:  {show_money(invoice['total'])}\n"
         f"{_render_exports(data['exports'])}"
@@ -372,9 +489,23 @@ def render_created(data: Mapping[str, Any]) -> str:
 def render_cloned(data: Mapping[str, Any]) -> str:
     invoice = data["invoice"]
     return (
-        f"Cloned Invoice {data['original']} -> {invoice['number']}\n"
+        f"Cloned Invoice {data['original']} -> {invoice['number']} ({invoice['status']})\n"
         f"  Total:  {show_money(invoice['total'])}\n"
         f"{_render_exports(data['exports'])}"
+    )
+
+
+def render_updated(data: Mapping[str, Any]) -> str:
+    invoice = data["invoice"]
+    return f"Updated draft {invoice['number']}\n  Total:  {show_money(invoice['total'])}\n"
+
+
+def render_issued(data: Mapping[str, Any]) -> str:
+    invoice = data["invoice"]
+    return (
+        f"Issued {data['draft']} as {invoice['number']}\n"
+        f"  Total:  {show_money(invoice['total'])}\n"
+        f"  Hash:   {data['content_hash']}\n"
     )
 
 
@@ -534,7 +665,8 @@ def _warn_if_memory(ctx: Ctx, store: Store) -> None:
 
 @invoices.command(
     "create",
-    description="Create a one-line invoice, creating the client by name if it does not exist",
+    description="Create a one-line draft invoice (or issue it with --issue), creating the "
+    "client by name if it does not exist",
     danger_level="mutating",
     exit_codes=["NOT_FOUND", "CONFLICT"],
     renderers={Format.PLAIN: render_created},
@@ -566,6 +698,7 @@ def create_invoice(args: CreateArgs, ctx: Ctx, store: Store) -> Created:
         due_date=args.due_date,
         company=company,
         template=args.template,
+        issue=args.issue,
     )
     with operation_errors():
         formats = ops.check_new_invoice_export(store.factory, list(args.export), company)
@@ -582,7 +715,8 @@ def create_invoice(args: CreateArgs, ctx: Ctx, store: Store) -> Created:
 
 @invoices.command(
     "clone",
-    description="Copy an invoice under the next number, keeping its payment period",
+    description="Copy an invoice as a draft (or issue it with --issue), keeping its payment "
+    "period; line flags change the copy's only line",
     danger_level="mutating",
     exit_codes=["NOT_FOUND"],
     renderers={Format.PLAIN: render_cloned},
@@ -598,7 +732,14 @@ def clone_invoice(args: CloneArgs, ctx: Ctx, store: Store) -> Cloned:
     with operation_errors():
         original = ops.find_invoice(store.factory, args.invoice)
         formats = ops.check_invoice_export(store.factory, original, list(args.export), company)
-        cloned = ops.clone_invoice(store.factory, args.invoice, args.date or dt.date.today())
+        cloned = ops.clone_invoice(
+            store.factory,
+            args.invoice,
+            args.date or dt.date.today(),
+            line_change=args.line_change(),
+            due_date=args.due_date,
+            issue=args.issue,
+        )
     _warn_if_memory(ctx, store)
     result = Cloned("created", cloned.original.number, InvoiceRow.of(cloned.invoice), [])
     if not formats:
@@ -606,3 +747,46 @@ def clone_invoice(args: CloneArgs, ctx: Ctx, store: Store) -> Cloned:
     notes = ops.export_payment_notes(cloned.invoice.payment_terms, None)
     exports = _export(store, cloned.invoice, formats, args.output_dir, company, notes, result)
     return Cloned("created", result.original, result.invoice, exports)
+
+
+@invoices.command(
+    "update",
+    description="Edit a draft invoice: a line, its dates or its payment terms",
+    danger_level="mutating",
+    exit_codes=["NOT_FOUND", "PRECONDITION"],
+    renderers={Format.PLAIN: render_updated},
+    examples=[
+        (
+            "Change the price of draft DRAFT-12",
+            f"{CLI_NAME} invoices update DRAFT-12 --unit-price 950",
+        )
+    ],
+)
+def update_invoice(args: UpdateArgs, ctx: Ctx, store: Store) -> Updated:
+    changes = DraftChanges(
+        line_change=args.line_change(),
+        line=args.line,
+        issue_date=args.date,
+        due_date=args.due_date,
+        payment_terms=args.payment_terms,
+    )
+    with operation_errors():
+        invoice = ops.update_invoice(store.factory, args.invoice, changes)
+    return Updated("updated", InvoiceRow.of(invoice))
+
+
+@invoices.command(
+    "issue",
+    description="Issue a draft: assign its final number and lock its content",
+    danger_level="mutating",
+    exit_codes=["NOT_FOUND", "PRECONDITION"],
+    renderers={Format.PLAIN: render_issued},
+    examples=[("Issue draft DRAFT-12", f"{CLI_NAME} invoices issue DRAFT-12")],
+)
+def issue_invoice(args: IssueArgs, ctx: Ctx, store: Store) -> Issued:
+    with operation_errors():
+        draft = ops.find_invoice(store.factory, args.invoice)
+        invoice = ops.issue_invoice(store.factory, args.invoice, args.date)
+    if invoice.content_hash is None:
+        raise RuntimeError(f"Issued invoice {invoice.number} has no content hash")
+    return Issued("updated", draft.number, InvoiceRow.of(invoice), invoice.content_hash)

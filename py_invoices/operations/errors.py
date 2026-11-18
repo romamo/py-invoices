@@ -1,5 +1,6 @@
 """Domain errors raised by operations. Presentation layers map them to messages and exit codes."""
 
+from datetime import date
 from pathlib import Path
 
 
@@ -130,3 +131,49 @@ class InvalidInvoiceNumberError(OperationError):
     def __init__(self, number: str) -> None:
         super().__init__(f"Invoice number {number!r} cannot contain '/', '\\' or start with '.'")
         self.number = number
+
+
+class InvoiceNotDraftError(OperationError):
+    """Only a draft can be edited or issued; an issued invoice is corrected by a credit note."""
+
+    def __init__(self, number: str, status: str) -> None:
+        super().__init__(
+            f"Invoice {number} is {status}, not a draft; only drafts can be edited or issued"
+        )
+        self.number = number
+        self.status = status
+
+
+class LineSelectionError(OperationError):
+    """A line change names no line, or one the invoice does not have."""
+
+    def __init__(self, number: str, line_count: int, line: int | None) -> None:
+        if line is None:
+            message = (
+                f"Invoice {number} has {line_count} lines; choose one with --line "
+                f"(0-{line_count - 1})"
+            )
+        else:
+            message = f"Invoice {number} has no line {line}; lines are 0-{line_count - 1}"
+        super().__init__(message)
+        self.number = number
+        self.line_count = line_count
+        self.line = line
+
+
+class InvalidDueDateError(OperationError):
+    def __init__(self, number: str, issue_date: date, due_date: date) -> None:
+        super().__init__(
+            f"Invoice {number}: due date {due_date} is before the issue date {issue_date}"
+        )
+        self.number = number
+
+
+class PaymentNoteMissingError(OperationError):
+    def __init__(self, note_id: int) -> None:
+        super().__init__(f"Payment note {note_id} not found")
+        self.note_id = note_id
+
+
+class PaymentNoteStateError(OperationError):
+    """A payment note is in the wrong state for the change (inactive, or the default)."""

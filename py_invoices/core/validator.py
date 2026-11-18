@@ -133,8 +133,13 @@ class BusinessValidator:
         """
         from pydantic_invoices.schemas import InvoiceStatus
 
-        old = InvoiceStatus(old_status)
-        new = InvoiceStatus(new_status)
+        # UNPAID is how invoices were issued before the DRAFT -> issue lifecycle: it means SENT
+        def issued_as_sent(status: str) -> InvoiceStatus:
+            value = InvoiceStatus(status)
+            return InvoiceStatus.SENT if value is InvoiceStatus.UNPAID else value
+
+        old = issued_as_sent(old_status)
+        new = issued_as_sent(new_status)
 
         # Valid Transitions:
         # DRAFT -> SENT

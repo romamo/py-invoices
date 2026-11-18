@@ -2,6 +2,7 @@
 
 from pydantic_invoices.schemas import Client, ClientCreate
 
+from py_invoices.core.audit_service import AuditEntity, AuditService
 from py_invoices.operations.errors import ClientNotFoundError
 from py_invoices.plugins.factory import RepositoryFactory
 
@@ -26,4 +27,8 @@ def search_clients(factory: RepositoryFactory, query: str) -> list[Client]:
 
 
 def create_client(factory: RepositoryFactory, data: ClientCreate) -> Client:
-    return factory.create_client_repository().create(data)
+    client = factory.create_client_repository().create(data)
+    AuditService(audit_repo=factory.create_audit_repository()).log_record_event(
+        AuditEntity.CLIENT, client.id, "CREATED", new_value=client.name
+    )
+    return client

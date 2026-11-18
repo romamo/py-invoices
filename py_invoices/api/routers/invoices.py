@@ -1,7 +1,13 @@
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from pydantic_invoices.schemas import Invoice, InvoiceCreate, InvoiceSummary, InvoiceType
+from pydantic_invoices.schemas import (
+    Invoice,
+    InvoiceCreate,
+    InvoiceStatus,
+    InvoiceSummary,
+    InvoiceType,
+)
 
 from py_invoices import RepositoryFactory
 from py_invoices.api.deps import get_factory
@@ -11,6 +17,8 @@ from py_invoices.core.summary import MixedCurrencyError
 from py_invoices.operations import invoices as ops
 from py_invoices.operations.errors import (
     CompanyDetailsUnresolvedError,
+    InvalidDueDateError,
+    InvoiceNotDraftError,
     LogoNotFoundError,
     MissingDependencyError,
     MissingSystemLibrariesError,
@@ -39,7 +47,7 @@ def _render_error(error: OperationError) -> HTTPException:
 
 @router.get("/overdue", response_model=list[Invoice])
 def list_overdue_invoices(factory: RepositoryFactory = Depends(get_factory)) -> list[Invoice]:
-    return factory.create_invoice_repository().get_overdue()
+    return ops.list_overdue_invoices(factory)
 
 
 @router.get("/summary", response_model=InvoiceSummary)
@@ -63,10 +71,16 @@ def list_invoices(
 def create_invoice(
     invoice_in: InvoiceCreate, factory: RepositoryFactory = Depends(get_factory)
 ) -> Invoice:
-    """Store a standard invoice as given; its number must not be in use yet.
+    """Store a draft standard invoice; its number must not be in use yet.
 
-    Credit notes go through POST /credit-notes, which enforces the credit limits.
+    Issue it with POST /invoices/{number}/issue. Credit notes go through
+    POST /credit-notes, which enforces the credit limits.
     """
+    if invoice_in.status is not InvoiceStatus.DRAFT or invoice_in.content_hash is not None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Invoices are created as DRAFT; issue them with POST /invoices/{number}/issue",
+        )
     if invoice_in.type is not InvoiceType.STANDARD or invoice_in.original_invoice_id is not None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -121,3 +135,17 @@ def get_invoice_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename, safe='')}"},
     )
+
+
+@router.post("/{invoice_number}/issue", response_model=Invoice)
+def issue_invoice(
+    invoice_number: str, factory: RepositoryFactory = Depends(get_factory)
+) -> Invoice:
+    """Issue a draft: final number, content hash, status SENT. Issued invoices are locked."""
+    _find(factory, invoice_number)
+    try:
+        return ops.issue_invoice(factory, invoice_number)
+    except InvoiceNotDraftError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
+    except InvalidDueDateError as e:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(e)) from e

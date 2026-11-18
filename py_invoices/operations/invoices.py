@@ -2,8 +2,10 @@
 
 import logging
 import re
+import uuid
 from dataclasses import dataclass
 from datetime import date, timedelta
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -12,6 +14,7 @@ from pydantic_invoices.schemas import (
     ClientCreate,
     Invoice,
     InvoiceCreate,
+    InvoiceLine,
     InvoiceLineCreate,
     InvoiceStatus,
     InvoiceSummary,
@@ -23,7 +26,10 @@ from pydantic_invoices.vo import CountryCode, Money
 
 from py_invoices.config import get_settings
 from py_invoices.core import AuditService, HTMLService, NumberingService, PDFService, UBLService
+from py_invoices.core.audit_service import AuditEntity
 from py_invoices.core.html_service import PACKAGE_TEMPLATES_DIR, is_safe_file_name, output_path
+from py_invoices.core.lifecycle import DRAFT_NUMBER_PREFIX, content_hash, draft_number, is_draft
+from py_invoices.core.numbering_service import CREDIT_NOTE_NUMBER_FORMAT, INVOICE_NUMBER_FORMAT
 from py_invoices.core.paging import iter_all
 from py_invoices.core.pdf_service import PdfSystemLibrariesError
 from py_invoices.core.summary import MixedCurrencyError
@@ -33,8 +39,11 @@ from py_invoices.operations.errors import (
     CompanyDetailsUnresolvedError,
     DuplicateInvoiceNumberError,
     InvalidAmountError,
+    InvalidDueDateError,
     InvalidInvoiceNumberError,
+    InvoiceNotDraftError,
     InvoiceNotFoundError,
+    LineSelectionError,
     LogoNotFoundError,
     MissingDependencyError,
     MissingSystemLibrariesError,
@@ -103,6 +112,35 @@ class NewInvoice:
     due_date: date | None = None
     company: CompanyOverrides = CompanyOverrides()
     template: str | None = None
+    issue: bool = False
+    """Issue at once instead of leaving a draft."""
+
+
+@dataclass(frozen=True, slots=True)
+class LineChange:
+    """New values for one line of a draft; unset fields keep the line's own."""
+
+    description: str | None = None
+    quantity: int | None = None
+    unit_price: Decimal | None = None
+    """In the line's currency"""
+
+    def is_empty(self) -> bool:
+        return (self.description, self.quantity, self.unit_price) == (None, None, None)
+
+
+NO_LINE_CHANGE = LineChange()
+
+
+@dataclass(frozen=True, slots=True)
+class DraftChanges:
+    """Edits to a draft: one line (`line`, required when it has several) and its dates."""
+
+    line_change: LineChange = NO_LINE_CHANGE
+    line: int | None = None
+    issue_date: date | None = None
+    due_date: date | None = None
+    payment_terms: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,7 +191,8 @@ def list_invoices(factory: RepositoryFactory) -> list[Invoice]:
 
 
 def list_overdue_invoices(factory: RepositoryFactory) -> list[Invoice]:
-    return factory.create_invoice_repository().get_overdue()
+    """Issued invoices past their due date; a draft is owed nothing yet."""
+    return [i for i in factory.create_invoice_repository().get_overdue() if not is_draft(i)]
 
 
 def invoice_summary(factory: RepositoryFactory) -> InvoiceSummary:
@@ -361,6 +400,9 @@ def _resolve_client(factory: RepositoryFactory, request: NewInvoice) -> tuple[Cl
             preferred_template=None,
         )
     )
+    AuditService(audit_repo=factory.create_audit_repository()).log_record_event(
+        AuditEntity.CLIENT, created.id, "CREATED", new_value=created.name
+    )
     return created, True
 
 
@@ -388,13 +430,13 @@ def create_invoice(factory: RepositoryFactory, request: NewInvoice) -> CreatedIn
     due_date = request.due_date or due_date_for_terms(request.payment_terms, issue_date)
     client, client_created = _resolve_client(factory, request)
     company = _issuing_company(factory)
-    number = request.invoice_number or NumberingService(invoice_repo=invoice_repo).generate_number()
+    number = request.invoice_number or _pending_draft_number()
 
     invoice = invoice_repo.create(
         InvoiceCreate(
             number=number,
             issue_date=issue_date,
-            status=InvoiceStatus.UNPAID,
+            status=InvoiceStatus.DRAFT,
             due_date=due_date,
             payment_terms=request.payment_terms,
             original_invoice_id=None,
@@ -420,28 +462,58 @@ def create_invoice(factory: RepositoryFactory, request: NewInvoice) -> CreatedIn
             ],
         )
     )
+    invoice = _number_draft(factory, invoice)
     AuditService(audit_repo=factory.create_audit_repository()).log_invoice_created(invoice)
+    if request.issue:
+        invoice = issue_invoice(factory, invoice.number)
     return CreatedInvoice(invoice=invoice, created_client=client if client_created else None)
 
 
-def clone_invoice(factory: RepositoryFactory, identifier: str, issue_date: date) -> ClonedInvoice:
-    """Copy an invoice under the next number, keeping its payment period, and audit it."""
+def clone_invoice(
+    factory: RepositoryFactory,
+    identifier: str,
+    issue_date: date,
+    line_change: LineChange = NO_LINE_CHANGE,
+    due_date: date | None = None,
+    issue: bool = False,
+) -> ClonedInvoice:
+    """Copy an invoice as a draft, keeping its payment period, and audit it.
+
+    `line_change` edits the copy's line; an original with several lines is edited
+    after cloning with update_invoice instead. With `issue`, the copy is issued at once.
+
+    Raises:
+        LineSelectionError: For a line change on an original with several lines
+    """
     original = find_invoice(factory, identifier)
     if original.type is not InvoiceType.STANDARD:
         raise InvoiceNotFoundError(identifier)
+    if not line_change.is_empty() and len(original.lines) != 1:
+        raise LineSelectionError(original.number, len(original.lines), None)
     invoice_repo = factory.create_invoice_repository()
-    number = NumberingService(invoice_repo=invoice_repo).generate_number(year=issue_date.year)
 
-    if original.due_date:
-        due_date = issue_date + (original.due_date - original.issue_date)
-    else:
-        due_date = due_date_for_terms(original.payment_terms, issue_date)
+    if due_date is None:
+        if original.due_date:
+            due_date = issue_date + (original.due_date - original.issue_date)
+        else:
+            due_date = due_date_for_terms(original.payment_terms, issue_date)
+    lines = [
+        InvoiceLineCreate(
+            description=line.description,
+            quantity=line.quantity,
+            unit_price=line.unit_price,
+            tax_rate=line.tax_rate,
+        )
+        for line in original.lines
+    ]
+    if not line_change.is_empty():
+        lines = [_changed_line(lines[0], line_change)]
 
     invoice = invoice_repo.create(
         InvoiceCreate(
-            number=number,
+            number=_pending_draft_number(),
             issue_date=issue_date,
-            status=InvoiceStatus.UNPAID,
+            status=InvoiceStatus.DRAFT,
             due_date=due_date,
             payment_terms=original.payment_terms,
             client_id=original.client_id,
@@ -458,27 +530,144 @@ def clone_invoice(factory: RepositoryFactory, identifier: str, issue_date: date)
             payment_note_ids=original.payment_note_ids,
             payment_notes_snapshot=_snapshot_payment_notes(factory, original.payment_note_ids),
             template_name=_document_template(factory, original, None),
-            lines=[
-                InvoiceLineCreate(
-                    description=line.description,
-                    quantity=line.quantity,
-                    unit_price=line.unit_price,
-                    tax_rate=line.tax_rate,
-                )
-                for line in original.lines
-            ],
+            lines=lines,
             original_invoice_id=None,
             reason=None,
         )
     )
 
+    invoice = _number_draft(factory, invoice)
     AuditService(audit_repo=factory.create_audit_repository()).log_invoice_cloned(
         invoice_id=invoice.id,
         invoice_number=invoice.number,
         original_number=original.number,
         total_amount=invoice.total_amount,
     )
+    if issue:
+        invoice = issue_invoice(factory, invoice.number)
     return ClonedInvoice(original=original, invoice=invoice)
+
+
+def _pending_draft_number() -> str:
+    """A unique placeholder until the draft has an ID to be numbered by."""
+    return f"{DRAFT_NUMBER_PREFIX}new-{uuid.uuid4().hex}"
+
+
+def _number_draft(factory: RepositoryFactory, invoice: Invoice) -> Invoice:
+    """Give a new draft its provisional number DRAFT-<id> (custom numbers are kept)."""
+    if not invoice.number.startswith(f"{DRAFT_NUMBER_PREFIX}new-"):
+        return invoice
+    return factory.create_invoice_repository().update(
+        invoice.model_copy(update={"number": draft_number(invoice.id)})
+    )
+
+
+def _changed_line[L: (InvoiceLine, InvoiceLineCreate)](line: L, change: LineChange) -> L:
+    if change.unit_price is not None and change.unit_price <= 0:
+        raise InvalidAmountError(str(change.unit_price))
+    updates: dict[str, Any] = {}
+    if change.description is not None:
+        updates["description"] = change.description
+    if change.quantity is not None:
+        updates["quantity"] = change.quantity
+    if change.unit_price is not None:
+        current = line.unit_price
+        if not isinstance(current, Money):
+            raise TypeError(f"Line unit price {current!r} is not Money")
+        updates["unit_price"] = Money(change.unit_price, current.currency)
+    # model_copy keeps Money intact; a model_dump round trip would drop the currency
+    return line.model_copy(update=updates)
+
+
+def _check_dates(number: str, issue_date: date, due_date: date | None) -> None:
+    if due_date is not None and due_date < issue_date:
+        raise InvalidDueDateError(number, issue_date, due_date)
+
+
+def _require_draft(invoice: Invoice) -> None:
+    if not is_draft(invoice):
+        raise InvoiceNotDraftError(invoice.number, invoice.status.value)
+
+
+def update_invoice(factory: RepositoryFactory, identifier: str, changes: DraftChanges) -> Invoice:
+    """Edit a draft: one of its lines, its dates or its payment terms.
+
+    Raises:
+        InvoiceNotDraftError: If the invoice is issued
+        LineSelectionError: If the line is missing or ambiguous
+    """
+    draft = find_invoice(factory, identifier)
+    _require_draft(draft)
+    updates: dict[str, Any] = {}
+    if not changes.line_change.is_empty():
+        index = changes.line
+        if index is None and len(draft.lines) == 1:
+            index = 0
+        if index is None or not 0 <= index < len(draft.lines):
+            raise LineSelectionError(draft.number, len(draft.lines), changes.line)
+        lines = list(draft.lines)
+        lines[index] = _changed_line(lines[index], changes.line_change)
+        updates["lines"] = lines
+    if changes.issue_date is not None:
+        updates["issue_date"] = changes.issue_date
+    if changes.due_date is not None:
+        updates["due_date"] = changes.due_date
+    if changes.payment_terms is not None:
+        updates["payment_terms"] = changes.payment_terms
+    updated = draft.model_copy(update=updates)
+    _check_dates(draft.number, updated.issue_date, updated.due_date)
+    saved = factory.create_invoice_repository().update(updated)
+    AuditService(audit_repo=factory.create_audit_repository()).log_invoice_updated(
+        saved, sorted(updates)
+    )
+    return saved
+
+
+def issue_invoice(
+    factory: RepositoryFactory, identifier: str, issue_date: date | None = None
+) -> Invoice:
+    """Issue a draft: give it its final number, lock its content with a hash, mark it SENT.
+
+    A draft numbered DRAFT-<id> gets the next number of its series for the issue year,
+    so numbers follow the order of issue without gaps. `issue_date` replaces the draft's
+    date and moves the due date with it.
+
+    Raises:
+        InvoiceNotDraftError: If the invoice is already issued
+    """
+    draft = find_invoice(factory, identifier)
+    _require_draft(draft)
+    repo = factory.create_invoice_repository()
+    issue_date = issue_date or draft.issue_date
+    due_date = draft.due_date
+    if due_date is not None and issue_date != draft.issue_date:
+        due_date = issue_date + (due_date - draft.issue_date)
+    number = draft.number
+    if number.startswith(DRAFT_NUMBER_PREFIX):
+        series = (
+            CREDIT_NOTE_NUMBER_FORMAT
+            if draft.type is InvoiceType.CREDIT_NOTE
+            else INVOICE_NUMBER_FORMAT
+        )
+        number = NumberingService(series, invoice_repo=repo).generate_number(year=issue_date.year)
+    _check_dates(draft.number, issue_date, due_date)
+    notes = draft.payment_notes_snapshot
+    if notes is None:  # a draft stored without one, such as through the API
+        notes = _snapshot_payment_notes(factory, draft.payment_note_ids)
+    issued = draft.model_copy(
+        update={
+            "number": number,
+            "issue_date": issue_date,
+            "due_date": due_date,
+            "status": InvoiceStatus.SENT,
+            "payment_notes_snapshot": notes,
+        }
+    )
+    saved = repo.update(issued.model_copy(update={"content_hash": content_hash(issued)}))
+    AuditService(audit_repo=factory.create_audit_repository()).log_invoice_issued(
+        saved, draft.number
+    )
+    return saved
 
 
 def validate_export_formats(formats: list[str]) -> list[str]:

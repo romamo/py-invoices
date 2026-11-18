@@ -4,18 +4,40 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+Breaking: `invoices create` and `invoices clone` make drafts, issued invoices are locked in every backend, and the audit log is append-only ([#5](https://github.com/romamo/py-invoices/issues/5), [#7](https://github.com/romamo/py-invoices/issues/7)). Pass `--issue` to keep the one-step flow.
+
+### Added
+- **Draft → issue lifecycle**: `invoices create` and `invoices clone` store a `DRAFT` numbered `DRAFT-<id>`; `invoices update` edits a draft's line (`--line N` when it has several), dates and payment terms; `invoices issue` assigns the next number of the series (so numbers follow the order of issue without gaps), records a SHA-256 `content_hash` of the locked content, writes an `ISSUED` audit entry and marks the invoice `SENT`. `--issue` on `create` and `clone` does it in one step. Drafts render with a DRAFT watermark and are not overdue. API: `POST /invoices/{number}/issue`
+- **`clone` line flags**: `--description`, `--quantity`, `--unit-price` (or `--amount`) change the copy's line, and `--due-date` its due date; on an original with several lines they exit 4 (`LINE_SELECTION`) and `invoices update` takes over
+- **`validate data`**: recomputes every issued invoice's hash and exits 1 if one changed in storage (a hand edit of `data/invoices/<id>.md`, say); `--seal` records a hash, with a `SEALED` audit entry, for invoices issued before this release
+- **`payment-notes set-default` and `payment-notes deactivate`**: change bank details by creating a new note, making it the default, and retiring the old one; deactivating the default is refused. Payment note text has no update command
+- **Audit of master data**: entries carry `entity_type` (`invoice`, `payment_note`, `client`, `company`) and `entity_id`; creating, defaulting and deactivating payment notes and creating clients and companies are logged. Entries get an `id`, and a correction is a new entry with `corrects_id`. Older entries read as invoice entries
+
+### Changed
+- **Issued invoices are locked**: every backend's `InvoiceRepository.update()` refuses a change to an issued invoice's content (number, dates, client and company snapshots, payment notes, lines, template) with `InvoiceLockedError`, and `delete()` refuses issued invoices; status changes follow `BusinessValidator.validate_state_transition()`, which treats the old `UNPAID` status as `SENT`. Correct an issued invoice with `credit-notes create`
+- Credit notes are issued when created: `SENT` with a content hash, instead of a `DRAFT` nothing could issue
+- `POST /invoices/` accepts only drafts
+- Requires pydantic-invoices >= 1.7.0 (`content_hash`)
+
+### Removed
+- `AuditService.clear_logs()` and `clear()` on the audit repositories: the audit log is append-only (the memory backend's `cleanup()` still empties it for tests)
+
 ### Fixed
 - **Issued invoices keep their payment notes**: invoices stored only `payment_note_ids`, and `invoices pdf` / `invoices html` and the API's HTML view looked the notes up at render time, so changing a bank account in a payment note changed it on every invoice already issued. `invoices create`, `invoices clone` and credit notes now store the notes' title and content in `payment_notes_snapshot` and rendering uses it. `clone` takes the snapshot from the current notes, so a new invoice shows the current bank details. Invoices stored before this release have no snapshot and still render the current notes, with a warning ([#6](https://github.com/romamo/py-invoices/issues/6))
 - **One default payment note per company**: `payment-notes create --is-default` kept the previous default, so two notes were default and `payment-notes default` returned whichever loaded first. A new default now clears the previous default of the same company (`company_id`, the global notes being their own scope), in every backend ([#7](https://github.com/romamo/py-invoices/issues/7))
-
-### Changed
-- Requires pydantic-invoices >= 1.6.0 (`payment_notes_snapshot`)
 
 ### Migration (SQL databases created by earlier versions)
 
 ```sql
 ALTER TABLE invoices ADD COLUMN payment_notes_snapshot JSON;
+ALTER TABLE invoices ADD COLUMN content_hash VARCHAR(64);
+ALTER TABLE audit_logs ADD COLUMN entity_type VARCHAR(20) NOT NULL DEFAULT 'invoice';
+ALTER TABLE audit_logs ADD COLUMN entity_id INTEGER;
+ALTER TABLE audit_logs ADD COLUMN corrects_id INTEGER REFERENCES audit_logs(id);
+UPDATE audit_logs SET entity_id = invoice_id WHERE entity_id IS NULL;
 ```
+
+Then run `py-invoices validate data --seal` once to record hashes for the invoices already issued.
 
 ## [5.0.2] - 2026-10-26
 

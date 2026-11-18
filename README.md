@@ -72,9 +72,12 @@ py-invoices setup
 # 2. Initialize the backend
 py-invoices init
 
-# 3. Create an invoice (and auto-create client)
+# 3. Create a draft invoice (and auto-create client), then issue it
 py-invoices invoices create --client-name "Acme Corp" --amount 1500.00 --description "Consulting"
+py-invoices invoices issue DRAFT-1
 ```
+
+Invoices start as drafts and are locked once issued: corrections go through a credit note, and `py-invoices validate data` detects an issued invoice changed in storage.
 
 For full documentation on available commands (listing, generating PDFs, backend configuration), see the **[CLI Documentation](py_invoices/cli/README.md)**.
 
@@ -273,7 +276,7 @@ xml_bytes = ubl_service.generate_ubl_bytes(invoice, company)
 
 ### Audit Logging
 
-Track every change in the invoice lifecycle:
+Track every change to invoices and master data (payment notes, clients, companies). The log is append-only: entries are never edited or deleted, and a correction is a new entry whose `corrects_id` names the one it corrects.
 
 ```python
 from py_invoices.core import AuditService

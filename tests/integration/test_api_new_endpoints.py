@@ -148,12 +148,12 @@ def test_invoices_api_extended() -> None:
             "number": "INV-LATE",
             "issue_date": "2020-01-01",
             "due_date": "2020-02-01",
-            "status": InvoiceStatus.SENT,
             "client_id": client_id,
             "lines": [{"description": "Item", "quantity": 1, "unit_price": 100}],
         },
     )
     invoice_id_late = response.json()["id"]
+    assert client.post("/invoices/INV-LATE/issue").json()["status"] == InvoiceStatus.SENT
 
     # Create normal invoice
     response = client.post(

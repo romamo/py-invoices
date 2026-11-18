@@ -2,7 +2,7 @@ import typer
 from pydantic_invoices.schemas.payment_note import PaymentNoteCreate
 from rich.table import Table
 
-from py_invoices.cli.utils import get_console, get_factory
+from py_invoices.cli.utils import cli_errors, get_console, get_factory
 from py_invoices.operations import payment_notes as ops
 
 app = typer.Typer()
@@ -61,7 +61,8 @@ def create_payment_note(
     data = PaymentNoteCreate(
         title=title, content=content, company_id=company_id, is_default=is_default
     )
-    created_note = ops.create_payment_note(get_factory(backend), data)
+    with cli_errors():
+        created_note = ops.create_payment_note(get_factory(backend), data)
 
     console.print("[green]✓ Created Payment Note[/green]")
     console.print(f"  ID: {created_note.id}")
@@ -71,3 +72,26 @@ def create_payment_note(
         console.print(
             "\n[yellow]Note: stored in memory. It will be lost when this command exits.[/yellow]"
         )
+
+
+@app.command("set-default")
+def set_default_note(
+    note_id: int = typer.Argument(..., help="Payment note ID"),
+    backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
+) -> None:
+    """Make a payment note the default of its company, replacing the previous default."""
+    with cli_errors():
+        note = ops.set_default_payment_note(get_factory(backend), note_id)
+    console.print(f"[green]✓ Payment note {note.id} is the default[/green]")
+
+
+@app.command("deactivate")
+def deactivate_note(
+    note_id: int = typer.Argument(..., help="Payment note ID"),
+    backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
+) -> None:
+    """Retire a payment note. To change bank details: create a note, set it default,
+    then deactivate the old one; issued invoices keep the details they were issued with."""
+    with cli_errors():
+        note = ops.deactivate_payment_note(get_factory(backend), note_id)
+    console.print(f"[green]✓ Payment note {note.id} is inactive[/green]")

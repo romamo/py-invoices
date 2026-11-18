@@ -125,16 +125,12 @@ class TestAuditService:
         logs = service.get_logs(invoice_number="INV-002")
         assert len(logs) == 1
 
-    def test_clear_logs(self) -> None:
-        """Test clearing audit logs."""
-        service = AuditService()
-        service.log_invoice_created(
-            1, invoice_number="INV-001", total_amount=1000.0, client_name="Client A"
-        )
-        assert len(service.get_logs()) == 1
+    def test_log_is_append_only(self) -> None:
+        """The audit log offers no way to clear or edit entries (#7)."""
+        from py_invoices.plugins.base import AuditRepository
 
-        service.clear_logs()
-        assert len(service.get_logs()) == 0
+        assert not hasattr(AuditService, "clear_logs")
+        assert not hasattr(AuditRepository, "clear")
 
 
 class TestPDFService:
