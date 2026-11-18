@@ -11,13 +11,36 @@ INVOICE_NUMBER_FORMAT = "INV-{year}-{sequence:04d}"
 CREDIT_NOTE_NUMBER_FORMAT = "CN-{year}-{sequence:04d}"
 
 
+def series_format(format_template: str, number_prefix: str | None) -> str:
+    """The company's series of a format: "AC" makes "INV-..." into "AC-INV-..."."""
+    return f"{number_prefix}-{format_template}" if number_prefix else format_template
+
+
+class NumberTakenError(Exception):
+    """The next number of a company's series is already held by another invoice.
+
+    Two companies sharing one format (no number_prefix) count independently but would
+    produce equal numbers, and a number must identify one invoice.
+    """
+
+    def __init__(self, number: str, company_id: int) -> None:
+        super().__init__(
+            f"Number {number}, the next in company {company_id}'s series, is already used "
+            "by another company's invoice; give each company its own series with "
+            "number_prefix"
+        )
+        self.number = number
+        self.company_id = company_id
+
+
 class NumberingService:
     """Service for generating sequential document numbers.
 
     With a repository, the next sequence continues from the highest number already
     issued in the same series (the format with its fixed parts filled in), so each
     series and year counts independently and deleted or custom numbers never cause
-    duplicates.
+    duplicates. Given a company_id, only that company's invoices count: each issuing
+    company has its own series.
     """
 
     def __init__(
@@ -44,6 +67,7 @@ class NumberingService:
         self,
         sequence: int | None = None,
         year: int | None = None,
+        company_id: int | None = None,
         **kwargs: Any,
     ) -> str:
         """Generate a number.
@@ -51,7 +75,11 @@ class NumberingService:
         Args:
             sequence: Sequential number. If None, the next one is taken from the repository.
             year: Year to use (defaults to current year)
+            company_id: Count only this company's invoices for the next sequence
             **kwargs: Additional format variables
+
+        Raises:
+            NumberTakenError: If the next number of the company's series is already used
 
         Example:
             >>> NumberingService().generate_number(42, year=2024)
@@ -59,22 +87,36 @@ class NumberingService:
         """
         today = date.today()
         target_year = year or today.year
-        if sequence is None:
-            sequence = self.next_sequence(target_year, **kwargs)
+        if sequence is not None:
+            return self._format(sequence, target_year, today, kwargs)
+        number = self._format(
+            self.next_sequence(target_year, company_id, **kwargs), target_year, today, kwargs
+        )
+        if company_id is not None and self._repo().get_by_number(number) is not None:
+            raise NumberTakenError(number, company_id)
+        return number
 
+    def _format(self, sequence: int, year: int, today: date, fixed: dict[str, Any]) -> str:
         return self.format_template.format(
-            year=target_year, month=today.month, day=today.day, sequence=sequence, **kwargs
+            year=year, month=today.month, day=today.day, sequence=sequence, **fixed
         )
 
-    def next_sequence(self, year: int, **kwargs: Any) -> int:
-        """One more than the highest sequence issued in this series for the year."""
+    def _repo(self) -> InvoiceRepository:
         if self.invoice_repo is None:
             raise ValueError("sequence must be provided if invoice_repo is not set")
+        return self.invoice_repo
+
+    def next_sequence(self, year: int, company_id: int | None = None, **kwargs: Any) -> int:
+        """One more than the highest sequence issued in this series for the year.
+
+        With company_id, only that company's invoices count; otherwise all of them.
+        """
         pattern = self._series_pattern(year, kwargs)
         sequences = (
             int(match["sequence"])
-            for invoice in iter_all(self.invoice_repo)
-            if (match := pattern.fullmatch(invoice.number))
+            for invoice in iter_all(self._repo())
+            if (company_id is None or invoice.company_id == company_id)
+            and (match := pattern.fullmatch(invoice.number))
         )
         return max(sequences, default=0) + 1
 

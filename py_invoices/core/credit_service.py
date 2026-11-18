@@ -6,7 +6,7 @@ Provides functionality for creating and managing credit notes.
 from collections import Counter
 from datetime import date
 
-from pydantic_invoices.interfaces import InvoiceRepository
+from pydantic_invoices.interfaces import CompanyRepository, InvoiceRepository
 from pydantic_invoices.schemas import (
     Invoice,
     InvoiceCreate,
@@ -18,7 +18,11 @@ from pydantic_invoices.schemas import (
 from pydantic_invoices.vo import Money
 
 from py_invoices.core.lifecycle import content_hash
-from py_invoices.core.numbering_service import CREDIT_NOTE_NUMBER_FORMAT, NumberingService
+from py_invoices.core.numbering_service import (
+    CREDIT_NOTE_NUMBER_FORMAT,
+    NumberingService,
+    series_format,
+)
 from py_invoices.core.paging import iter_all
 from py_invoices.core.totals import as_money, invoice_currency, invoice_gross
 from py_invoices.core.validator import BusinessValidator
@@ -64,17 +68,37 @@ class CreditService:
         self,
         invoice_repo: InvoiceRepository,
         numbering_service: NumberingService | None = None,
+        company_repo: CompanyRepository | None = None,
     ):
         """Initialize Credit Service.
 
         Args:
             invoice_repo: Repository for invoices
-            numbering_service: Numbering for credit notes; defaults to the "CN-" series
+            numbering_service: Numbering for credit notes; defaults to the "CN-" series of
+                the original invoice's company
+            company_repo: Companies, for their number_prefix; without it the "CN-" series
+                is unprefixed
         """
         self.invoice_repo = invoice_repo
-        self.numbering_service = numbering_service or NumberingService(
-            CREDIT_NOTE_NUMBER_FORMAT, invoice_repo=invoice_repo
-        )
+        self.numbering_service = numbering_service
+        self.company_repo = company_repo
+
+    def _credit_note_number(self, original_invoice: Invoice) -> str:
+        """The next number of the original company's credit note series."""
+        numbering = self.numbering_service
+        if numbering is None:
+            company = (
+                self.company_repo.get_by_id(original_invoice.company_id)
+                if self.company_repo
+                else None
+            )
+            numbering = NumberingService(
+                series_format(
+                    CREDIT_NOTE_NUMBER_FORMAT, company.number_prefix if company else None
+                ),
+                invoice_repo=self.invoice_repo,
+            )
+        return numbering.generate_number(company_id=original_invoice.company_id)
 
     def _notes_for(self, original_invoice: Invoice) -> list[Invoice]:
         return [
@@ -143,7 +167,7 @@ class CreditService:
         today = date.today()
         credit_note = self.invoice_repo.create(
             InvoiceCreate(
-                number=self.numbering_service.generate_number(),
+                number=self._credit_note_number(original_invoice),
                 issue_date=today,
                 status=InvoiceStatus.SENT,
                 type=InvoiceType.CREDIT_NOTE,

@@ -6,10 +6,12 @@ from pydantic_invoices.schemas import Invoice, InvoiceLineCreate
 
 from py_invoices.core.audit_service import AuditService
 from py_invoices.core.credit_service import CreditService
+from py_invoices.core.numbering_service import NumberTakenError
 from py_invoices.operations.errors import (
     CreditNoteNotFoundError,
     CreditNoteRejectedError,
     InvoiceNotFoundError,
+    SeriesNumberTakenError,
 )
 from py_invoices.plugins.factory import RepositoryFactory
 
@@ -30,12 +32,16 @@ def credit_invoice(
     """Issue a credit note (whole invoice, chosen lines, or explicit lines) and audit it."""
     invoice_repo = factory.create_invoice_repository()
     try:
-        credit_note = CreditService(invoice_repo).create_credit_note(
+        credit_note = CreditService(
+            invoice_repo, company_repo=factory.create_company_repository()
+        ).create_credit_note(
             original_invoice=original,
             reason=reason,
             lines=lines,
             refund_lines_indices=line_indices,
         )
+    except NumberTakenError as e:
+        raise SeriesNumberTakenError(str(e), e.number, e.company_id) from e
     except ValueError as e:
         raise CreditNoteRejectedError(str(e)) from e
     AuditService(audit_repo=factory.create_audit_repository()).log_credit_note_created(

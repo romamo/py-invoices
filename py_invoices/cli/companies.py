@@ -1,8 +1,11 @@
+from typing import NoReturn
+
 import typer
 from rich.table import Table
 
-from py_invoices.cli.utils import get_console, get_factory
+from py_invoices.cli.utils import error_lines, get_console, get_factory
 from py_invoices.operations import companies as ops
+from py_invoices.operations.errors import OperationError
 
 app = typer.Typer()
 console = get_console()
@@ -57,16 +60,52 @@ def create_company(
     address: str = typer.Option(None, help="Company address"),
     email: str = typer.Option(None, help="Company email"),
     phone: str = typer.Option(None, help="Company phone"),
+    number_prefix: str = typer.Option(
+        None,
+        help="Prefix giving the company its own number series (AC -> AC-INV-2026-0001)",
+    ),
     backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
 ) -> None:
     """Create a new company."""
-    company = ops.create_company(get_factory(backend), name, tax_id, address, email, phone)
+    try:
+        company = ops.create_company(
+            get_factory(backend), name, tax_id, address, email, phone, number_prefix
+        )
+    except OperationError as e:
+        _fail(e)
 
     console.print(f"[green]✓ Created Company {company.name}[/green]")
     console.print(f"  ID: {company.id}")
     console.print(f"  Tax ID: {company.tax_id or 'N/A'}")
+    if company.number_prefix:
+        console.print(f"  Number prefix: {company.number_prefix}")
 
     if backend == "memory":
         console.print(
             "\n[yellow]Note: stored in memory. It will be lost when this command exits.[/yellow]"
         )
+
+
+@app.command("set-number-prefix")
+def set_number_prefix(
+    company_id: int = typer.Argument(..., help="Company ID"),
+    number_prefix: str = typer.Argument(..., help="Letters and digits, e.g. AC"),
+    backend: str = typer.Option(None, help="Storage backend to use (overrides env var)"),
+) -> None:
+    """Give a company its own number series (AC -> AC-INV-2026-0001, AC-CN-2026-0001).
+
+    Numbers already issued keep theirs; the company's next invoice starts the new series.
+    """
+    try:
+        company = ops.set_number_prefix(get_factory(backend), company_id, number_prefix)
+    except OperationError as e:
+        _fail(e)
+    console.print(
+        f"[green]✓ {company.name} numbers its documents {company.number_prefix}-…[/green]"
+    )
+
+
+def _fail(error: OperationError) -> NoReturn:
+    for line in error_lines(error):
+        console.print(line)
+    raise typer.Exit(1)

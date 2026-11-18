@@ -5,7 +5,7 @@ from pydantic_invoices.schemas import Invoice, InvoiceLineCreate, InvoiceType
 from py_invoices import RepositoryFactory
 from py_invoices.api.deps import get_factory
 from py_invoices.operations import credit_notes as ops
-from py_invoices.operations.errors import CreditNoteRejectedError
+from py_invoices.operations.errors import CreditNoteRejectedError, SeriesNumberTakenError
 
 router = APIRouter()
 
@@ -44,6 +44,8 @@ def create_credit_note(
         )
     except CreditNoteRejectedError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    except SeriesNumberTakenError as e:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e)) from e
 
 
 @router.get("/{credit_note_number}", response_model=Invoice)

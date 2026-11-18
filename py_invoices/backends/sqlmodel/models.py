@@ -293,6 +293,7 @@ class CompanyDB(SQLModel, table=True):
     phone: str | None = Field(default=None, max_length=50)
     website: str | None = Field(default=None, max_length=255)
     logo_path: str | None = Field(default=None, max_length=500)
+    number_prefix: str | None = Field(default=None, max_length=20)
     is_active: bool = Field(default=True)
     is_default: bool = Field(default=False)
 
@@ -315,6 +316,7 @@ class CompanyDB(SQLModel, table=True):
             phone=self.phone,
             website=self.website,
             logo_path=self.logo_path,
+            number_prefix=self.number_prefix,
             is_active=self.is_active,
             is_default=self.is_default,
         )
