@@ -77,7 +77,7 @@ py-invoices invoices create --client-name "Acme Corp" --amount 1500.00 --descrip
 py-invoices invoices issue DRAFT-1
 ```
 
-Invoices start as drafts and are locked once issued: corrections go through a credit note, and `py-invoices validate data` detects an issued invoice changed in storage.
+Invoices start as drafts and are locked once issued: corrections go through a credit note, and `py-invoices validate data` detects an issued invoice changed in storage, or a stored file whose name differs from its `id`.
 
 For full documentation on available commands (listing, generating PDFs, backend configuration), see the **[CLI Documentation](py_invoices/cli/README.md)**.
 

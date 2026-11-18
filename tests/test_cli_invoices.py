@@ -3,6 +3,7 @@
 import json
 from datetime import date, timedelta
 from pathlib import Path
+from typing import Any
 
 from conftest import Cli, CliRun
 from pydantic_invoices.schemas import Invoice, InvoiceCreate, InvoiceLineCreate, InvoiceStatus
@@ -16,7 +17,7 @@ def factory(data_dir: Path) -> RepositoryFactory:
     return RepositoryFactory("files", root_dir=str(data_dir), file_format="json")
 
 
-def create(cli: Cli, *extra: str) -> CliRun:
+def create(cli: Cli, *extra: str, **options: Any) -> CliRun:
     return cli(
         "invoices",
         "create",
@@ -34,6 +35,7 @@ def create(cli: Cli, *extra: str) -> CliRun:
         "Road 1",
         "--issue",
         *extra,
+        **options,
     )
 
 
@@ -60,7 +62,7 @@ def test_create_exports_formats_with_exact_amounts(
 
     number = f"INV-{date.today().year}-0001"
     assert data["exports"] == [
-        {"format": fmt, "path": str(out / f"{number}.{ext}")}
+        {"effect": "created", "format": fmt, "path": str(out / f"{number}.{ext}")}
         for fmt, ext in (("json", "json"), ("html", "html"), ("ubl", "xml"))
     ]
     exported = json.loads((out / f"{number}.json").read_text())

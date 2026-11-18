@@ -12,7 +12,7 @@ from pydantic_invoices.interfaces import (
     ProductRepository,
 )
 
-from ...plugins.base import AuditRepository, StoragePlugin
+from ...plugins.base import AuditRepository, MisplacedRecord, StoragePlugin
 from ...plugins.registry import PluginRegistry
 from .audit_repo import FileAuditRepository
 from .client_repo import FileClientRepository
@@ -58,6 +58,27 @@ class FilesPlugin(StoragePlugin):
         self._product_repo = FileProductRepository(self.root_dir, file_format)
         self._payment_note_repo = FilePaymentNoteRepository(self.root_dir, file_format)
         self._audit_repo = FileAuditRepository(self.root_dir, file_format)
+
+    def misplaced_records(self) -> list[MisplacedRecord]:
+        """Files whose name carries another ID than the record inside, in every entity dir."""
+        if self.root_dir is None:
+            raise RuntimeError("Plugin not initialized. Call initialize() first.")
+        root = self.root_dir
+        repos = (
+            self._invoice_repo,
+            self._client_repo,
+            self._payment_repo,
+            self._company_repo,
+            self._product_repo,
+            self._payment_note_repo,
+            self._audit_repo,
+        )
+        return [
+            MisplacedRecord(path.relative_to(root).as_posix(), record_id)
+            for repo in repos
+            if repo is not None
+            for path, record_id in repo.storage.misplaced()
+        ]
 
     def create_invoice_repository(self, **config: Any) -> InvoiceRepository:
         """Create invoice repository."""
