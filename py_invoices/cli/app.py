@@ -24,7 +24,10 @@ from py_invoices.operations.errors import (
     CompanyDetailsRequiredError,
     CompanyDetailsUnresolvedError,
     DuplicateInvoiceNumberError,
+    InvalidDueDateError,
+    InvoiceNotDraftError,
     InvoiceNotFoundError,
+    LineSelectionError,
     LogoNotFoundError,
     MissingDependencyError,
     MissingSystemLibrariesError,
@@ -100,6 +103,28 @@ def exit_for(error: OperationError) -> CliExit:
                 code=code,
                 context={"client": error.identifier},
                 suggestion=f"{CLI_NAME} clients list shows client IDs",
+            )
+        case InvoiceNotDraftError():
+            return Exit.PRECONDITION(
+                str(error),
+                code=code,
+                context={"invoice": error.number, "status": error.status},
+                suggestion=f"{CLI_NAME} credit-notes create corrects an issued invoice; "
+                f"{CLI_NAME} invoices clone makes a new draft from it",
+            )
+        case InvalidDueDateError():
+            return Exit.PRECONDITION(
+                str(error),
+                code=code,
+                context={"invoice": error.number},
+                suggestion="pass a --due-date on or after the issue date",
+            )
+        case LineSelectionError():
+            return Exit.PRECONDITION(
+                str(error),
+                code=code,
+                context={"invoice": error.number, "lines": error.line_count},
+                suggestion=f"{CLI_NAME} invoices update <draft> --line N changes one line",
             )
         case PaymentNoteNotFoundError():
             return Exit.NOT_FOUND(str(error), code=code, context={"payment_note": error.note_id})

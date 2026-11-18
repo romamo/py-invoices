@@ -17,6 +17,7 @@ from pydantic_invoices.schemas import (
 )
 from pydantic_invoices.vo import Money
 
+from py_invoices.core.lifecycle import content_hash
 from py_invoices.core.numbering_service import CREDIT_NOTE_NUMBER_FORMAT, NumberingService
 from py_invoices.core.paging import iter_all
 from py_invoices.core.totals import as_money, invoice_currency, invoice_gross
@@ -144,7 +145,7 @@ class CreditService:
             InvoiceCreate(
                 number=self.numbering_service.generate_number(),
                 issue_date=today,
-                status=InvoiceStatus.DRAFT,
+                status=InvoiceStatus.SENT,
                 type=InvoiceType.CREDIT_NOTE,
                 original_invoice_id=original_invoice.id,
                 reason=reason,
@@ -165,6 +166,10 @@ class CreditService:
                 template_name=original_invoice.template_name,
                 payment_notes_snapshot=[],
             )
+        )
+        # A credit note is issued when created: lock it like an issued invoice
+        credit_note = self.invoice_repo.update(
+            credit_note.model_copy(update={"content_hash": content_hash(credit_note)})
         )
 
         if fully_credited:

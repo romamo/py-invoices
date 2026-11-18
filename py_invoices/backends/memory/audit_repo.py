@@ -11,14 +11,12 @@ class MemoryAuditRepository(AuditRepository):
         self._logs: list[AuditLogEntry] = []
 
     def add(self, entry: AuditLogEntry) -> AuditLogEntry:
-        self._logs.append(entry)
-        return entry
+        stored = entry.model_copy(update={"id": len(self._logs) + 1})
+        self._logs.append(stored)
+        return stored
 
     def get_by_invoice(self, invoice_id: int) -> list[AuditLogEntry]:
         return [log for log in self._logs if log.invoice_id == invoice_id]
 
     def get_all(self, skip: int = 0, limit: int = 100) -> list[AuditLogEntry]:
         return self._logs[skip : skip + limit]
-
-    def clear(self) -> None:
-        self._logs.clear()

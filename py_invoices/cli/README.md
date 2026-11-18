@@ -51,9 +51,17 @@ py-invoices invoices list             # newest first, 10 at a time; --cursor fro
 py-invoices invoices list --limit 0   # every invoice
 ```
 
-**Create Invoice:**
+**Lifecycle: draft, then issue.** `create` and `clone` make a `DRAFT` numbered `DRAFT-<id>`; a draft can be edited and renders with a DRAFT watermark. `issue` gives it the next number of its series (gapless, in the order of issue), stores a SHA-256 hash of its content and marks it `SENT`. An issued invoice cannot be edited or deleted in any backend: correct it with `credit-notes create` and a new invoice (EU VAT Directive 2006/112/EC, art. 219 and 233). `--issue` on `create` or `clone` does both steps at once.
+
 ```bash
 py-invoices invoices create --client-name "Acme Corp" --amount 1500.00 --description "Web Development"
+py-invoices invoices update DRAFT-12 --unit-price 1450   # a line, --date, --due-date, --payment-terms
+py-invoices invoices issue DRAFT-12                      # -> INV-2026-0007, locked
+```
+
+**Create Invoice:**
+```bash
+py-invoices invoices create --client-name "Acme Corp" --amount 1500.00 --description "Web Development" --issue
 ```
 
 *Create and export files* (`-e`/`--export` takes `pdf`, `html`, `ubl`, `json`, repeated):
@@ -99,8 +107,10 @@ py-invoices invoices stats     # the short form
 
 **Clone Invoice:**
 ```bash
-py-invoices invoices clone <invoice_number_or_id> --date 2026-10-01 -e pdf
+py-invoices invoices clone <invoice_number_or_id> --date 2026-10-01 --issue -e pdf
+py-invoices invoices clone INV-2026-0003 --unit-price 950 --description "October"   # a draft with a new price
 ```
+Line flags (`--description`, `--quantity`, `--unit-price`/`--amount`) change the copy's only line; for an original with several lines, clone it and use `invoices update <draft> --line N`.
 
 **Generate PDF:**
 ```bash
@@ -126,7 +136,7 @@ py-invoices invoices html INV-2024-001
 | --- | --- |
 | 0 | Success |
 | 2 | Invalid arguments; nothing ran, and `error.errors` lists every problem |
-| 4 | A precondition failed: company details, a logo file, or PDF dependencies are missing (`error.code` says which) |
+| 4 | A precondition failed: company details, a logo file, or PDF dependencies are missing; the invoice is not a draft (`INVOICE_NOT_DRAFT`); a line flag names no line of the invoice (`LINE_SELECTION`); a due date before the issue date (`error.code` says which) |
 | 5 | The invoice or client does not exist |
 | 6 | `--invoice-number` is already used |
 
@@ -178,6 +188,16 @@ exceed the invoice total, and a fully credited invoice becomes `CREDITED`.
 py-invoices credit-notes get "CN-2024-0001"
 ```
 
+## Payment Notes
+
+A payment note's text is never edited, since issued invoices print it. To change bank details, create a new note, make it the default, and retire the old one; each step is audited, and issued invoices keep the notes they were issued with.
+
+```bash
+py-invoices payment-notes create --title "Bank" --content "IBAN DE00 ..." --is-default   # replaces the previous default of its company
+py-invoices payment-notes set-default 4
+py-invoices payment-notes deactivate 3   # refused while 3 is the default
+```
+
 ## Payments Management
 
 Manage payments.
@@ -197,6 +217,12 @@ py-invoices validate invoice <path_to_xml>
 *Example:*
 ```bash
 py-invoices validate invoice output/INV-2024-0001.xml
+```
+
+Check that no issued invoice changed since it was issued (exit 1 if one did):
+```bash
+py-invoices validate data
+py-invoices validate data --seal   # once: record hashes for invoices issued before 6.0.0
 ```
 
 ## Storage Backends

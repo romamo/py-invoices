@@ -16,7 +16,7 @@ from py_invoices.core.audit_service import AuditLogEntry
 
 
 class AuditRepository(ABC):
-    """Storage for audit log entries."""
+    """Append-only storage for audit log entries: no update, no delete."""
 
     @abstractmethod
     def add(self, entry: AuditLogEntry) -> AuditLogEntry:
@@ -29,10 +29,6 @@ class AuditRepository(ABC):
     @abstractmethod
     def get_all(self, skip: int = 0, limit: int = 100) -> list[AuditLogEntry]:
         """A page of entries."""
-
-    @abstractmethod
-    def clear(self) -> None:
-        """Delete every entry."""
 
 
 class StoragePlugin(ABC):

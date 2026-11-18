@@ -24,13 +24,18 @@ def factory() -> RepositoryFactory:
     return RepositoryFactory(backend="memory")
 
 
-def _invoice(factory: RepositoryFactory, number: str, amount: str = "100") -> Invoice:
+def _invoice(
+    factory: RepositoryFactory,
+    number: str,
+    amount: str = "100",
+    status: InvoiceStatus = InvoiceStatus.SENT,
+) -> Invoice:
     client = factory.create_client_repository().create(ClientCreate(name=f"C {number}"))
     return factory.create_invoice_repository().create(
         InvoiceCreate(
             number=number,
             client_id=client.id,
-            status=InvoiceStatus.SENT,
+            status=status,
             lines=[
                 InvoiceLineCreate(description="A", quantity=1, unit_price=amount),
                 InvoiceLineCreate(description="B", quantity=1, unit_price=amount),
@@ -48,7 +53,8 @@ def test_next_number_continues_from_highest_issued(factory: RepositoryFactory) -
 
 
 def test_deleting_an_invoice_does_not_reuse_a_lower_number(factory: RepositoryFactory) -> None:
-    first = _invoice(factory, f"INV-{YEAR}-0001")
+    # Only drafts can be deleted; one may carry a custom number
+    first = _invoice(factory, f"INV-{YEAR}-0001", status=InvoiceStatus.DRAFT)
     _invoice(factory, f"INV-{YEAR}-0002")
     repo = factory.create_invoice_repository()
     repo.delete(first.id)

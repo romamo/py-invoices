@@ -7,9 +7,10 @@ integrate with your storage backend's audit log repository.
 
 from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any
+from enum import StrEnum
+from typing import TYPE_CHECKING, Any, Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from pydantic_invoices.schemas import Invoice, Payment
 from pydantic_invoices.vo import Money
 
@@ -21,19 +22,54 @@ if TYPE_CHECKING:
 _PAGE_SIZE = 500
 
 
-class AuditLogEntry(BaseModel):
-    """Audit log entry schema."""
+class AuditEntity(StrEnum):
+    """Kind of record an audit entry is about."""
 
+    INVOICE = "invoice"
+    PAYMENT_NOTE = "payment_note"
+    CLIENT = "client"
+    COMPANY = "company"
+
+
+class AuditLogEntry(BaseModel):
+    """Audit log entry schema.
+
+    The log is append-only: an entry is never edited or deleted, and a correction is a
+    new entry whose `corrects_id` names the entry it corrects. `entity_type` and
+    `entity_id` name the record; invoice entries also carry `invoice_id` and
+    `invoice_number`. Entries written before 6.0.0 have only `invoice_id` and read as
+    invoice entries.
+    """
+
+    id: int | None = Field(None, description="Assigned by the repository when stored")
     timestamp: datetime = Field(default_factory=datetime.now)
+    entity_type: AuditEntity = AuditEntity.INVOICE
+    entity_id: int | None = None
     invoice_id: int | None = None
     invoice_number: str | None = None
-    action: str = Field(..., description="Action performed (e.g., CREATED, UPDATED, PAID)")
+    action: str = Field(..., description="Action performed (e.g., CREATED, ISSUED, PAID)")
     old_value: str | None = None
     new_value: str | None = None
     notes: str | None = None
     user: str | None = None
+    corrects_id: int | None = Field(None, description="ID of the entry this one corrects")
 
     model_config = {"extra": "allow"}
+
+    @model_validator(mode="after")
+    def invoice_entries_name_the_invoice(self) -> Self:
+        if self.entity_type is AuditEntity.INVOICE:
+            if self.entity_id is None:
+                self.entity_id = self.invoice_id
+            elif self.invoice_id is None:
+                self.invoice_id = self.entity_id
+            elif self.invoice_id != self.entity_id:
+                raise ValueError(
+                    f"invoice_id {self.invoice_id} differs from entity_id {self.entity_id}"
+                )
+        elif self.invoice_id is not None:
+            raise ValueError(f"A {self.entity_type.value} entry has no invoice_id")
+        return self
 
 
 class AuditService:
@@ -231,6 +267,69 @@ class AuditService:
         )
         return self._record(entry)
 
+    def log_invoice_issued(
+        self, invoice: Invoice, draft_number: str, user: str | None = None
+    ) -> AuditLogEntry:
+        """Log a draft being issued under its final number."""
+        entry = AuditLogEntry(
+            invoice_id=invoice.id,
+            invoice_number=invoice.number,
+            action="ISSUED",
+            old_value=draft_number,
+            new_value=f"Issued as {invoice.number}, {invoice.status.value}",
+            notes=f"Total: {format_money(invoice.total_amount)}; hash {invoice.content_hash}",
+            user=user,
+        )
+        return self._record(entry)
+
+    def log_invoice_updated(
+        self, invoice: Invoice, fields: list[str], user: str | None = None
+    ) -> AuditLogEntry:
+        """Log an edit of a draft."""
+        entry = AuditLogEntry(
+            invoice_id=invoice.id,
+            invoice_number=invoice.number,
+            action="UPDATED",
+            new_value=f"Changed {', '.join(fields)}",
+            notes=f"Total: {format_money(invoice.total_amount)}",
+            user=user,
+        )
+        return self._record(entry)
+
+    def log_invoice_sealed(self, invoice: Invoice, user: str | None = None) -> AuditLogEntry:
+        """Log a content hash recorded for an invoice issued before hashing existed."""
+        entry = AuditLogEntry(
+            invoice_id=invoice.id,
+            invoice_number=invoice.number,
+            action="SEALED",
+            new_value=invoice.content_hash,
+            notes="Hash of the content as stored when sealed, not as issued",
+            user=user,
+        )
+        return self._record(entry)
+
+    def log_record_event(
+        self,
+        entity_type: AuditEntity,
+        entity_id: int,
+        action: str,
+        new_value: str | None = None,
+        old_value: str | None = None,
+        user: str | None = None,
+    ) -> AuditLogEntry:
+        """Log a change to master data: a payment note, client or company."""
+        if entity_type is AuditEntity.INVOICE:
+            raise ValueError("Invoice events have their own log_invoice_* methods")
+        entry = AuditLogEntry(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            action=action,
+            old_value=old_value,
+            new_value=new_value,
+            user=user,
+        )
+        return self._record(entry)
+
     def _record(self, entry: AuditLogEntry) -> AuditLogEntry:
         self._logs.append(entry)
         if self.audit_repo:
@@ -294,9 +393,3 @@ class AuditService:
 
         summary["invoices_affected"] = list(invoices_affected)
         return summary
-
-    def clear_logs(self) -> None:
-        """Clear all audit logs (useful for testing)."""
-        self._logs.clear()
-        if self.audit_repo:
-            self.audit_repo.clear()

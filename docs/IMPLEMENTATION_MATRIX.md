@@ -8,7 +8,11 @@ This document maps every identified feature and action across the codebase to it
 | Entity / Context | Action / Feature | Interface / Service | CLI Command | API Endpoint |
 | :--- | :--- | :--- | :--- | :--- |
 | **System** | Initialize Database | - | `init` | - |
-| **Invoice** | Create Invoice | `InvoiceRepository.create` | `invoices create` | `POST /invoices/` |
+| **Invoice** | Create Draft Invoice | `operations.invoices.create_invoice` | `invoices create` | `POST /invoices/` |
+| **Invoice** | Edit Draft | `operations.invoices.update_invoice` | `invoices update` | - |
+| **Invoice** | Issue Draft | `operations.invoices.issue_invoice` | `invoices issue` | `POST /invoices/{number}/issue` |
+| **Invoice** | Clone Invoice | `operations.invoices.clone_invoice` | `invoices clone` | - |
+| **Invoice** | Check Stored Invoices | `operations.integrity.check_stored_invoices` | `validate data` | - |
 | **Invoice** | List Invoices | `InvoiceRepository.get_all` | `invoices list` | `GET /invoices/` |
 | **Invoice** | Get Invoice Details | `InvoiceRepository.get_by_number` | `invoices details` | `GET /invoices/{number}` |
 | **Invoice** | Generate PDF | `PDFService.generate_pdf` | `invoices pdf` | `GET /invoices/{number}/pdf` |
@@ -27,6 +31,8 @@ This document maps every identified feature and action across the codebase to it
 | **Product** | Search Products | `ProductRepository.search` | `products search` | `GET /products/search` |
 | **Company** | Get Default Company | `CompanyRepository.get_default` | `companies default` | `GET /companies/default` |
 | **Company** | Get Active Companies | `CompanyRepository.get_active` | `companies list` | `GET /companies/` |
+| **Payment Note** | Set Default | `operations.payment_notes.set_default_payment_note` | `payment-notes set-default` | - |
+| **Payment Note** | Deactivate | `operations.payment_notes.deactivate_payment_note` | `payment-notes deactivate` | - |
 | **Payment** | Get Payments for Invoice | `PaymentRepository.get_by_invoice` | `payments list` | `GET /payments/` |
 | **Payment Note** | Get Default Note | `PaymentNoteRepository.get_default` | `payment-notes default` | `GET /payment-notes/default` |
 | **Audit Log** | Log Actions | `AuditService` | `audit list` | `GET /audit/` |

@@ -5,6 +5,7 @@ from pathlib import Path
 from pydantic_invoices.interfaces import InvoiceRepository, PaymentRepository
 from pydantic_invoices.schemas import Invoice, InvoiceCreate, InvoiceStatus, InvoiceSummary
 
+from py_invoices.core.lifecycle import guard_delete, guard_update
 from py_invoices.core.summary import summarize_invoices
 
 from .storage import FileStorage
@@ -96,10 +97,15 @@ class FileInvoiceRepository(InvoiceRepository):
         existing = self.storage.load(invoice.id)
         if not existing:
             raise ValueError(f"Invoice {invoice.id} not found")
+        guard_update(existing, invoice)
 
         self.storage.save(invoice.model_copy(update={"payments": []}), invoice.id)
         return self._with_payments(invoice)
 
     def delete(self, invoice_id: int) -> bool:
-        """Delete invoice."""
+        """Delete a draft invoice."""
+        existing = self.storage.load(invoice_id)
+        if existing is None:
+            return False
+        guard_delete(existing)
         return self.storage.delete(invoice_id)

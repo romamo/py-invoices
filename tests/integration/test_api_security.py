@@ -43,7 +43,6 @@ def _invoice(client: TestClient, number: str, client_name: str = "Acme") -> dict
         "/invoices/",
         json={
             "number": number,
-            "status": "SENT",
             "client_id": client_id,
             "client_name_snapshot": client_name,
             "company_name_snapshot": "Co",
@@ -52,7 +51,9 @@ def _invoice(client: TestClient, number: str, client_name: str = "Acme") -> dict
         },
     )
     assert response.status_code == 200, response.text
-    return response.json()
+    issued = client.post(f"/invoices/{number}/issue")
+    assert issued.status_code == 200, issued.text
+    return issued.json()
 
 
 def test_requests_without_valid_key_are_rejected(factory: RepositoryFactory) -> None:

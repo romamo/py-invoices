@@ -152,6 +152,8 @@ class InvoiceDB(SQLModel, table=True):
     payment_notes_snapshot: list[dict[str, str]] | None = Field(
         default=None, sa_column=Column(JSON)
     )
+    # SHA-256 of the locked content, set at issue
+    content_hash: str | None = Field(default=None, max_length=64)
 
     # Relationships
     client: ClientDB = Relationship(back_populates="invoices")
@@ -196,6 +198,7 @@ class InvoiceDB(SQLModel, table=True):
             template_name=self.template_name,
             payment_note_ids=list(self.payment_note_ids or []),
             payment_notes_snapshot=self.payment_notes_snapshot,
+            content_hash=self.content_hash,
             lines=[line.to_schema() for line in self.lines],
             payments=[payment.to_schema() for payment in self.payments],
         )
@@ -241,6 +244,8 @@ class AuditLogDB(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     timestamp: datetime = Field(default_factory=datetime.now, index=True)
+    entity_type: str = Field(default="invoice", max_length=20, index=True)
+    entity_id: int | None = Field(default=None, index=True)
     invoice_id: int | None = Field(default=None, index=True)
     invoice_number: str | None = Field(default=None, index=True, max_length=50)
     action: str = Field(max_length=50, index=True)
@@ -248,13 +253,17 @@ class AuditLogDB(SQLModel, table=True):
     new_value: str | None = Field(default=None)
     notes: str | None = Field(default=None)
     user: str | None = Field(default=None, max_length=100)
+    corrects_id: int | None = Field(default=None, foreign_key="audit_logs.id")
 
     def to_schema(self) -> AuditLogEntry:
         """Convert to AuditLogEntry schema."""
-        from py_invoices.core.audit_service import AuditLogEntry
+        from py_invoices.core.audit_service import AuditEntity, AuditLogEntry
 
         return AuditLogEntry(
+            id=self.id,
             timestamp=self.timestamp,
+            entity_type=AuditEntity(self.entity_type),
+            entity_id=self.entity_id,
             invoice_id=self.invoice_id,
             invoice_number=self.invoice_number,
             action=self.action,
@@ -262,6 +271,7 @@ class AuditLogDB(SQLModel, table=True):
             new_value=self.new_value,
             notes=self.notes,
             user=self.user,
+            corrects_id=self.corrects_id,
         )
 
 

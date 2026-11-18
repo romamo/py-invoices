@@ -7,12 +7,15 @@ from pydantic_invoices.interfaces import InvoiceRepository
 from pydantic_invoices.schemas import (
     Invoice,
     InvoiceCreate,
+    InvoiceLine,
+    InvoiceLineCreate,
     InvoiceStatus,
     InvoiceSummary,
 )
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, col, select
 
+from py_invoices.core.lifecycle import guard_delete, guard_update
 from py_invoices.core.summary import summarize_invoices
 
 from .models import InvoiceDB, InvoiceLineDB, money_columns
@@ -41,20 +44,23 @@ class SQLModelInvoiceRepository(InvoiceRepository):
         self.session.flush()  # Get ID without committing
 
         for line_data in data.lines:
-            unit_price, currency = money_columns(line_data.unit_price)
-            db_line = InvoiceLineDB(
-                invoice_id=db_invoice.id,
-                description=line_data.description,
-                quantity=line_data.quantity,
-                unit_price=unit_price,
-                currency=currency,
-                tax_rate=Decimal(str(line_data.tax_rate or 0)),
-            )
-            self.session.add(db_line)
+            self.session.add(self._line_row(db_invoice.id, line_data))
 
         self.session.commit()
         self.session.refresh(db_invoice)
         return db_invoice.to_schema()
+
+    @staticmethod
+    def _line_row(invoice_id: int | None, line: InvoiceLineCreate | InvoiceLine) -> InvoiceLineDB:
+        unit_price, currency = money_columns(line.unit_price)
+        return InvoiceLineDB(
+            invoice_id=invoice_id,
+            description=line.description,
+            quantity=line.quantity,
+            unit_price=unit_price,
+            currency=currency,
+            tax_rate=Decimal(str(line.tax_rate or 0)),
+        )
 
     def get_by_id(self, invoice_id: int) -> Invoice | None:
         """Get invoice by ID."""
@@ -112,6 +118,8 @@ class SQLModelInvoiceRepository(InvoiceRepository):
         db_invoice = self.session.get(InvoiceDB, invoice.id)
         if not db_invoice:
             raise ValueError(f"Invoice {invoice.id} not found")
+        stored = db_invoice.to_schema()
+        guard_update(stored, invoice)
 
         # Update fields (excluding relationships and non-DB fields)
         exclude_fields = {"id", "lines", "payments", "audit_logs"}
@@ -123,6 +131,16 @@ class SQLModelInvoiceRepository(InvoiceRepository):
             if key in db_fields:
                 setattr(db_invoice, key, value)
 
+        # Only drafts get here with changed lines (guard_update): replace them
+        if [line.model_dump(exclude={"id", "invoice_id"}) for line in stored.lines] != [
+            line.model_dump(exclude={"id", "invoice_id"}) for line in invoice.lines
+        ]:
+            for db_line in list(db_invoice.lines):
+                self.session.delete(db_line)
+            self.session.flush()
+            for line in invoice.lines:
+                self.session.add(self._line_row(db_invoice.id, line))
+
         self.session.commit()
         self.session.refresh(db_invoice)
         return db_invoice.to_schema()
@@ -131,6 +149,7 @@ class SQLModelInvoiceRepository(InvoiceRepository):
         """Delete invoice."""
         db_invoice = self.session.get(InvoiceDB, invoice_id)
         if db_invoice:
+            guard_delete(db_invoice.to_schema())
             self.session.delete(db_invoice)
             self.session.commit()
             return True

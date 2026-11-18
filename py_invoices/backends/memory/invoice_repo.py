@@ -8,6 +8,7 @@ from pydantic_invoices.schemas import (
     InvoiceSummary,
 )
 
+from py_invoices.core.lifecycle import guard_delete, guard_update
 from py_invoices.core.summary import summarize_invoices
 
 from .ids import IdSequence
@@ -86,9 +87,10 @@ class MemoryInvoiceRepository(InvoiceRepository):
         )
 
     def update(self, invoice: Invoice) -> Invoice:
-        """Update invoice."""
+        """Update invoice; an issued one only by a valid status transition."""
         if invoice.id not in self._storage:
             raise ValueError(f"Invoice {invoice.id} not found")
+        guard_update(self._storage[invoice.id], invoice)
 
         self._storage[invoice.id] = invoice.model_copy(update={"payments": []})
         return self._with_payments(invoice)
@@ -96,6 +98,7 @@ class MemoryInvoiceRepository(InvoiceRepository):
     def delete(self, invoice_id: int) -> bool:
         """Delete invoice."""
         if invoice_id in self._storage:
+            guard_delete(self._storage[invoice_id])
             del self._storage[invoice_id]
             return True
         return False
