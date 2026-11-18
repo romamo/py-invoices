@@ -115,6 +115,14 @@ class LogoNotFoundError(OperationError):
         self.path = path
 
 
+class OutputExistsError(OperationError):
+    """A file to be written exists; replacing it needs an explicit overwrite."""
+
+    def __init__(self, path: str) -> None:
+        super().__init__(f"Output file already exists: {path}")
+        self.path = path
+
+
 class PaymentNoteNotFoundError(OperationError):
     def __init__(self, note_id: int) -> None:
         super().__init__(f"Payment note {note_id} referenced by the invoice does not exist")

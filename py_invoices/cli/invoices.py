@@ -37,6 +37,12 @@ from py_invoices.operations.invoices import (
 invoices = app.group("invoices", description="Manage invoices")
 
 type ExportFormat = Literal["pdf", "html", "ubl", "json"]
+type FileEffect = Literal["created", "updated"]
+
+
+def file_effect(overwritten: bool) -> FileEffect:
+    """A replaced file is "updated", the effect treaty reports for a file it rewrites."""
+    return "updated" if overwritten else "created"
 
 
 # Arguments
@@ -63,8 +69,11 @@ class CompanyFlags(Common):
 @dataclass(frozen=True, slots=True, kw_only=True)
 class DocumentArgs(CompanyFlags):
     invoice: str = Arg(description="Invoice number or ID")
-    output_dir: Path = Flag(default=Path("output"), description="Directory for the file")
+    output_dir: Path | None = Flag(
+        default=None, description="Directory for the file; default INVOICES_OUTPUT_DIR or output"
+    )
     template: str | None = Flag(default=None, description="Template name, such as invoice.html.j2")
+    overwrite: bool = Flag(default=False, description="Replace the file if it exists")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -108,8 +117,12 @@ class CreateArgs(CompanyFlags):
     export: tuple[ExportFormat, ...] = Flag(
         default=(), short="e", description="File formats to export the new invoice to"
     )
-    output_dir: Path = Flag(default=Path("output"), description="Directory for exported files")
+    output_dir: Path | None = Flag(
+        default=None,
+        description="Directory for exported files; default INVOICES_OUTPUT_DIR or output",
+    )
     template: str | None = Flag(default=None, description="Template name for exported files")
+    overwrite: bool = Flag(default=False, description="Replace exported files that exist")
     issue: bool = Flag(
         default=False, description="Issue the invoice at once instead of creating a draft"
     )
@@ -213,7 +226,11 @@ class CloneArgs(CompanyFlags, LineFlags):
     export: tuple[ExportFormat, ...] = Flag(
         default=(), short="e", description="File formats to export the clone to"
     )
-    output_dir: Path = Flag(default=Path("output"), description="Directory for exported files")
+    output_dir: Path | None = Flag(
+        default=None,
+        description="Directory for exported files; default INVOICES_OUTPUT_DIR or output",
+    )
+    overwrite: bool = Flag(default=False, description="Replace exported files that exist")
     issue: bool = Flag(
         default=False, description="Issue the copy at once instead of creating a draft"
     )
@@ -335,7 +352,7 @@ class Summary:
 
 @dataclass(frozen=True, slots=True)
 class Document:
-    effect: Literal["created"]
+    effect: FileEffect
     invoice: str
     format: Literal["pdf", "html"]
     path: Path
@@ -343,12 +360,15 @@ class Document:
 
 @dataclass(frozen=True, slots=True)
 class Export:
+    effect: FileEffect
     format: ExportFormat
     path: Path
 
     @classmethod
     def of(cls, outcome: ExportOutcome) -> Export:
-        return cls(cast(ExportFormat, outcome.format), Path(outcome.path))
+        return cls(
+            file_effect(outcome.overwritten), cast(ExportFormat, outcome.format), Path(outcome.path)
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -465,13 +485,20 @@ def render_stats(data: Mapping[str, Any]) -> str:
     )
 
 
+def _generated(effect: str) -> str:
+    return "Replaced" if effect == "updated" else "Generated"
+
+
 def render_document(data: Mapping[str, Any]) -> str:
     kind = data["format"].upper()
-    return f"Generated {kind} for Invoice {data['invoice']}\n  Path: {data['path']}\n"
+    verb = _generated(data["effect"])
+    return f"{verb} {kind} for Invoice {data['invoice']}\n  Path: {data['path']}\n"
 
 
 def _render_exports(exports: Sequence[Mapping[str, Any]]) -> str:
-    return "".join(f"  -> Generated {e['format'].upper()}: {e['path']}\n" for e in exports)
+    return "".join(
+        f"  -> {_generated(e['effect'])} {e['format'].upper()}: {e['path']}\n" for e in exports
+    )
 
 
 def render_created(data: Mapping[str, Any]) -> str:
@@ -512,19 +539,34 @@ def render_issued(data: Mapping[str, Any]) -> str:
 # Commands
 
 
+def _output_dir(flag: Path | None, store: Store) -> Path:
+    """--output-dir, else the configured INVOICES_OUTPUT_DIR (default "output")."""
+    return flag if flag is not None else Path(store.settings.output_dir)
+
+
 def _document(kind: DocumentKind, args: DocumentArgs, store: Store) -> Document:
+    output_dir = _output_dir(args.output_dir, store)
     with operation_errors():
         document = ops.render_invoice_document(
-            store.factory, args.invoice, kind, str(args.output_dir), args.company(), args.template
+            store.factory,
+            args.invoice,
+            kind,
+            str(output_dir),
+            args.company(),
+            args.template,
+            store.render_paths(),
+            overwrite=args.overwrite,
         )
-    return Document("created", document.invoice.number, kind.value, Path(document.path))
+    return Document(
+        file_effect(document.overwritten), document.invoice.number, kind.value, Path(document.path)
+    )
 
 
 @invoices.command(
     "pdf",
-    description="Render an invoice to a PDF file",
+    description="Render an invoice to a PDF file; an existing file needs --overwrite",
     danger_level="mutating",
-    exit_codes=["NOT_FOUND"],
+    exit_codes=["NOT_FOUND", "CONFLICT"],
     renderers={Format.PLAIN: render_document},
     examples=[("Render invoice INV-2026-0001 to PDF", f"{CLI_NAME} invoices pdf INV-2026-0001")],
 )
@@ -534,9 +576,9 @@ def generate_pdf(args: DocumentArgs, ctx: Ctx, store: Store) -> Document:
 
 @invoices.command(
     "html",
-    description="Render an invoice to an HTML file",
+    description="Render an invoice to an HTML file; an existing file needs --overwrite",
     danger_level="mutating",
-    exit_codes=["NOT_FOUND"],
+    exit_codes=["NOT_FOUND", "CONFLICT"],
     renderers={Format.PLAIN: render_document},
     examples=[("Render invoice INV-2026-0001 to HTML", f"{CLI_NAME} invoices html INV-2026-0001")],
 )
@@ -637,15 +679,24 @@ def _export(
     store: Store,
     invoice: Invoice,
     formats: list[str],
-    output_dir: Path,
+    output_dir: Path | None,
     company: CompanyOverrides,
     notes: list[dict[str, str]],
     result: Created | Cloned,
+    *,
+    overwrite: bool,
 ) -> list[Export]:
     """Export a saved invoice; a failure carries `result`, so the caller learns it was saved."""
     try:
         outcomes = ops.export_invoice(
-            store.factory, invoice, formats, str(output_dir), company, notes
+            store.factory,
+            invoice,
+            formats,
+            str(_output_dir(output_dir, store)),
+            company,
+            notes,
+            store.render_paths(),
+            overwrite=overwrite,
         )
     except OperationError as e:
         failed = exit_for(e)
@@ -701,7 +752,9 @@ def create_invoice(args: CreateArgs, ctx: Ctx, store: Store) -> Created:
         issue=args.issue,
     )
     with operation_errors():
-        formats = ops.check_new_invoice_export(store.factory, list(args.export), company)
+        formats = ops.check_new_invoice_export(
+            store.factory, list(args.export), company, store.render_paths()
+        )
         created = ops.create_invoice(store.factory, request)
     _warn_if_memory(ctx, store)
     client = ClientRef.of(created.created_client) if created.created_client else None
@@ -709,7 +762,16 @@ def create_invoice(args: CreateArgs, ctx: Ctx, store: Store) -> Created:
     if not formats:
         return result
     notes = ops.export_payment_notes(args.payment_terms, args.bank_account)
-    exports = _export(store, created.invoice, formats, args.output_dir, company, notes, result)
+    exports = _export(
+        store,
+        created.invoice,
+        formats,
+        args.output_dir,
+        company,
+        notes,
+        result,
+        overwrite=args.overwrite,
+    )
     return Created("created", result.invoice, client, exports)
 
 
@@ -718,7 +780,7 @@ def create_invoice(args: CreateArgs, ctx: Ctx, store: Store) -> Created:
     description="Copy an invoice as a draft (or issue it with --issue), keeping its payment "
     "period; line flags change the copy's only line",
     danger_level="mutating",
-    exit_codes=["NOT_FOUND"],
+    exit_codes=["NOT_FOUND", "CONFLICT"],
     renderers={Format.PLAIN: render_cloned},
     examples=[
         (
@@ -731,7 +793,9 @@ def clone_invoice(args: CloneArgs, ctx: Ctx, store: Store) -> Cloned:
     company = args.company()
     with operation_errors():
         original = ops.find_invoice(store.factory, args.invoice)
-        formats = ops.check_invoice_export(store.factory, original, list(args.export), company)
+        formats = ops.check_invoice_export(
+            store.factory, original, list(args.export), company, store.render_paths()
+        )
         cloned = ops.clone_invoice(
             store.factory,
             args.invoice,
@@ -745,7 +809,16 @@ def clone_invoice(args: CloneArgs, ctx: Ctx, store: Store) -> Cloned:
     if not formats:
         return result
     notes = ops.export_payment_notes(cloned.invoice.payment_terms, None)
-    exports = _export(store, cloned.invoice, formats, args.output_dir, company, notes, result)
+    exports = _export(
+        store,
+        cloned.invoice,
+        formats,
+        args.output_dir,
+        company,
+        notes,
+        result,
+        overwrite=args.overwrite,
+    )
     return Cloned("created", result.original, result.invoice, exports)
 
 

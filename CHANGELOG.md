@@ -4,7 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+Breaking: `invoices pdf`, `invoices html` and the `--export` of `invoices create` and `invoices clone` no longer replace a file that exists; pass `--overwrite` ([#15](https://github.com/romamo/py-invoices/issues/15)).
+
+### Changed
+- **Rendered files are not overwritten silently**: a rendered file of an issued invoice may be the copy sent to the client, and rendering again replaced it while reporting `"effect": "created"`. When the target file exists the command now exits 6 with `OUTPUT_EXISTS` and the file's path in `context.path`, before anything is rendered; an export with several formats writes none of them. `--overwrite` replaces the file and reports `"effect": "updated"` (each entry of `exports` carries its own `effect`) ([#15](https://github.com/romamo/py-invoices/issues/15))
+
 ### Fixed
+- **`INVOICES_OUTPUT_DIR` is honored**: `invoices pdf`, `invoices html` and the `--export` of `invoices create` and `invoices clone` wrote to a hardcoded `output` directory whatever the setting, so `config show` named a directory nothing was written to. The directory is now `--output-dir`, then `INVOICES_OUTPUT_DIR` (environment or `.env`), then `output` ([#14](https://github.com/romamo/py-invoices/issues/14))
+- **`--cwd` applies to settings and stored paths**: the global `--cwd` of the `invoices` commands moved only their own path flags. The `.env` file, a relative `INVOICES_STORAGE_PATH`, `INVOICES_OUTPUT_DIR` and `INVOICES_TEMPLATE_DIR`, and a company's relative `logo_path` were read from the directory the process started in, so `--cwd` ran against an empty memory store, created an empty files store, or failed with `LOGO_NOT_FOUND`. They now resolve against the `--cwd` directory. `InvoiceSettings.load(base)` builds settings that way; the operations that render take a `RenderPaths` ([#13](https://github.com/romamo/py-invoices/issues/13))
 - **`validate data --seal` no longer stops half-way**: on the files backend, a file whose name carries another ID than the `id` inside it (`data/invoices/3.md` holding `id: 4`) was listed but could not be updated, so `--seal` sealed the invoices before it and then failed with a traceback. `validate data` now reports such files in every entity folder as `misplaced` and exits 1, and `--seal` seals nothing while one exists, reporting each unsealed invoice as `unsealable`. Loading a record by ID from a file that holds another ID raises `MisplacedRecordError` instead of returning the wrong record, so an update can no longer overwrite it. `StoragePlugin.misplaced_records()` exposes the check ([#16](https://github.com/romamo/py-invoices/issues/16))
 
 ## [6.0.0] - 2026-11-18

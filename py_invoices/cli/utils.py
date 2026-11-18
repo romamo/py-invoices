@@ -1,5 +1,6 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
+from pathlib import Path
 
 import typer
 from pydantic_invoices.vo import CountryCode
@@ -29,12 +30,20 @@ def get_console() -> Console:
     return console
 
 
-def get_factory(backend: str | None = None) -> RepositoryFactory:
-    """Factory from the current environment; `backend` overrides the configured one."""
-    settings = InvoiceSettings()
+def get_settings_for(backend: str | None = None, base: Path | None = None) -> InvoiceSettings:
+    """Settings from the current environment; `backend` overrides the configured one.
+
+    With `base`, the .env file and relative paths are read from that directory.
+    """
+    settings = InvoiceSettings() if base is None else InvoiceSettings.load(base)
     if backend:
         settings = InvoiceSettings.model_validate({**settings.model_dump(), "backend": backend})
-    return RepositoryFactory.from_settings(settings)
+    return settings
+
+
+def get_factory(backend: str | None = None) -> RepositoryFactory:
+    """Factory from the current environment; `backend` overrides the configured one."""
+    return RepositoryFactory.from_settings(get_settings_for(backend))
 
 
 def error_lines(error: OperationError) -> list[str]:
