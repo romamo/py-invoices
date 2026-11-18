@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 - **Issued invoices keep their payment notes**: invoices stored only `payment_note_ids`, and `invoices pdf` / `invoices html` and the API's HTML view looked the notes up at render time, so changing a bank account in a payment note changed it on every invoice already issued. `invoices create`, `invoices clone` and credit notes now store the notes' title and content in `payment_notes_snapshot` and rendering uses it. `clone` takes the snapshot from the current notes, so a new invoice shows the current bank details. Invoices stored before this release have no snapshot and still render the current notes, with a warning ([#6](https://github.com/romamo/py-invoices/issues/6))
+- **One default payment note per company**: `payment-notes create --is-default` kept the previous default, so two notes were default and `payment-notes default` returned whichever loaded first. A new default now clears the previous default of the same company (`company_id`, the global notes being their own scope), in every backend ([#7](https://github.com/romamo/py-invoices/issues/7))
 
 ### Changed
 - Requires pydantic-invoices >= 1.6.0 (`payment_notes_snapshot`)
