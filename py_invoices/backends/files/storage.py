@@ -51,11 +51,31 @@ def _restore_money(data: Any) -> Any:
     return data
 
 
+class MisplacedRecordError(ValueError):
+    """A file named for one ID holds a record with another ID."""
+
+    def __init__(self, path: Path, record_id: int) -> None:
+        self.path = path
+        self.record_id = record_id
+        super().__init__(
+            f"{path} holds the record with id {record_id}, not the id in its file name; "
+            "rename the file or fix its id"
+        )
+
+
 def _atomic_write(path: Path, content: str) -> None:
     """Write via a temporary file and rename, so a crash never leaves a truncated file."""
     tmp_path = path.with_name(f".{path.name}.tmp")
     tmp_path.write_text(content, encoding="utf-8")
     os.replace(tmp_path, path)
+
+
+def _record_id(entity: BaseModel) -> int | None:
+    """The ID stored inside a record; None for models without one (or legacy entries)."""
+    record_id = getattr(entity, "id", None)
+    if record_id is not None and not isinstance(record_id, int):
+        raise TypeError(f"Record id must be an int, got {record_id!r}")
+    return record_id
 
 
 class FileStorage[T: BaseModel]:
@@ -183,9 +203,33 @@ class FileStorage[T: BaseModel]:
         return path
 
     def load(self, entity_id: int) -> T | None:
-        """Load entity by ID."""
+        """Load entity by ID.
+
+        Raises:
+            MisplacedRecordError: If the file for this ID holds a record with another ID;
+                writing it back would overwrite that other record
+        """
         path = self._find_entity_file(entity_id)
-        return self._load_path(path) if path else None
+        if path is None:
+            return None
+        entity = self._load_path(path)
+        record_id = _record_id(entity)
+        if record_id is not None and record_id != entity_id:
+            raise MisplacedRecordError(path, record_id)
+        return entity
+
+    def misplaced(self) -> list[tuple[Path, int]]:
+        """Files whose record ID differs from the ID in the file name, with that record ID.
+
+        Listing returns such a record under its own ID, but loading or updating it by
+        that ID looks for the file named for it, so the store is inconsistent.
+        """
+        found = []
+        for file_id, path in sorted(self._entity_files().items()):
+            record_id = _record_id(self._load_path(path))
+            if record_id is not None and record_id != file_id:
+                found.append((path, record_id))
+        return found
 
     def _load_path(self, path: Path) -> T:
         fmt = path.suffix.lstrip(".")

@@ -85,10 +85,11 @@ def cli(data_dir: Path, tmp_path: Path) -> Cli:
         "PY_INVOICES_STATE_DIR": str(tmp_path / "state"),
     }
 
-    def run(*args: str) -> CliRun:
+    def run(*args: str, cwd: Path | None = None, extra_env: dict[str, str] | None = None) -> CliRun:
         result = subprocess.run(
             [sys.executable, "-m", "py_invoices.cli.main", *args],
-            env=env,
+            env={**env, **(extra_env or {})},
+            cwd=cwd,
             capture_output=True,
             text=True,
             check=False,

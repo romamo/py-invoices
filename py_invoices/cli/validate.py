@@ -44,11 +44,15 @@ def validate_data(
     """
     Check that no issued invoice changed since it was issued.
 
-    Recomputes each issued invoice's content hash; exits 1 if any differs.
+    Recomputes each issued invoice's content hash; exits 1 if any differs, if a record
+    is stored under another ID than its own, or if --seal could not seal every invoice
+    (it then seals none).
     """
     report = check_stored_invoices(get_factory(backend), seal=seal)
     styles = {
         Finding.TAMPERED: "[red]✗",
+        Finding.MISPLACED: "[red]✗",
+        Finding.UNSEALABLE: "[red]✗",
         Finding.UNSEALED: "[yellow]⚠",
         Finding.SEALED: "[blue]ℹ",  # noqa: RUF001 (information symbol, not a letter)
     }
@@ -63,4 +67,4 @@ def validate_data(
     console.print(f"Checked {report.checked} issued invoice(s), skipped {report.drafts} draft(s)")
     if not report.ok:
         raise typer.Exit(code=1)
-    console.print("[green]✓ No issued invoice changed[/]")
+    console.print("[green]✓ No issued invoice changed, every record is in place[/]")

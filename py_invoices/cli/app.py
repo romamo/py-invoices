@@ -9,13 +9,15 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from typing import Literal, Self
 
 from pydantic_invoices.vo import CountryCode, Money, TaxId
 from treaty import App, CliExit, Ctx, Exit, Flag
 
 from py_invoices import RepositoryFactory, __version__
-from py_invoices.cli.utils import get_factory
+from py_invoices.cli.utils import get_settings_for
+from py_invoices.config import InvoiceSettings
 from py_invoices.constants import APP_NAME, CLI_NAME
 from py_invoices.core.pdf_service import WEASYPRINT_INSTALL_DOCS
 from py_invoices.core.totals import format_money
@@ -32,10 +34,12 @@ from py_invoices.operations.errors import (
     MissingDependencyError,
     MissingSystemLibrariesError,
     OperationError,
+    OutputExistsError,
     PaymentNoteNotFoundError,
     SeriesNumberTakenError,
     SummaryUnavailableError,
 )
+from py_invoices.operations.invoices import RenderPaths
 
 app = App(CLI_NAME, version=__version__, description=f"CLI for {APP_NAME} management")
 
@@ -55,13 +59,20 @@ class Common:
 
 @dataclass(frozen=True, slots=True)
 class Store:
-    """The repository factory for the run's backend."""
+    """The run's settings, read from its directory (`--cwd`), and the factory for its backend."""
 
     factory: RepositoryFactory
+    settings: InvoiceSettings
+    cwd: Path
 
     @classmethod
     def acquire(cls, args: Common, ctx: Ctx) -> Self:
-        return cls(get_factory(args.backend))
+        settings = get_settings_for(args.backend, ctx.cwd)
+        return cls(RepositoryFactory.from_settings(settings), settings, ctx.cwd)
+
+    def render_paths(self) -> RenderPaths:
+        """Templates and the directory a stored relative path (a logo) is relative to."""
+        return RenderPaths.of(self.settings, self.cwd)
 
 
 @dataclass(frozen=True, slots=True)
@@ -158,6 +169,14 @@ def exit_for(error: OperationError) -> CliExit:
                 code=code,
                 context={"path": error.path},
                 suggestion="pass --company-logo-path with an existing image file",
+            )
+        case OutputExistsError():
+            return Exit.CONFLICT(
+                str(error),
+                code=code,
+                context={"path": error.path},
+                conflict_id=error.path,
+                suggestion="pass --overwrite to replace it, or --output-dir for another directory",
             )
         case MissingSystemLibrariesError():
             context: dict[str, object] = {"extra": error.extra, "steps": error.steps}
