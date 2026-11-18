@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **One default payment note per company**: `payment-notes create --is-default` kept the previous default, so two notes were default and `payment-notes default` returned whichever loaded first. A new default now clears the previous default of the same company (`company_id`, the global notes being their own scope), in every backend ([#7](https://github.com/romamo/py-invoices/issues/7))
+
 ## [5.0.2] - 2026-10-26
 
 ### Fixed
