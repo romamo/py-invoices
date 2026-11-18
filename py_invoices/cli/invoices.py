@@ -112,7 +112,8 @@ class CreateArgs(CompanyFlags):
         default=None, description="Due date (YYYY-MM-DD); overrides the one from payment terms"
     )
     bank_account: str | None = Flag(
-        default=None, description="Bank account details printed on exported files"
+        default=None,
+        description="Bank account details, stored on the invoice and printed on every rendering",
     )
     export: tuple[ExportFormat, ...] = Flag(
         default=(), short="e", description="File formats to export the new invoice to"
@@ -749,6 +750,7 @@ def create_invoice(args: CreateArgs, ctx: Ctx, store: Store) -> Created:
         due_date=args.due_date,
         company=company,
         template=args.template,
+        bank_account=args.bank_account,
         issue=args.issue,
     )
     with operation_errors():
@@ -761,7 +763,7 @@ def create_invoice(args: CreateArgs, ctx: Ctx, store: Store) -> Created:
     result = Created("created", InvoiceRow.of(created.invoice), client, [])
     if not formats:
         return result
-    notes = ops.export_payment_notes(args.payment_terms, args.bank_account)
+    notes = ops.printed_payment_notes(store.factory, created.invoice)
     exports = _export(
         store,
         created.invoice,
@@ -808,7 +810,7 @@ def clone_invoice(args: CloneArgs, ctx: Ctx, store: Store) -> Cloned:
     result = Cloned("created", cloned.original.number, InvoiceRow.of(cloned.invoice), [])
     if not formats:
         return result
-    notes = ops.export_payment_notes(cloned.invoice.payment_terms, None)
+    notes = ops.printed_payment_notes(store.factory, cloned.invoice)
     exports = _export(
         store,
         cloned.invoice,
