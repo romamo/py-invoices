@@ -1,7 +1,7 @@
 """Files storage plugin."""
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from pydantic_invoices.interfaces import (
     ClientRepository,
@@ -21,6 +21,12 @@ from .invoice_repo import FileInvoiceRepository
 from .payment_note_repo import FilePaymentNoteRepository
 from .payment_repo import FilePaymentRepository
 from .product_repo import FileProductRepository
+from .storage import FileStorage, YamlUnavailableError
+
+
+class _StoredRepository(Protocol):
+    @property
+    def storage(self) -> FileStorage[Any]: ...
 
 
 class FilesPlugin(StoragePlugin):
@@ -58,12 +64,14 @@ class FilesPlugin(StoragePlugin):
         self._product_repo = FileProductRepository(self.root_dir, file_format)
         self._payment_note_repo = FilePaymentNoteRepository(self.root_dir, file_format)
         self._audit_repo = FileAuditRepository(self.root_dir, file_format)
+        # Fail here, naming the file, rather than on the first read of it
+        for repo in self._repos():
+            path = repo.storage.yaml_needed()
+            if path is not None:
+                raise YamlUnavailableError(path)
 
-    def misplaced_records(self) -> list[MisplacedRecord]:
-        """Files whose name carries another ID than the record inside, in every entity dir."""
-        if self.root_dir is None:
-            raise RuntimeError("Plugin not initialized. Call initialize() first.")
-        root = self.root_dir
+    def _repos(self) -> list[_StoredRepository]:
+        """The repositories of every entity directory."""
         repos = (
             self._invoice_repo,
             self._client_repo,
@@ -73,10 +81,16 @@ class FilesPlugin(StoragePlugin):
             self._payment_note_repo,
             self._audit_repo,
         )
+        return [repo for repo in repos if repo is not None]
+
+    def misplaced_records(self) -> list[MisplacedRecord]:
+        """Files whose name carries another ID than the record inside, in every entity dir."""
+        if self.root_dir is None:
+            raise RuntimeError("Plugin not initialized. Call initialize() first.")
+        root = self.root_dir
         return [
             MisplacedRecord(path.relative_to(root).as_posix(), record_id)
-            for repo in repos
-            if repo is not None
+            for repo in self._repos()
             for path, record_id in repo.storage.misplaced()
         ]
 

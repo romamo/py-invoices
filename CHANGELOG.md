@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- **A YAML store read without PyYAML names the file and the extra**: an install without the `yaml` extra (such as `uvx --from 'py-invoices[cli]' inv ...`) reading a files store with YAML frontmatter, which `setup` writes for the `md` format, crashed with a `JSONDecodeError` traceback that named no file. Opening such a store now fails at once with `YamlUnavailableError` naming the first file that needs PyYAML and `pip install 'py-invoices[yaml]'`; the `invoices` commands exit 4 with `MISSING_DEPENDENCY` (`context.extra` is `yaml`) and the other commands print the error and exit 1. Without PyYAML only frontmatter that is JSON, as a store writes it then, is read as JSON. Saving or loading a `.yaml` file without PyYAML raises the same error
+
 ## [7.0.0] - 2026-11-18
 
 Breaking: `invoices pdf`, `invoices html` and the `--export` of `invoices create` and `invoices clone` no longer replace a file that exists; pass `--overwrite` ([#15](https://github.com/romamo/py-invoices/issues/15)).

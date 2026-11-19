@@ -8,6 +8,7 @@ from rich.console import Console
 from rich.markup import escape
 
 from py_invoices import RepositoryFactory
+from py_invoices.backends.files.storage import YamlUnavailableError
 from py_invoices.config import InvoiceSettings
 from py_invoices.core.pdf_service import WEASYPRINT_INSTALL_DOCS
 from py_invoices.operations.errors import (
@@ -41,9 +42,18 @@ def get_settings_for(backend: str | None = None, base: Path | None = None) -> In
     return settings
 
 
+def factory_for(settings: InvoiceSettings) -> RepositoryFactory:
+    """The settings' factory; a store that needs a missing extra raises MissingDependencyError."""
+    try:
+        return RepositoryFactory.from_settings(settings)
+    except YamlUnavailableError as e:
+        raise MissingDependencyError("yaml", str(e)) from e
+
+
 def get_factory(backend: str | None = None) -> RepositoryFactory:
     """Factory from the current environment; `backend` overrides the configured one."""
-    return RepositoryFactory.from_settings(get_settings_for(backend))
+    with cli_errors():
+        return factory_for(get_settings_for(backend))
 
 
 def error_lines(error: OperationError) -> list[str]:
@@ -96,7 +106,7 @@ def error_lines(error: OperationError) -> list[str]:
         case MissingDependencyError():
             package = escape(f"py-invoices[{error.extra}]")
             return [
-                f"[red]Error: {error.extra.upper()} generation dependencies missing.[/red]",
+                f"[red]Error: dependencies of the {error.extra} extra are missing.[/red]",
                 escape(str(error)),
                 f"[yellow]Tip: Install with `pip install '{package}'`[/yellow]",
             ]

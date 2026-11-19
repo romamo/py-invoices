@@ -51,6 +51,33 @@ def _restore_money(data: Any) -> Any:
     return data
 
 
+YAML_INSTALL_HINT = "install the yaml extra: pip install 'py-invoices[yaml]'"
+
+
+class YamlUnavailableError(ImportError):
+    """A file needs PyYAML to be read or written, and PyYAML is not installed."""
+
+    def __init__(self, path: Path) -> None:
+        self.file = path
+        super().__init__(
+            f"{path} is stored as YAML, but PyYAML is not installed; {YAML_INSTALL_HINT}"
+        )
+
+
+def _frontmatter(path: Path) -> str:
+    """The frontmatter of a Markdown record; text after the closing marker is ignored."""
+    content = path.read_text(encoding="utf-8")
+    end = content.find(f"\n{FRONTMATTER}", len(FRONTMATTER) - 1)
+    if not content.startswith(FRONTMATTER) or end == -1:
+        raise ValueError(f"Invalid markdown format in {path}")
+    return content[len(FRONTMATTER) : end + 1]
+
+
+def _is_json_frontmatter(frontmatter: str) -> bool:
+    """Frontmatter written as JSON, as a store saves it when PyYAML is missing."""
+    return frontmatter.lstrip().startswith("{")
+
+
 class MisplacedRecordError(ValueError):
     """A file named for one ID holds a record with another ID."""
 
@@ -262,24 +289,32 @@ class FileStorage[T: BaseModel]:
         self._next_id = 1
         self._save_meta()
 
+    def yaml_needed(self) -> Path | None:
+        """The first file that cannot be read because PyYAML is missing; None when none.
+
+        A `.yaml`/`.yml` file needs it, and so does Markdown whose frontmatter is not JSON.
+        """
+        if yaml is not None:
+            return None
+        for _, path in sorted(self._entity_files().items()):
+            fmt = path.suffix.lstrip(".")
+            if fmt in ("yaml", "yml"):
+                return path
+            if fmt == "md" and not _is_json_frontmatter(_frontmatter(path)):
+                return path
+        return None
+
     def _save_yaml(self, path: Path, data: dict[str, Any]) -> None:
         """Save as YAML."""
         if yaml is None:
-            raise ImportError(
-                "PyYAML is required for YAML storage. "
-                "Install it with: pip install py-invoices[files,yaml]"
-            )
+            raise YamlUnavailableError(path)
 
         _atomic_write(path, yaml.safe_dump(data, sort_keys=False))
 
     def _load_yaml(self, path: Path) -> dict[str, Any]:
         """Load from YAML."""
         if yaml is None:
-            # Check if this error context is helpful; we found a .yaml file but can't read it
-            raise ImportError(
-                f"Found YAML file {path} but PyYAML is not installed. "
-                "Install it with: pip install py-invoices[files,yaml]"
-            )
+            raise YamlUnavailableError(path)
 
         return cast(dict[str, Any], yaml.safe_load(path.read_text(encoding="utf-8")))
 
@@ -289,13 +324,14 @@ class FileStorage[T: BaseModel]:
         _atomic_write(path, f"{FRONTMATTER}{body.rstrip()}\n{FRONTMATTER}")
 
     def _load_markdown(self, path: Path) -> dict[str, Any]:
-        """Load from Markdown frontmatter; text after the closing marker is ignored."""
-        content = path.read_text(encoding="utf-8")
-        end = content.find(f"\n{FRONTMATTER}", len(FRONTMATTER) - 1)
-        if not content.startswith(FRONTMATTER) or end == -1:
-            raise ValueError(f"Invalid markdown format in {path}")
-        frontmatter = content[len(FRONTMATTER) : end + 1]
-        data = yaml.safe_load(frontmatter) if yaml else json.loads(frontmatter)
+        """Load from Markdown frontmatter: YAML, or JSON as saved without PyYAML."""
+        frontmatter = _frontmatter(path)
+        if yaml is not None:
+            data = yaml.safe_load(frontmatter)
+        elif _is_json_frontmatter(frontmatter):
+            data = json.loads(frontmatter)
+        else:
+            raise YamlUnavailableError(path)
         if not isinstance(data, dict):
             raise ValueError(f"Frontmatter in {path} is not a mapping")
         return data
