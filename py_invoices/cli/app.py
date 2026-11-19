@@ -16,7 +16,7 @@ from pydantic_invoices.vo import CountryCode, Money, TaxId
 from treaty import App, CliExit, Ctx, Exit, Flag
 
 from py_invoices import RepositoryFactory, __version__
-from py_invoices.cli.utils import get_settings_for
+from py_invoices.cli.utils import factory_for, get_settings_for
 from py_invoices.config import InvoiceSettings
 from py_invoices.constants import APP_NAME, CLI_NAME
 from py_invoices.core.pdf_service import WEASYPRINT_INSTALL_DOCS
@@ -68,7 +68,9 @@ class Store:
     @classmethod
     def acquire(cls, args: Common, ctx: Ctx) -> Self:
         settings = get_settings_for(args.backend, ctx.cwd)
-        return cls(RepositoryFactory.from_settings(settings), settings, ctx.cwd)
+        with operation_errors():
+            factory = factory_for(settings)
+        return cls(factory, settings, ctx.cwd)
 
     def render_paths(self) -> RenderPaths:
         """Templates and the directory a stored relative path (a logo) is relative to."""

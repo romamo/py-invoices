@@ -109,7 +109,9 @@ except ImportError as e:
 """
     )
 
-    assert "PyYAML is required" in run(bare_python, code, str(tmp_path))
+    message = run(bare_python, code, str(tmp_path))
+    assert "3.yaml is stored as YAML, but PyYAML is not installed" in message
+    assert "pip install 'py-invoices[yaml]'" in message
 
 
 def test_loading_yaml_requires_pyyaml(bare_python: Path, tmp_path: Path) -> None:
@@ -126,4 +128,107 @@ except ImportError as e:
 """
     )
 
-    assert "Found YAML file" in run(bare_python, code, str(tmp_path))
+    message = run(bare_python, code, str(tmp_path))
+    assert "3.yaml is stored as YAML, but PyYAML is not installed" in message
+    assert "pip install 'py-invoices[yaml]'" in message
+
+
+YAML_COMPANY = "---\nid: 1\nname: Acme\naddress: Street 1\n---\n"
+
+
+def test_loading_yaml_frontmatter_requires_pyyaml(bare_python: Path, tmp_path: Path) -> None:
+    """Markdown with YAML frontmatter names the file and the extra, not a JSONDecodeError."""
+    entity_dir = tmp_path / "test_entity"
+    entity_dir.mkdir()
+    (entity_dir / "4.acme.md").write_text("---\nid: 4\nname: acme\n---\n")
+    code = (
+        STORAGE_PRELUDE
+        + """
+from py_invoices.backends.files.storage import YamlUnavailableError
+try:
+    storage.load(4)
+except YamlUnavailableError as e:
+    print(json.dumps({"message": str(e), "file": str(e.file)}))
+"""
+    )
+
+    result = run(bare_python, code, str(tmp_path))
+
+    assert result["file"] == str(entity_dir / "4.acme.md")
+    assert "4.acme.md is stored as YAML" in result["message"]
+    assert "pip install 'py-invoices[yaml]'" in result["message"]
+
+
+def test_files_backend_fails_fast_on_yaml_frontmatter(bare_python: Path, tmp_path: Path) -> None:
+    """Opening a store that holds YAML fails at once, before any command reads it."""
+    (tmp_path / "companies").mkdir()
+    (tmp_path / "companies" / "1.acme.md").write_text(YAML_COMPANY)
+    code = """
+import json, sys
+from py_invoices import RepositoryFactory
+from py_invoices.backends.files.storage import YamlUnavailableError
+try:
+    RepositoryFactory(backend="files", root_dir=sys.argv[1], file_format="md")
+except YamlUnavailableError as e:
+    print(json.dumps(str(e.file)))
+"""
+
+    assert run(bare_python, code, str(tmp_path)) == str(tmp_path / "companies" / "1.acme.md")
+
+
+@pytest.fixture(scope="session")
+def cli_python(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Interpreter of a virtualenv with py-invoices[cli] and no PyYAML."""
+    uv = shutil.which("uv")
+    if uv is None:
+        pytest.skip("uv is needed to build the no-yaml environment")
+    venv = tmp_path_factory.mktemp("cli-no-yaml") / "venv"
+    subprocess.run([uv, "venv", "-q", "--python", sys.executable, str(venv)], check=True)  # nosec B603
+    python = venv / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+    subprocess.run(  # nosec B603
+        [uv, "pip", "install", "-q", "--python", str(python), f"{PROJECT_ROOT}[cli]"], check=True
+    )
+    return python
+
+
+@pytest.fixture
+def yaml_store(tmp_path: Path) -> Path:
+    """A files store written with YAML frontmatter, as `setup` with the md format makes it."""
+    (tmp_path / "companies").mkdir()
+    (tmp_path / "companies" / "1.acme.md").write_text(YAML_COMPANY)
+    (tmp_path / ".env").write_text(
+        "INVOICES_BACKEND=files\nINVOICES_STORAGE_PATH=.\nINVOICES_FILE_FORMAT=md\n"
+    )
+    return tmp_path
+
+
+def run_cli(python: Path, cwd: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(  # nosec B603
+        [str(python), "-m", "py_invoices.cli.main", *args],
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+        env={"PATH": "", "COLUMNS": "200"},
+    )
+
+
+def test_cli_without_pyyaml_exits_with_missing_dependency(
+    cli_python: Path, yaml_store: Path
+) -> None:
+    result = run_cli(cli_python, yaml_store, "invoices", "list")
+
+    error = json.loads(result.stdout)["error"]
+    assert result.returncode == 4, result.stderr
+    assert error["code"] == "MISSING_DEPENDENCY"
+    assert error["context"] == {"extra": "yaml"}
+    assert "companies/1.acme.md is stored as YAML" in error["message"]
+    assert "Traceback" not in result.stderr
+
+
+def test_typer_cli_without_pyyaml_names_the_extra(cli_python: Path, yaml_store: Path) -> None:
+    result = run_cli(cli_python, yaml_store, "companies", "list")
+
+    assert result.returncode == 1
+    assert "pip install 'py-invoices[yaml]'" in result.stdout
+    assert "1.acme.md is stored as YAML" in result.stdout
+    assert "Traceback" not in result.stdout + result.stderr
