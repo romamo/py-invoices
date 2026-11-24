@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [7.1.0] - 2026-11-24
 
 ### Added
 - **Credit notes name the invoice they credit**: rendering a credit note (`invoices pdf`, `invoices html`, the API's HTML and PDF views) gives the template `original_invoice_number`, the number of the credited invoice, next to `invoice.original_invoice_id`. The default template prints "Credits invoice INV-…" under the credit note's dates
