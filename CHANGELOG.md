@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Credit notes name the invoice they credit**: rendering a credit note (`invoices pdf`, `invoices html`, the API's HTML and PDF views) gives the template `original_invoice_number`, the number of the credited invoice, next to `invoice.original_invoice_id`. The default template prints "Credits invoice INV-…" under the credit note's dates
+
+### Fixed
+- **`invoices create` works for a company with a tax ID**: when the issuing company had a `tax_id`, `create` crashed with `HANDLER_CRASHED` (`company_tax_id_snapshot Input should be a valid string`) because the company's `TaxId` value was passed as the snapshot instead of its text. The snapshot now stores the text, and the rendered company details carry it as text too. `clone` and credit notes copy the original's snapshot and were not affected
+
 ## [7.0.1] - 2026-11-19
 
 ### Fixed
