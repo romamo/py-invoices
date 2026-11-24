@@ -92,7 +92,9 @@ class CreateArgs(CompanyFlags):
     client_name: str | None = Flag(
         default=None, description="Client name; a client of that name is created if none exists"
     )
-    client_address: str | None = Flag(default=None, description="Address of a new client")
+    client_address: str | None = Flag(
+        default=None, multiline=True, description="Address of a new client"
+    )
     client_tax_id: TaxId | None = Flag(default=None, description="Tax ID of a new client")
     client_email: str | None = Flag(default=None, description="Email of a new client")
     client_phone: str | None = Flag(default=None, description="Phone of a new client")
@@ -111,9 +113,21 @@ class CreateArgs(CompanyFlags):
     due_date: dt.date | None = Flag(
         default=None, description="Due date (YYYY-MM-DD); overrides the one from payment terms"
     )
+    company_id: int | None = Flag(
+        default=None,
+        description="Issuing company, its number series and default payment note; "
+        "default the default company",
+    )
+    payment_note: tuple[int, ...] = Flag(
+        default=(),
+        description="ID of a stored payment note to print (repeatable); "
+        "default the issuing company's default note",
+    )
     bank_account: str | None = Flag(
         default=None,
-        description="Bank account details, stored on the invoice and printed on every rendering",
+        multiline=True,
+        description="Bank account details, stored on the invoice and printed on every "
+        "rendering after any --payment-note",
     )
     export: tuple[ExportFormat, ...] = Flag(
         default=(), short="e", description="File formats to export the new invoice to"
@@ -750,12 +764,18 @@ def create_invoice(args: CreateArgs, ctx: Ctx, store: Store) -> Created:
         due_date=args.due_date,
         company=company,
         template=args.template,
+        company_id=args.company_id,
+        payment_note_ids=args.payment_note,
         bank_account=args.bank_account,
         issue=args.issue,
     )
     with operation_errors():
         formats = ops.check_new_invoice_export(
-            store.factory, list(args.export), company, store.render_paths()
+            store.factory,
+            list(args.export),
+            company,
+            store.render_paths(),
+            company_id=args.company_id,
         )
         created = ops.create_invoice(store.factory, request)
     _warn_if_memory(ctx, store)

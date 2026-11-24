@@ -23,7 +23,7 @@ from pydantic_invoices.schemas import (
     InvoiceType,
 )
 from pydantic_invoices.schemas.company import Company
-from pydantic_invoices.schemas.payment_note import PaymentNoteSnapshot
+from pydantic_invoices.schemas.payment_note import PaymentNote, PaymentNoteSnapshot
 from pydantic_invoices.vo import CountryCode, Money
 
 from py_invoices.config import InvoiceSettings, get_settings
@@ -44,6 +44,8 @@ from py_invoices.operations.errors import (
     ClientNotFoundError,
     ClientNotSpecifiedError,
     CompanyDetailsUnresolvedError,
+    CompanyInactiveError,
+    CompanyNotFoundError,
     DuplicateInvoiceNumberError,
     InvalidAmountError,
     InvalidDueDateError,
@@ -56,7 +58,9 @@ from py_invoices.operations.errors import (
     MissingSystemLibrariesError,
     OperationError,
     OutputExistsError,
+    PaymentNoteMissingError,
     PaymentNoteNotFoundError,
+    PaymentNoteUnusableError,
     PaymentTermsError,
     SeriesNumberTakenError,
     SummaryUnavailableError,
@@ -123,6 +127,10 @@ class NewInvoice:
     due_date: date | None = None
     company: CompanyOverrides = CompanyOverrides()
     template: str | None = None
+    company_id: int | None = None
+    """The issuing company; default the default company, then company #1."""
+    payment_note_ids: tuple[int, ...] = ()
+    """Stored payment notes to print; with no notes and no bank account, the default note."""
     bank_account: str | None = None
     """Stored as a "Bank Account" payment note, printed on every rendering of the invoice."""
     issue: bool = False
@@ -493,10 +501,80 @@ def _resolve_client(factory: RepositoryFactory, request: NewInvoice) -> tuple[Cl
     return created, True
 
 
-def _issuing_company(factory: RepositoryFactory) -> Company | None:
-    """The default company, falling back to company #1 (the schema's default company_id)."""
+def _issuing_company(factory: RepositoryFactory, company_id: int | None) -> Company | None:
+    """The chosen company, else the default one, falling back to company #1.
+
+    Raises:
+        CompanyNotFoundError: If the chosen company does not exist
+        CompanyInactiveError: If the chosen company is inactive
+    """
     repo = factory.create_company_repository()
-    return repo.get_default() or repo.get_by_id(1)
+    if company_id is None:
+        return repo.get_default() or repo.get_by_id(1)
+    company = repo.get_by_id(company_id)
+    if company is None:
+        raise CompanyNotFoundError(company_id)
+    if not company.is_active:
+        raise CompanyInactiveError(company_id)
+    return company
+
+
+def _chosen_payment_notes(
+    factory: RepositoryFactory, note_ids: tuple[int, ...], company_id: int
+) -> list[PaymentNote]:
+    """The notes picked for a new invoice: each must exist, be active and be the
+    issuing company's or global.
+
+    Raises:
+        PaymentNoteMissingError: If a note does not exist
+        PaymentNoteUnusableError: If a note is inactive or another company's
+    """
+    repo = factory.create_payment_note_repository()
+    notes = []
+    for note_id in note_ids:
+        note = repo.get_by_id(note_id)
+        if note is None:
+            raise PaymentNoteMissingError(note_id)
+        if not note.is_active:
+            raise PaymentNoteUnusableError(note_id, "it is inactive")
+        if note.company_id is not None and note.company_id != company_id:
+            raise PaymentNoteUnusableError(
+                note_id, f"it belongs to company {note.company_id}, not company {company_id}"
+            )
+        notes.append(note)
+    return notes
+
+
+def _default_payment_note(factory: RepositoryFactory, company_id: int) -> PaymentNote | None:
+    """The issuing company's default note, else the global default (no company)."""
+    repo = factory.create_payment_note_repository()
+    own = repo.get_default(company_id)
+    if own is not None:
+        return own
+    return next(
+        (n for n in repo.get_active() if n.is_default and n.company_id is None),
+        None,
+    )
+
+
+def _new_invoice_notes(
+    factory: RepositoryFactory, request: NewInvoice, company_id: int
+) -> tuple[list[int], list[PaymentNoteSnapshot]]:
+    """(payment_note_ids, payment_notes_snapshot) of a new invoice.
+
+    The chosen notes come first, then the typed bank account; with neither, the default note.
+    """
+    if request.payment_note_ids:
+        notes = _chosen_payment_notes(factory, request.payment_note_ids, company_id)
+    elif request.bank_account is None:
+        default = _default_payment_note(factory, company_id)
+        notes = [default] if default is not None else []
+    else:
+        notes = []
+    snapshot = [PaymentNoteSnapshot(title=n.title, content=n.content) for n in notes]
+    if request.bank_account:
+        snapshot.append(PaymentNoteSnapshot(title="Bank Account", content=request.bank_account))
+    return [n.id for n in notes], snapshot
 
 
 def create_invoice(factory: RepositoryFactory, request: NewInvoice) -> CreatedInvoice:
@@ -515,8 +593,10 @@ def create_invoice(factory: RepositoryFactory, request: NewInvoice) -> CreatedIn
 
     issue_date = date.today()
     due_date = request.due_date or due_date_for_terms(request.payment_terms, issue_date)
+    company = _issuing_company(factory, request.company_id)
+    company_id = company.id if company else 1
+    note_ids, notes_snapshot = _new_invoice_notes(factory, request, company_id)
     client, client_created = _resolve_client(factory, request)
-    company = _issuing_company(factory)
     number = request.invoice_number or _pending_draft_number()
 
     invoice = invoice_repo.create(
@@ -535,18 +615,15 @@ def create_invoice(factory: RepositoryFactory, request: NewInvoice) -> CreatedIn
             client_city_snapshot=client.city,
             client_postal_code_snapshot=client.postal_code,
             client_country_snapshot=client.country,
-            company_id=company.id if company else 1,
+            company_id=company_id,
             company_name_snapshot=request.company.name or (company.name if company else None),
             company_address_snapshot=request.company.address
             or (company.address if company else None),
             company_tax_id_snapshot=request.company.tax_id
             or (str(company.tax_id) if company and company.tax_id else None),
             template_name=request.template or client.preferred_template,
-            payment_notes_snapshot=(
-                [PaymentNoteSnapshot(title="Bank Account", content=request.bank_account)]
-                if request.bank_account
-                else []
-            ),
+            payment_note_ids=note_ids,
+            payment_notes_snapshot=notes_snapshot,
             lines=[
                 InvoiceLineCreate(
                     description=request.description, quantity=1, unit_price=request.amount
@@ -804,15 +881,21 @@ def _require_pdf_support(formats: list[str]) -> None:
 
 
 def check_new_invoice_export(
-    factory: RepositoryFactory, formats: list[str], company: CompanyOverrides, paths: RenderPaths
+    factory: RepositoryFactory,
+    formats: list[str],
+    company: CompanyOverrides,
+    paths: RenderPaths,
+    *,
+    company_id: int | None,
 ) -> list[str]:
     """Check everything export_invoice needs before a new invoice is saved.
 
+    `company_id` is the issuing company chosen for the invoice, if any.
     Returns the normalized formats.
     """
     formats = validate_export_formats(formats)
     if RENDERED_FORMATS.intersection(formats):
-        issuing = _issuing_company(factory)
+        issuing = _issuing_company(factory, company_id)
         if not (company.name or (issuing and issuing.name)) or not (
             company.address or (issuing and issuing.address)
         ):
