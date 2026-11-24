@@ -292,7 +292,7 @@ def resolve_company_details(
         "address": address,
         "tax_id": overrides.tax_id
         or invoice.company_tax_id_snapshot
-        or (record.tax_id if record else None),
+        or (str(record.tax_id) if record and record.tax_id else None),
         "email": overrides.email or (record.email if record else None),
         "registration_number": record.registration_number if record else None,
         "city": record.city if record else None,
@@ -353,7 +353,17 @@ def _render_context(
     payment_notes = printed_payment_notes(factory, invoice)
     if payment_notes:
         context["payment_notes"] = payment_notes
+    if invoice.original_invoice_id is not None:
+        context["original_invoice_number"] = _invoice_number(factory, invoice.original_invoice_id)
     return resolved.details, context
+
+
+def _invoice_number(factory: RepositoryFactory, invoice_id: int) -> str:
+    """The number of a stored invoice, such as the one a credit note credits."""
+    invoice = factory.create_invoice_repository().get_by_id(invoice_id)
+    if invoice is None:
+        raise InvoiceNotFoundError(str(invoice_id))
+    return invoice.number
 
 
 def render_invoice_html(factory: RepositoryFactory, invoice: Invoice) -> str:
@@ -529,7 +539,8 @@ def create_invoice(factory: RepositoryFactory, request: NewInvoice) -> CreatedIn
             company_name_snapshot=request.company.name or (company.name if company else None),
             company_address_snapshot=request.company.address
             or (company.address if company else None),
-            company_tax_id_snapshot=request.company.tax_id or (company.tax_id if company else None),
+            company_tax_id_snapshot=request.company.tax_id
+            or (str(company.tax_id) if company and company.tax_id else None),
             template_name=request.template or client.preferred_template,
             payment_notes_snapshot=(
                 [PaymentNoteSnapshot(title="Bank Account", content=request.bank_account)]

@@ -233,6 +233,8 @@ html_content = html_service.generate_html(invoice=invoice, company=company)
 html_path = html_service.save_html(invoice=invoice, company=company)
 ```
 
+Extra keyword arguments reach the template as variables. When the CLI or API renders a stored credit note, its templates also get `original_invoice_number`, the number of the credited invoice; the default template prints it as "Credits invoice INV-…".
+
 ### Industry Standard (Factur-X / UBL)
 
 Generate enterprise-ready invoices compliant with European standards:

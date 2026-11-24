@@ -389,3 +389,41 @@ def test_payment_note_default_moves_and_old_note_retires(cli: Cli) -> None:
     assert cli("payment-notes", "deactivate", "1").exit_code == 0
     assert "IBAN NEW" in cli("payment-notes", "default").stdout
     assert "IBAN OLD" not in cli("payment-notes", "list").stdout
+
+
+def test_company_tax_id_is_snapshotted_as_text(cli: Cli, data_dir: Path, tmp_path: Path) -> None:
+    """A stored company tax ID is a TaxId value object; the snapshot is its text."""
+    company = cli("companies", "create", "--name", "Taxed Ltd", "--tax-id", "347906")
+    assert company.exit_code == 0, company.stdout
+    year = date.today().year
+
+    created = create(cli)
+    assert created.exit_code == 0, created.stdout
+    assert stored(data_dir, f"INV-{year}-0001").company_tax_id_snapshot == "347906"
+
+    cloned = cli("invoices", "clone", f"INV-{year}-0001", "--issue")
+    assert cloned.exit_code == 0, cloned.stdout
+    assert stored(data_dir, f"INV-{year}-0002").company_tax_id_snapshot == "347906"
+
+    credited = cli("credit-notes", "create", f"INV-{year}-0001", "--reason", "refund")
+    assert credited.exit_code == 0, credited.stdout
+    assert stored(data_dir, f"CN-{year}-0001").company_tax_id_snapshot == "347906"
+
+    rendered = cli("invoices", "html", f"INV-{year}-0001", "--output-dir", str(tmp_path / "r"))
+    assert rendered.exit_code == 0, rendered.stdout
+    assert "Tax ID: 347906" in Path(rendered.envelope["data"]["path"]).read_text()
+
+
+def test_credit_note_names_the_credited_invoice(cli: Cli, tmp_path: Path) -> None:
+    year = date.today().year
+    assert create(cli).exit_code == 0
+    credited = cli("credit-notes", "create", f"INV-{year}-0001", "--reason", "refund")
+    assert credited.exit_code == 0, credited.stdout
+
+    note = cli("invoices", "html", f"CN-{year}-0001", "--output-dir", str(tmp_path / "r"))
+    assert note.exit_code == 0, note.stdout
+    assert f"Credits invoice INV-{year}-0001" in Path(note.envelope["data"]["path"]).read_text()
+
+    invoice = cli("invoices", "html", f"INV-{year}-0001", "--output-dir", str(tmp_path / "r"))
+    assert invoice.exit_code == 0, invoice.stdout
+    assert "Credits invoice" not in Path(invoice.envelope["data"]["path"]).read_text()

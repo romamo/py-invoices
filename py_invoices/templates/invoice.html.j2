@@ -39,7 +39,8 @@
             <h2>{{ doc_title }}</h2>
             <p><strong>#{{ invoice.number }}</strong><br>
             Date: {{ invoice.issue_date.strftime('%Y-%m-%d') }}<br>
-            Due: {{ invoice.due_date.strftime('%Y-%m-%d') if invoice.due_date else 'N/A' }}</p>
+            Due: {{ invoice.due_date.strftime('%Y-%m-%d') if invoice.due_date else 'N/A' }}{% if original_invoice_number %}<br>
+            Credits invoice {{ original_invoice_number }}{% endif %}</p>
         </div>
     </div>
 
