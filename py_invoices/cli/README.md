@@ -79,6 +79,12 @@ py-invoices invoices create \
   --company-address "123 Business Rd"
 ```
 
+*Issuing company and payment notes:* `--company-id` picks the issuing company, and with it the number series and the default payment note; without it the default company issues. The invoice prints the `--payment-note` notes (repeatable, in the order given), then the `--bank-account` text. With neither flag it prints the issuing company's default payment note, or the default note without a company when the company has none. A chosen note must be active and belong to the issuing company or to no company. `--client-address` and `--bank-account` may span lines.
+```bash
+py-invoices invoices create --client-name "Acme Corp" --amount 500 --description "Services" \
+  --company-id 2 --payment-note 5 --payment-note 7
+```
+
 *Auto-Create Client with Contact Info:*
 ```bash
 py-invoices invoices create \
@@ -136,8 +142,8 @@ py-invoices invoices html INV-2024-001
 | --- | --- |
 | 0 | Success |
 | 2 | Invalid arguments; nothing ran, and `error.errors` lists every problem |
-| 4 | A precondition failed: company details, a logo file, or PDF dependencies are missing; the invoice is not a draft (`INVOICE_NOT_DRAFT`); a line flag names no line of the invoice (`LINE_SELECTION`); a due date before the issue date (`error.code` says which) |
-| 5 | The invoice or client does not exist |
+| 4 | A precondition failed: company details, a logo file, or PDF dependencies are missing; the issuing company is inactive (`COMPANY_INACTIVE`); a payment note is inactive or another company's (`PAYMENT_NOTE_UNUSABLE`); the invoice is not a draft (`INVOICE_NOT_DRAFT`); a line flag names no line of the invoice (`LINE_SELECTION`); a due date before the issue date (`error.code` says which) |
+| 5 | The invoice, client, company or payment note does not exist |
 | 6 | `--invoice-number` is already used |
 
 `py-invoices manifest` lists every invoice command with its flags, output schema, and exit codes as JSON; `py-invoices invoices <command> --schema` shows one.
@@ -197,6 +203,8 @@ py-invoices payment-notes create --title "Bank" --content "IBAN DE00 ..." --is-d
 py-invoices payment-notes set-default 4
 py-invoices payment-notes deactivate 3   # refused while 3 is the default
 ```
+
+`invoices create` prints the issuing company's default note unless `--payment-note` or `--bank-account` is given.
 
 ## Payments Management
 

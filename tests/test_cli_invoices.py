@@ -427,3 +427,60 @@ def test_credit_note_names_the_credited_invoice(cli: Cli, tmp_path: Path) -> Non
     invoice = cli("invoices", "html", f"INV-{year}-0001", "--output-dir", str(tmp_path / "r"))
     assert invoice.exit_code == 0, invoice.stdout
     assert "Credits invoice" not in Path(invoice.envelope["data"]["path"]).read_text()
+
+
+def test_create_picks_the_company_and_its_payment_notes(
+    cli: Cli, data_dir: Path, tmp_path: Path
+) -> None:
+    for name in ("First", "Second"):
+        made = cli("companies", "create", "--name", name, "--address", f"{name} Road")
+        assert made.exit_code == 0, made.stdout
+    for args in (
+        ("--content", "IBAN SECOND", "--company-id", "2", "--is-default"),
+        ("--content", "IBAN EUR", "--company-id", "2"),
+    ):
+        assert cli("payment-notes", "create", *args).exit_code == 0
+
+    by_default = cli(
+        "invoices", "create", "--client-name", "Acme", "--amount", "10", "--description", "d",
+        "--company-id", "2", "-e", "html", "--output-dir", str(tmp_path / "a"),
+    )  # fmt: skip
+    assert by_default.exit_code == 0, by_default.stdout
+    html = Path(by_default.envelope["data"]["exports"][0]["path"]).read_text()
+    assert "Second Road" in html
+    assert "IBAN SECOND" in html
+
+    chosen = cli(
+        "invoices", "create", "--client-name", "Acme", "--amount", "10", "--description", "d",
+        "--company-id", "2", "--payment-note", "2", "--payment-note", "1",
+        "--bank-account", "IBAN TYPED\nBIC TYPED",
+    )  # fmt: skip
+    assert chosen.exit_code == 0, chosen.stdout
+    invoice = stored(data_dir, chosen.envelope["data"]["invoice"]["number"])
+    assert [n.content for n in invoice.payment_notes_snapshot or []] == [
+        "IBAN EUR",
+        "IBAN SECOND",
+        "IBAN TYPED\nBIC TYPED",
+    ]
+
+    foreign = cli(
+        "invoices", "create", "--client-name", "Acme", "--amount", "10", "--description", "d",
+        "--company-id", "1", "--payment-note", "1",
+    )  # fmt: skip
+    assert foreign.envelope["error"]["code"] == "PAYMENT_NOTE_UNUSABLE"
+    unknown = cli(
+        "invoices", "create", "--client-name", "Acme", "--amount", "10", "--description", "d",
+        "--company-id", "9",
+    )  # fmt: skip
+    assert unknown.envelope["error"]["code"] == "COMPANY_NOT_FOUND"
+    assert unknown.envelope["error"]["context"] == {"company_id": 9}
+
+
+def test_client_address_may_span_lines(cli: Cli, data_dir: Path, tmp_path: Path) -> None:
+    result = cli(
+        "invoices", "create", "--client-name", "Multi", "--client-address", "Main St 1\nBerlin",
+        "--amount", "10", "--description", "d", "--company-name", "C", "--company-address", "R",
+        "-e", "html", "--output-dir", str(tmp_path / "m"),
+    )  # fmt: skip
+    assert result.exit_code == 0, result.stdout
+    assert "Main St 1<br>" in Path(result.envelope["data"]["exports"][0]["path"]).read_text()

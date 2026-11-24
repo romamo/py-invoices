@@ -25,6 +25,8 @@ from py_invoices.operations.errors import (
     ClientNotFoundError,
     CompanyDetailsRequiredError,
     CompanyDetailsUnresolvedError,
+    CompanyInactiveError,
+    CompanyNotFoundError,
     DuplicateInvoiceNumberError,
     InvalidDueDateError,
     InvoiceNotDraftError,
@@ -35,7 +37,9 @@ from py_invoices.operations.errors import (
     MissingSystemLibrariesError,
     OperationError,
     OutputExistsError,
+    PaymentNoteMissingError,
     PaymentNoteNotFoundError,
+    PaymentNoteUnusableError,
     SeriesNumberTakenError,
     SummaryUnavailableError,
 )
@@ -150,6 +154,35 @@ def exit_for(error: OperationError) -> CliExit:
             )
         case PaymentNoteNotFoundError():
             return Exit.NOT_FOUND(str(error), code=code, context={"payment_note": error.note_id})
+        case PaymentNoteMissingError():
+            return Exit.NOT_FOUND(
+                str(error),
+                code=code,
+                context={"payment_note": error.note_id},
+                suggestion=f"{CLI_NAME} payment-notes list shows payment note IDs",
+            )
+        case PaymentNoteUnusableError():
+            return Exit.PRECONDITION(
+                str(error),
+                code=code,
+                context={"payment_note": error.note_id},
+                suggestion=f"{CLI_NAME} payment-notes list --company-id <id> shows the "
+                "issuing company's notes",
+            )
+        case CompanyNotFoundError():
+            return Exit.NOT_FOUND(
+                str(error),
+                code=code,
+                context={"company_id": error.company_id},
+                suggestion=f"{CLI_NAME} companies list shows company IDs",
+            )
+        case CompanyInactiveError():
+            return Exit.PRECONDITION(
+                str(error),
+                code=code,
+                context={"company_id": error.company_id},
+                suggestion="pass the --company-id of an active company",
+            )
         case DuplicateInvoiceNumberError():
             return Exit.CONFLICT(
                 str(error),

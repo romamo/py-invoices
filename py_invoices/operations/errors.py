@@ -208,3 +208,17 @@ class PaymentNoteMissingError(OperationError):
 
 class PaymentNoteStateError(OperationError):
     """A payment note is in the wrong state for the change (inactive, or the default)."""
+
+
+class CompanyInactiveError(OperationError):
+    def __init__(self, company_id: int) -> None:
+        super().__init__(f"Company {company_id} is inactive; it cannot issue invoices")
+        self.company_id = company_id
+
+
+class PaymentNoteUnusableError(OperationError):
+    """A payment note chosen for an invoice is inactive or belongs to another company."""
+
+    def __init__(self, note_id: int, reason: str) -> None:
+        super().__init__(f"Payment note {note_id} cannot be printed on the invoice: {reason}")
+        self.note_id = note_id

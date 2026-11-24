@@ -7,6 +7,13 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **Credit notes name the invoice they credit**: rendering a credit note (`invoices pdf`, `invoices html`, the API's HTML and PDF views) gives the template `original_invoice_number`, the number of the credited invoice, next to `invoice.original_invoice_id`. The default template prints "Credits invoice INV-…" under the credit note's dates
 
+- **`invoices create --payment-note <id>`** (repeatable) prints stored payment notes on the new invoice: their text is snapshotted and their IDs stored, so `clone` carries them. A note must be active and belong to the issuing company or to no company, else `create` exits 4 with `PAYMENT_NOTE_UNUSABLE`; an unknown note exits 5 with `PAYMENT_NOTE_MISSING`. Given with `--bank-account`, both are printed: the notes first, then the bank account
+- **`invoices create --company-id <id>`** picks the issuing company, and with it the number series and the default payment note. Without it the default company issues, as before. An unknown company exits 5 with `COMPANY_NOT_FOUND`, an inactive one exits 4 with `COMPANY_INACTIVE`. `NewInvoice` gains `company_id` and `payment_note_ids`; `check_new_invoice_export` takes `company_id`
+
+### Changed
+- **`invoices create` prints the default payment note**: with neither `--payment-note` nor `--bank-account`, a new invoice gets the issuing company's default payment note, or the default note without a company when the company has none. Before, it had no payment notes unless `--bank-account` was given
+- `invoices create --client-address` and `--bank-account` may contain newlines; the default template prints them as line breaks
+
 ### Fixed
 - **`invoices create` works for a company with a tax ID**: when the issuing company had a `tax_id`, `create` crashed with `HANDLER_CRASHED` (`company_tax_id_snapshot Input should be a valid string`) because the company's `TaxId` value was passed as the snapshot instead of its text. The snapshot now stores the text, and the rendered company details carry it as text too. `clone` and credit notes copy the original's snapshot and were not affected
 
